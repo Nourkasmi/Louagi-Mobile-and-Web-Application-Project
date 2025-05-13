@@ -183,66 +183,80 @@ CREATE TABLE payments (
 
 ## 3. API Endpoints
 
-### 3.1 Authentication
+### 3.1 Authentication APIs
 
-| Endpoint | Method | Description | Request Body | Response |
-|----------|--------|-------------|-------------|----------|
-| `/api/auth/register` | POST | Register a new user | `{username, email, password, phone, role}` | `{user, token}` |
-| `/api/auth/login` | POST | User login | `{email, password}` | `{user, token}` |
-| `/api/auth/profile` | GET | Get user profile | - | `{user}` |
-| `/api/auth/logout` | POST | Logout user | - | `{message}` |
+| Method | Endpoint | Description | Request Body | Response |
+|--------|----------|-------------|-------------|----------|
+| POST | `/api/auth/register` | Register new user | `{username, email, password, phone, role}` | `{token, user}` |
+| POST | `/api/auth/login` | User login | `{email, password}` | `{token, user}` |
+| GET | `/api/auth/me` | Get current user | - | `{user}` |
+| POST | `/api/auth/logout` | User logout | - | `{message}` |
+| POST | `/api/auth/refresh` | Refresh token | `{refreshToken}` | `{token}` |
 
-### 3.2 Users
+### 3.2 User Management APIs
 
-| Endpoint | Method | Description | Request Body | Response |
-|----------|--------|-------------|-------------|----------|
-| `/api/users/:id` | GET | Get user details | - | `{user}` |
-| `/api/users/:id` | PUT | Update user details | `{username, email, phone}` | `{user}` |
+| Method | Endpoint | Description | Request Body | Response |
+|--------|----------|-------------|-------------|----------|
+| GET | `/api/users` | Get all users (admin only) | - | `[{user}]` |
+| GET | `/api/users/:id` | Get user by ID | - | `{user}` |
+| PUT | `/api/users/:id` | Update user | `{userData}` | `{user}` |
+| DELETE | `/api/users/:id` | Delete user | - | `{message}` |
 
-### 3.3 Stations
+### 3.3 Passenger APIs
 
-| Endpoint | Method | Description | Request Body | Response |
-|----------|--------|-------------|-------------|----------|
-| `/api/stations` | GET | List all stations | - | `{stations: []}` |
-| `/api/stations/:id` | GET | Get station details | - | `{station}` |
-| `/api/stations` | POST | Create new station | `{name, city, location, opening_time, closing_time}` | `{station}` |
-| `/api/stations/:id` | PUT | Update station | `{name, city, location, opening_time, closing_time, status}` | `{station}` |
+| Method | Endpoint | Description | Request Body | Response |
+|--------|----------|-------------|-------------|----------|
+| GET | `/api/passengers/bookings` | Get passenger's bookings | - | `[{booking}]` |
+| POST | `/api/passengers/bookings` | Create booking | `{tripId, seats}` | `{booking}` |
+| PUT | `/api/passengers/bookings/:id` | Update booking | `{bookingData}` | `{booking}` |
+| DELETE | `/api/passengers/bookings/:id` | Cancel booking | - | `{message}` |
 
-### 3.4 Drivers
+### 3.4 Driver APIs
 
-| Endpoint | Method | Description | Request Body | Response |
-|----------|--------|-------------|-------------|----------|
-| `/api/drivers` | GET | List all drivers | - | `{drivers: []}` |
-| `/api/drivers/:id` | GET | Get driver details | - | `{driver}` |
-| `/api/drivers/availability` | POST | Update driver availability | `{status, station_id}` | `{driver}` |
-| `/api/drivers/queue` | GET | Get driver queue for station | `{station_id}` | `{queue: []}` |
+| Method | Endpoint | Description | Request Body | Response |
+|--------|----------|-------------|-------------|----------|
+| GET | `/api/drivers/trips` | Get driver's trips | - | `[{trip}]` |
+| POST | `/api/drivers/availability` | Declare availability | `{stationId, scheduleId}` | `{queuePosition}` |
+| PUT | `/api/drivers/trips/:id/status` | Update trip status | `{status}` | `{trip}` |
+| GET | `/api/drivers/queue-position` | Get current queue position | - | `{position, estimatedDeparture}` |
 
-### 3.5 Trips
+### 3.5 Admin APIs
 
-| Endpoint | Method | Description | Request Body | Response |
-|----------|--------|-------------|-------------|----------|
-| `/api/trips` | GET | List all trips | - | `{trips: []}` |
-| `/api/trips/:id` | GET | Get trip details | - | `{trip}` |
-| `/api/trips` | POST | Create a new trip | `{origin_id, destination_id, departure_time, driver_id, available_seats, price}` | `{trip}` |
-| `/api/trips/:id/status` | PUT | Update trip status | `{status}` | `{trip}` |
-| `/api/trips/search` | GET | Search trips | `{origin, destination, date}` | `{trips: []}` |
+| Method | Endpoint | Description | Request Body | Response |
+|--------|----------|-------------|-------------|----------|
+| GET | `/api/admin/stations` | Get all stations | - | `[{station}]` |
+| POST | `/api/admin/stations` | Create station | `{stationData}` | `{station}` |
+| PUT | `/api/admin/stations/:id` | Update station | `{stationData}` | `{station}` |
+| DELETE | `/api/admin/stations/:id` | Delete station | - | `{message}` |
+| GET | `/api/admin/schedules` | Get all schedules | - | `[{schedule}]` |
+| POST | `/api/admin/schedules` | Create schedule | `{scheduleData}` | `{schedule}` |
+| PUT | `/api/admin/schedules/:id` | Update schedule | `{scheduleData}` | `{schedule}` |
+| DELETE | `/api/admin/schedules/:id` | Delete schedule | - | `{message}` |
+| GET | `/api/admin/routes` | Get all routes | - | `[{route}]` |
+| POST | `/api/admin/routes` | Create route | `{routeData}` | `{route}` |
+| PUT | `/api/admin/routes/:id` | Update route | `{routeData}` | `{route}` |
+| DELETE | `/api/admin/routes/:id` | Delete route | - | `{message}` |
+| GET | `/api/admin/driver-queue` | Get driver queue | - | `[{queueItem}]` |
+| PUT | `/api/admin/driver-queue/:id` | Update driver in queue | `{position, status}` | `{queueItem}` |
 
-### 3.6 Bookings
+### 3.6 Trip and Booking APIs
 
-| Endpoint | Method | Description | Request Body | Response |
-|----------|--------|-------------|-------------|----------|
-| `/api/bookings` | GET | List user bookings | - | `{bookings: []}` |
-| `/api/bookings/:id` | GET | Get booking details | - | `{booking}` |
-| `/api/bookings` | POST | Create a new booking | `{trip_id, seats}` | `{booking}` |
-| `/api/bookings/:id/cancel` | PUT | Cancel booking | - | `{booking}` |
+| Method | Endpoint | Description | Request Body | Response |
+|--------|----------|-------------|-------------|----------|
+| GET | `/api/trips` | Get available trips | `{startStationId, endStationId, date}` | `[{trip}]` |
+| GET | `/api/trips/:id` | Get trip details | - | `{trip}` |
+| POST | `/api/trips` | Create trip (admin only) | `{tripData}` | `{trip}` |
+| PUT | `/api/trips/:id` | Update trip | `{tripData}` | `{trip}` |
+| GET | `/api/bookings/:id` | Get booking details | - | `{booking}` |
+| PUT | `/api/bookings/:id/status` | Update booking status | `{status}` | `{booking}` |
 
-### 3.7 Payments
+### 3.7 Payment APIs
 
-| Endpoint | Method | Description | Request Body | Response |
-|----------|--------|-------------|-------------|----------|
-| `/api/payments` | POST | Process payment | `{booking_id, amount, payment_method}` | `{payment}` |
-| `/api/payments/:id` | GET | Get payment details | - | `{payment}` |
-| `/api/payments/webhook` | POST | Payment webhook | `{transaction_id, status}` | `{status}` |
+| Method | Endpoint | Description | Request Body | Response |
+|--------|----------|-------------|-------------|----------|
+| POST | `/api/payments/intent` | Create payment intent | `{bookingId, amount}` | `{clientSecret}` |
+| POST | `/api/payments/confirm` | Confirm payment | `{paymentIntentId, bookingId}` | `{booking}` |
+
 
 ## 4. Authentication and Authorization
 

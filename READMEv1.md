@@ -1,3 +1,4 @@
+# Louagi Technical Documentation
 
 ## 1. System Architecture Overview
 
@@ -470,73 +471,6 @@ src/
    - View daily, weekly, and monthly earnings
    - View trip history and details
 
-### 5.4 State Management
-
-Using Redux Toolkit for state management with the following slices:
-
-```javascript
-// auth.slice.js
-const authSlice = createSlice({
-  name: 'auth',
-  initialState: {
-    user: null,
-    token: null,
-    loading: false,
-    error: null
-  },
-  reducers: {
-    loginStart: (state) => {
-      state.loading = true;
-    },
-    loginSuccess: (state, action) => {
-      state.loading = false;
-      state.user = action.payload.user;
-      state.token = action.payload.token;
-    },
-    loginFailure: (state, action) => {
-      state.loading = false;
-      state.error = action.payload;
-    },
-    logout: (state) => {
-      state.user = null;
-      state.token = null;
-    }
-  }
-});
-
-// trip.slice.js
-const tripSlice = createSlice({
-  name: 'trips',
-  initialState: {
-    availableTrips: [],
-    userTrips: [],
-    currentTrip: null,
-    loading: false,
-    error: null
-  },
-  reducers: {
-    fetchTripsStart: (state) => {
-      state.loading = true;
-    },
-    fetchTripsSuccess: (state, action) => {
-      state.loading = false;
-      state.availableTrips = action.payload;
-    },
-    fetchUserTripsSuccess: (state, action) => {
-      state.loading = false;
-      state.userTrips = action.payload;
-    },
-    setCurrentTrip: (state, action) => {
-      state.currentTrip = action.payload;
-    },
-    tripActionFailure: (state, action) => {
-      state.loading = false;
-      state.error = action.payload;
-    }
-  }
-});
-```
-
 ## 6. Admin Dashboard (React.js)
 
 ### 6.1 Application Structure
@@ -633,331 +567,6 @@ src/
    - Generate reports on system usage
    - Analyze booking patterns and route popularity
    - View revenue statistics
-
-### 6.3 Components Examples
-
-```jsx
-// StationForm.js
-function StationForm({ initialData, onSubmit }) {
-  const [formData, setFormData] = useState(initialData || {
-    name: '',
-    capacity: 0,
-    location: { latitude: 0, longitude: 0 },
-    isActive: true
-  });
-
-  const handleChange = (e) => {
-    const { name, value, type, checked } = e.target;
-    setFormData({
-      ...formData,
-      [name]: type === 'checkbox' ? checked : value
-    });
-  };
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    onSubmit(formData);
-  };
-
-  return (
-    <form onSubmit={handleSubmit}>
-      <div className="form-group">
-        <label htmlFor="name">Station Name</label>
-        <input
-          type="text"
-          id="name"
-          name="name"
-          value={formData.name}
-          onChange={handleChange}
-          required
-        />
-      </div>
-      <div className="form-group">
-        <label htmlFor="capacity">Capacity</label>
-        <input
-          type="number"
-          id="capacity"
-          name="capacity"
-          value={formData.capacity}
-          onChange={handleChange}
-          required
-        />
-      </div>
-      {/* Location fields */}
-      <div className="form-group">
-        <label htmlFor="isActive">Active</label>
-        <input
-          type="checkbox"
-          id="isActive"
-          name="isActive"
-          checked={formData.isActive}
-          onChange={handleChange}
-        />
-      </div>
-      <button type="submit">Submit</button>
-    </form>
-  );
-}
-```
-
-## 7. Backend Implementation
-
-### 7.1 Server Setup
-
-```javascript
-// app.js
-const express = require('express');
-const cors = require('cors');
-const helmet = require('helmet');
-const compression = require('compression');
-const morgan = require('morgan');
-const { PrismaClient } = require('@prisma/client');
-
-const authRoutes = require('./routes/auth.routes');
-const userRoutes = require('./routes/user.routes');
-const tripRoutes = require('./routes/trip.routes');
-const bookingRoutes = require('./routes/booking.routes');
-const adminRoutes = require('./routes/admin.routes');
-const driverRoutes = require('./routes/driver.routes');
-const passengerRoutes = require('./routes/passenger.routes');
-const paymentRoutes = require('./routes/payment.routes');
-
-const app = express();
-const prisma = new PrismaClient();
-
-// Middleware
-app.use(helmet());
-app.use(compression());
-app.use(cors());
-app.use(express.json());
-app.use(morgan('dev'));
-
-// Attach Prisma to request
-app.use((req, res, next) => {
-  req.prisma = prisma;
-  next();
-});
-
-// Routes
-app.use('/api/auth', authRoutes);
-app.use('/api/users', userRoutes);
-app.use('/api/trips', tripRoutes);
-app.use('/api/bookings', bookingRoutes);
-app.use('/api/admin', adminRoutes);
-app.use('/api/drivers', driverRoutes);
-app.use('/api/passengers', passengerRoutes);
-app.use('/api/payments', paymentRoutes);
-
-// Error handling middleware
-app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(err.status || 500).json({
-    message: err.message || 'Internal Server Error'
-  });
-});
-
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
-
-module.exports = app;
-```
-
-### 7.2 Authentication Middleware
-
-```javascript
-// middlewares/auth.middleware.js
-const jwt = require('jsonwebtoken');
-
-exports.authenticate = (req, res, next) => {
-  try {
-    const token = req.headers.authorization?.split(' ')[1];
-    
-    if (!token) {
-      return res.status(401).json({ message: 'Authentication required' });
-    }
-    
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = decoded;
-    next();
-  } catch (error) {
-    return res.status(401).json({ message: 'Invalid or expired token' });
-  }
-};
-
-exports.authorize = (roles = []) => {
-  return (req, res, next) => {
-    if (!roles.includes(req.user.role)) {
-      return res.status(403).json({ message: 'Access forbidden' });
-    }
-    next();
-  };
-};
-```
-
-### 7.3 Sample Controller Implementation
-
-```javascript
-// controllers/trip.controller.js
-const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient();
-
-exports.getAvailableTrips = async (req, res) => {
-  try {
-    const { startStationId, endStationId, date } = req.query;
-    
-    // Format date for database query
-    const queryDate = new Date(date);
-    const dayOfWeek = queryDate.getDay();
-    
-    // Find route
-    const route = await prisma.route.findFirst({
-      where: {
-        start_station_id: startStationId,
-        end_station_id: endStationId
-      }
-    });
-    
-    if (!route) {
-      return res.status(404).json({ message: 'Route not found' });
-    }
-    
-    // Find trips for this route on the specified date
-    const trips = await prisma.trip.findMany({
-      where: {
-        route_id: route.id,
-        schedule: {
-          day_of_week: dayOfWeek
-        },
-        departure_time: {
-          gte: new Date(queryDate.setHours(0, 0, 0, 0)),
-          lt: new Date(queryDate.setHours(23, 59, 59, 999))
-        },
-        status: 'scheduled'
-      },
-      include: {
-        route: true,
-        driver: {
-          include: {
-            user: {
-              select: {
-                username: true
-              }
-            }
-          }
-        },
-        bookings: true
-      }
-    });
-    
-    // Calculate available seats for each trip
-    const tripsWithAvailability = trips.map(trip => {
-      const bookedSeats = trip.bookings.reduce((total, booking) => {
-        return total + (booking.status !== 'cancelled' ? booking.seats : 0);
-      }, 0);
-      
-      return {
-        ...trip,
-        availableSeats: trip.capacity - bookedSeats,
-        bookedSeats
-      };
-    });
-    
-    return res.json(tripsWithAvailability);
-  } catch (error) {
-    console.error(error);
-    return res.status(500).json({ message: 'Server error' });
-  }
-};
-
-exports.createTrip = async (req, res) => {
-  try {
-    const { routeId, scheduleId, driverId, capacity, departureTime } = req.body;
-    
-    // Check if driver is available
-    const driverAvailability = await prisma.driverQueue.findFirst({
-      where: {
-        driver_id: driverId,
-        schedule_id: scheduleId,
-        status: 'waiting'
-      }
-    });
-    
-    if (!driverAvailability) {
-      return res.status(400).json({ message: 'Driver is not available for this schedule' });
-    }
-    
-    // Create trip
-    const trip = await prisma.trip.create({
-      data: {
-        route_id: routeId,
-        schedule_id: scheduleId,
-        driver_id: driverId,
-        capacity,
-        departure_time: new Date(departureTime),
-        status: 'scheduled'
-      }
-    });
-    
-    // Update driver status in queue
-    await prisma.driverQueue.update({
-      where: {
-        id: driverAvailability.id
-      },
-      data: {
-        status: 'assigned'
-      }
-    });
-    
-    return res.status(201).json(trip);
-  } catch (error) {
-    console.error(error);
-    return res.status(500).json({ message: 'Server error' });
-  }
-};
-
-exports.updateTripStatus = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { status } = req.body;
-    
-    // Validate status
-    const validStatuses = ['scheduled', 'in_progress', 'completed', 'cancelled'];
-    if (!validStatuses.includes(status)) {
-      return res.status(400).json({ message: 'Invalid status' });
-    }
-    
-    // Update trip
-    const trip = await prisma.trip.update({
-      where: {
-        id
-      },
-      data: {
-        status
-      }
-    });
-    
-    // If trip is completed or cancelled, update driver status
-    if (status === 'completed' || status === 'cancelled') {
-      await prisma.driverQueue.updateMany({
-        where: {
-          driver_id: trip.driver_id,
-          status: 'assigned'
-        },
-        data: {
-          status: status === 'completed' ? 'completed' : 'waiting'
-        }
-      });
-    }
-    
-    return res.json(trip);
-  } catch (error) {
-    console.error(error);
-    return res.status(500).json({ message: 'Server error' });
-  }
-};
-
 
 ## 8. Frontend Implementation Details
 
@@ -1088,6 +697,7 @@ The web-based administration dashboard follows modern React.js architectural pat
    - Account verification and moderation
    - User activity monitoring
 
+
 ## 9. Data Flow and Integration
 
 ### 9.1 Authentication Flow
@@ -1142,6 +752,7 @@ The web-based administration dashboard follows modern React.js architectural pat
   - Graceful degradation for network issues
   - User-friendly error messaging
 
+
 ## 10. Security Considerations
 
 ### 10.1 Authentication and Authorization
@@ -1192,6 +803,7 @@ The web-based administration dashboard follows modern React.js architectural pat
   - Refund authorization controls
   - Fraud detection measures
 
+
 ## 11. Testing Strategy
 
 ### 11.1 Unit Testing
@@ -1236,6 +848,7 @@ The web-based administration dashboard follows modern React.js architectural pat
   - Mobile app performance on target devices
   - Database query optimization
 
+
 ## 12. Deployment and DevOps
 
 ### 12.1 Infrastructure Setup
@@ -1278,6 +891,7 @@ The web-based administration dashboard follows modern React.js architectural pat
   - Indexing strategy
   - Query performance monitoring
   - Scaling plan for growing data
+
 
 ## 13. Implementation Plan
 
@@ -1346,6 +960,7 @@ The web-based administration dashboard follows modern React.js architectural pat
 - **Frontend - Admin**: Team member 2 (primary) with support from team member 1
 - **Testing**: Shared responsibility with cross-testing of each other's work
 - **Documentation**: Collaborative effort with regular review sessions
+
 
 ## 14. Future Enhancements
 

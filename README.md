@@ -26,33 +26,33 @@
 ### 1.2 Technology Stack
 
 #### Frontend Technologies
-- **Mobile Application**: React Native 0.71+
+- **Mobile Application**: React Native
   - State Management: Redux + Redux Toolkit
-  - Navigation: React Navigation 6.x
+  - Navigation: React Navigation
   - UI Components: React Native Paper
   - Form Validation: Formik + Yup
   - Payment Integration: Stripe React Native SDK
 
-- **Admin Dashboard**: React.js 18.x
+- **Admin Dashboard**: React.js
   - State Management: Redux + Redux Toolkit
-  - Routing: React Router 6.x
+  - Routing: React Router
   - UI Framework: Material-UI (MUI)
   - Data Tables: react-table
   - Charts/Analytics: recharts
 
 #### Backend Technologies
-- **Server**: Node.js 18.x LTS
-- **API Framework**: Express.js 4.x
+- **Server**: Node.js
+- **API Framework**: Express.js
 - **Authentication**: JSON Web Tokens (JWT)
 - **Database ORM**: Prisma
 - **API Documentation**: Swagger/OpenAPI
 - **Payment Processing**: Stripe API
 
 #### Database
-- **RDBMS**: PostgreSQL 15.x
+- **RDBMS**: PostgreSQL
 - **Backup Strategy**: Daily automated backups
 
-#### DevOps & Deployment
+#### DevOps & Deployment(optional)
 - **Version Control**: Git with GitHub
 - **CI/CD**: GitHub Actions
 - **Containerization**: Docker
@@ -311,7 +311,7 @@ CREATE TABLE bookings (
 1. **Registration Process**:
    - User submits registration details
    - Backend validates input data
-   - Password is hashed using bcrypt (10+ rounds)
+   - Password is hashed using bcrypt
    - User record is created in the database
    - JWT token is generated and returned to the client
 
@@ -443,12 +443,11 @@ src/
 3. **Booking Management**
    - View upcoming bookings
    - Cancel bookings
-   - View booking history
+   - View booking history 
 
 4. **Payment Processing**
    - Secure payment via Stripe integration
-   - View payment history
-   - Download receipts
+
 
 ### 5.3 Key Features - Driver App
 
@@ -465,7 +464,6 @@ src/
    - View assigned trips
    - Start/end trips
    - View passenger details
-   - Trip history and statistics
 
 4. **Earnings Tracking**
    - View daily, weekly, and monthly earnings
@@ -758,7 +756,7 @@ The web-based administration dashboard follows modern React.js architectural pat
 ### 10.1 Authentication and Authorization
 
 - **Secure Authentication**:
-  - Password hashing with bcrypt (10+ rounds)
+  - Password hashing with bcrypt
   - HTTPS for all communications
   - Rate limiting on auth endpoints
   - Account lockout after failed attempts
@@ -849,7 +847,7 @@ The web-based administration dashboard follows modern React.js architectural pat
   - Database query optimization
 
 
-## 12. Deployment and DevOps
+## 12. Deployment and DevOps(optional)
 
 ### 12.1 Infrastructure Setup
 
@@ -979,10 +977,3 @@ The web-based administration dashboard follows modern React.js architectural pat
   - Machine learning for trip demand prediction
   - Progressive Web App version of passenger application
   - Native app optimization
-
-### 14.2 Scaling Considerations
-
-- **Horizontal Scaling**:
-  - Load balancer implementation
-  - Service containerization with Docker
-  - Kubernetes orchestration for larger deployments

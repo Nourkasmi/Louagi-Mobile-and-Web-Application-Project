@@ -44,22 +44,12 @@
 - **Server**: Node.js
 - **API Framework**: Express.js
 - **Authentication**: JSON Web Tokens (JWT)
-- **Database ORM**: Prisma
+- **Database ORM**: sequelize
 - **API Documentation**: Swagger/OpenAPI
 - **Payment Processing**: Stripe API
 
 #### Database
-- **RDBMS**: PostgreSQL
-- **Backup Strategy**: Daily automated backups
-
-#### DevOps & Deployment(optional)
-- **Version Control**: Git with GitHub
-- **CI/CD**: GitHub Actions
-- **Containerization**: Docker
-- **Hosting**: 
-  - Backend: AWS EC2 or Heroku
-  - Frontend Web: Netlify or Vercel
-  - Database: AWS RDS or Heroku PostgreSQL
+- **DBMS**: PostgreSQL
 
 ## 2. Database Schema Design
 
@@ -101,208 +91,109 @@
                       │ status      │       │ payment_id │
                       └─────────────┘       └────────────┘
 ```
+## 3. API Endpoints (Entity-Based)
 
-### 2.2 Database Tables
+---
 
-#### Users Table
-```sql
-CREATE TABLE users (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  username VARCHAR(50) NOT NULL UNIQUE,
-  email VARCHAR(100) NOT NULL UNIQUE,
-  password VARCHAR(255) NOT NULL,
-  phone VARCHAR(20) NOT NULL,
-  role ENUM('passenger', 'driver', 'admin') NOT NULL,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-```
+### 3.1 Auth
 
-#### Passengers Table
-```sql
-CREATE TABLE passengers (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  preferences JSONB,
-  payment_info JSONB,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-```
+| Method | Endpoint              | Description        | Response         |
+|--------|-----------------------|--------------------|------------------|
+| POST   | `/api/auth/register`  | Register new user  | `{token, user}`  |
+| POST   | `/api/auth/login`     | User login         | `{token, user}`  |
+| GET    | `/api/auth/me`        | Get current user   | `{user}`         |
+| POST   | `/api/auth/logout`    | User logout        | `{message}`      |
 
-#### Drivers Table
-```sql
-CREATE TABLE drivers (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  license_number VARCHAR(50) NOT NULL UNIQUE,
-  vehicle_details JSONB NOT NULL,
-  experience INTEGER NOT NULL,
-  rating DECIMAL(3,2) DEFAULT 5.0,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-```
+---
 
-#### Stations Table
-```sql
-CREATE TABLE stations (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  name VARCHAR(100) NOT NULL,
-  location JSONB NOT NULL,
-  capacity INTEGER NOT NULL,
-  is_active BOOLEAN DEFAULT TRUE,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-```
+### 3.2 Users
 
-#### Routes Table
-```sql
-CREATE TABLE routes (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  start_station_id UUID NOT NULL REFERENCES stations(id) ON DELETE CASCADE,
-  end_station_id UUID NOT NULL REFERENCES stations(id) ON DELETE CASCADE,
-  distance DECIMAL(10,2) NOT NULL,
-  base_price DECIMAL(10,2) NOT NULL,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  UNIQUE(start_station_id, end_station_id)
-);
-```
+| Method | Endpoint            | Description         | Response        |
+|--------|---------------------|---------------------|-----------------|
+| GET    | `/api/users`        | Get all users (admin only) | `[{user}]` |
+| GET    | `/api/users/:id`    | Get user by ID      | `{user}`        |
+| PUT    | `/api/users/:id`    | Update user         | `{user}`        |
+| DELETE | `/api/users/:id`    | Delete user         | `{message}`     |
 
-#### Schedules Table
-```sql
-CREATE TABLE schedules (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  station_id UUID NOT NULL REFERENCES stations(id) ON DELETE CASCADE,
-  day_of_week INTEGER NOT NULL CHECK (day_of_week BETWEEN 0 AND 6),
-  start_time TIME NOT NULL,
-  end_time TIME NOT NULL,
-  is_active BOOLEAN DEFAULT TRUE,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-```
+---
 
-#### DriverQueue Table
-```sql
-CREATE TABLE driver_queue (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  station_id UUID NOT NULL REFERENCES stations(id) ON DELETE CASCADE,
-  driver_id UUID NOT NULL REFERENCES drivers(id) ON DELETE CASCADE,
-  schedule_id UUID NOT NULL REFERENCES schedules(id) ON DELETE CASCADE,
-  position INTEGER NOT NULL,
-  status ENUM('waiting', 'assigned', 'departed', 'completed') NOT NULL DEFAULT 'waiting',
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-```
+### 3.3 Trips
 
-#### Trips Table
-```sql
-CREATE TABLE trips (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  route_id UUID NOT NULL REFERENCES routes(id) ON DELETE CASCADE,
-  schedule_id UUID NOT NULL REFERENCES schedules(id) ON DELETE CASCADE,
-  driver_id UUID NOT NULL REFERENCES drivers(id) ON DELETE CASCADE,
-  capacity INTEGER NOT NULL,
-  departure_time TIMESTAMP NOT NULL,
-  status ENUM('scheduled', 'in_progress', 'completed', 'cancelled') NOT NULL DEFAULT 'scheduled',
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-```
+| Method | Endpoint               | Description                        | Response      |
+|--------|------------------------|------------------------------------|---------------|
+| GET    | `/api/trips`           | Get available trips                | `[{trip}]`    |
+| GET    | `/api/trips/:id`       | Get trip details                   | `{trip}`      |
+| GET    | `/api/drivers/trips`   | Get driver's trips(admin only)     | `[{trip}]`    |
 
-#### Bookings Table
-```sql
-CREATE TABLE bookings (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  trip_id UUID NOT NULL REFERENCES trips(id) ON DELETE CASCADE,
-  passenger_id UUID NOT NULL REFERENCES passengers(id) ON DELETE CASCADE,
-  seats INTEGER NOT NULL DEFAULT 1,
-  status ENUM('pending', 'confirmed', 'cancelled', 'completed') NOT NULL DEFAULT 'pending',
-  payment_id VARCHAR(100),
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-```
+---
 
-## 3. API Endpoints
+### 3.4 Bookings
 
-### 3.1 Authentication APIs
+| Method | Endpoint                        | Description             | Response        |
+|--------|---------------------------------|-------------------------|-----------------|
+| GET    | `/api/passengers/bookings`      | Get passenger's bookings | `[{booking}]`  |
+| POST   | `/api/passengers/bookings`      | Create booking          | `{booking}`     |
+| DELETE | `/api/passengers/bookings/:id`  | Cancel booking          | `{message}`     |
+| GET    | `/api/bookings/:id`             | Get booking details     | `{booking}`     |
 
-| Method | Endpoint | Description | Request Body | Response |
-|--------|----------|-------------|-------------|----------|
-| POST | `/api/auth/register` | Register new user | `{username, email, password, phone, role}` | `{token, user}` |
-| POST | `/api/auth/login` | User login | `{email, password}` | `{token, user}` |
-| GET | `/api/auth/me` | Get current user | - | `{user}` |
-| POST | `/api/auth/logout` | User logout | - | `{message}` |
-| POST | `/api/auth/refresh` | Refresh token | `{refreshToken}` | `{token}` |
+---
 
-### 3.2 User Management APIs
+### 3.5 Payments
 
-| Method | Endpoint | Description | Request Body | Response |
-|--------|----------|-------------|-------------|----------|
-| GET | `/api/users` | Get all users (admin only) | - | `[{user}]` |
-| GET | `/api/users/:id` | Get user by ID | - | `{user}` |
-| PUT | `/api/users/:id` | Update user | `{userData}` | `{user}` |
-| DELETE | `/api/users/:id` | Delete user | - | `{message}` |
+| Method | Endpoint                  | Description           | Response        |
+|--------|---------------------------|-----------------------|-----------------|
+| POST   | `/api/payments/intent`    | Create payment intent | `{clientSecret}`|
+| POST   | `/api/payments/confirm`   | Confirm payment       | `{booking}`     |
 
-### 3.3 Passenger APIs
+---
 
-| Method | Endpoint | Description | Request Body | Response |
-|--------|----------|-------------|-------------|----------|
-| GET | `/api/passengers/bookings` | Get passenger's bookings | - | `[{booking}]` |
-| POST | `/api/passengers/bookings` | Create booking | `{tripId, seats}` | `{booking}` |
-| PUT | `/api/passengers/bookings/:id` | Update booking | `{bookingData}` | `{booking}` |
-| DELETE | `/api/passengers/bookings/:id` | Cancel booking | - | `{message}` |
+### 3.6 Drivers
 
-### 3.4 Driver APIs
+| Method | Endpoint                        | Description               | Response                        |
+|--------|---------------------------------|---------------------------|---------------------------------|
+| POST   | `/api/drivers/availability`     | Declare availability      | `{queuePosition}`              |
+| GET    | `/api/drivers/queue-position`   | Get current queue position| `{position, estimatedDeparture}` |
 
-| Method | Endpoint | Description | Request Body | Response |
-|--------|----------|-------------|-------------|----------|
-| GET | `/api/drivers/trips` | Get driver's trips | - | `[{trip}]` |
-| POST | `/api/drivers/availability` | Declare availability | `{stationId, scheduleId}` | `{queuePosition}` |
-| PUT | `/api/drivers/trips/:id/status` | Update trip status | `{status}` | `{trip}` |
-| GET | `/api/drivers/queue-position` | Get current queue position | - | `{position, estimatedDeparture}` |
+---
 
-### 3.5 Admin APIs
+### 3.7 Stations
 
-| Method | Endpoint | Description | Request Body | Response |
-|--------|----------|-------------|-------------|----------|
-| GET | `/api/admin/stations` | Get all stations | - | `[{station}]` |
-| POST | `/api/admin/stations` | Create station | `{stationData}` | `{station}` |
-| PUT | `/api/admin/stations/:id` | Update station | `{stationData}` | `{station}` |
-| DELETE | `/api/admin/stations/:id` | Delete station | - | `{message}` |
-| GET | `/api/admin/schedules` | Get all schedules | - | `[{schedule}]` |
-| POST | `/api/admin/schedules` | Create schedule | `{scheduleData}` | `{schedule}` |
-| PUT | `/api/admin/schedules/:id` | Update schedule | `{scheduleData}` | `{schedule}` |
-| DELETE | `/api/admin/schedules/:id` | Delete schedule | - | `{message}` |
-| GET | `/api/admin/routes` | Get all routes | - | `[{route}]` |
-| POST | `/api/admin/routes` | Create route | `{routeData}` | `{route}` |
-| PUT | `/api/admin/routes/:id` | Update route | `{routeData}` | `{route}` |
-| DELETE | `/api/admin/routes/:id` | Delete route | - | `{message}` |
-| GET | `/api/admin/driver-queue` | Get driver queue | - | `[{queueItem}]` |
-| PUT | `/api/admin/driver-queue/:id` | Update driver in queue | `{position, status}` | `{queueItem}` |
+| Method | Endpoint                  | Description       | Response      |
+|--------|---------------------------|-------------------|---------------|
+| GET    | `/api/admin/stations`     | Get all stations  | `[{station}]` |
+| POST   | `/api/admin/stations`     | Create station    | `{station}`   |
+| PUT    | `/api/admin/stations/:id` | Update station    | `{station}`   |
 
-### 3.6 Trip and Booking APIs
+---
 
-| Method | Endpoint | Description | Request Body | Response |
-|--------|----------|-------------|-------------|----------|
-| GET | `/api/trips` | Get available trips | `{startStationId, endStationId, date}` | `[{trip}]` |
-| GET | `/api/trips/:id` | Get trip details | - | `{trip}` |
-| POST | `/api/trips` | Create trip (admin only) | `{tripData}` | `{trip}` |
-| PUT | `/api/trips/:id` | Update trip | `{tripData}` | `{trip}` |
-| GET | `/api/bookings/:id` | Get booking details | - | `{booking}` |
-| PUT | `/api/bookings/:id/status` | Update booking status | `{status}` | `{booking}` |
+### 3.8 Schedules
 
-### 3.7 Payment APIs
+| Method | Endpoint                    | Description         | Response        |
+|--------|-----------------------------|---------------------|-----------------|
+| GET    | `/api/admin/schedules`      | Get all schedules   | `[{schedule}]`  |
+| POST   | `/api/admin/schedules`      | Create schedule     | `{schedule}`    |
+| PUT    | `/api/admin/schedules/:id`  | Update schedule     | `{schedule}`    |
+| DELETE | `/api/admin/schedules/:id`  | Delete schedule     | `{message}`     |
 
-| Method | Endpoint | Description | Request Body | Response |
-|--------|----------|-------------|-------------|----------|
-| POST | `/api/payments/intent` | Create payment intent | `{bookingId, amount}` | `{clientSecret}` |
-| POST | `/api/payments/confirm` | Confirm payment | `{paymentIntentId, bookingId}` | `{booking}` |
+---
+
+### 3.9 Destinations
+
+| Method | Endpoint                          | Description           | Response            |
+|--------|-----------------------------------|-----------------------|---------------------|
+| GET    | `/api/admin/destinations`         | Get all destinations  | `[{destinations}]`  |
+| POST   | `/api/admin/destinations`         | Create destination    | `{destinations}`    |
+| PUT    | `/api/admin/destinations/:id`     | Update destination    | `{destinations}`    |
+| DELETE | `/api/admin/destinations/:id`     | Delete destination    | `{message}`         |
+
+---
+
+### 3.10 Driver Queue
+
+| Method | Endpoint                         | Description             | Response        |
+|--------|----------------------------------|-------------------------|-----------------|
+| GET    | `/api/admin/driver-queue`        | Get driver queue        | `[{queueItem}]` |
+| PUT    | `/api/admin/driver-queue/:id`    | Update driver in queue  | `{queueItem}`   |
 
 ## 4. Authentication and Authorization
 
@@ -319,13 +210,7 @@ CREATE TABLE bookings (
    - User submits email/password
    - Backend validates credentials
    - JWT token is generated with a 24-hour expiry
-   - Refresh token is also generated with a 7-day expiry
    - Both tokens are returned to the client
-
-3. **Token Refresh Process**:
-   - Client sends refresh token to the server
-   - Server validates the refresh token
-   - New JWT token is generated and returned
 
 ### 4.2 Authorization Strategy
 
@@ -338,12 +223,12 @@ The system implements role-based access control (RBAC) with three primary roles:
 
 2. **Driver Role**:
    - Can declare availability for trips
-   - Can view assigned trips and update their status
+   - Can view assigned trips
    - Can view their position in the driver queue
    - Can update their profile and vehicle details
 
 3. **Admin Role**:
-   - Can manage all system entities (users, stations, schedules, routes)
+   - Can manage all system entities (users, stations, schedules, destenations)
    - Can view and modify the driver queue
    - Can access usage statistics and reports
    - Has full system access
@@ -435,15 +320,15 @@ src/
    - Password reset
 
 2. **Trip Booking**
-   - Search for trips by route, date, and time
-   - View available seats and prices
+   - Search for trips by destanations
+   - View available Times and prices
    - Book seats and make payment
    - Receive booking confirmation
 
 3. **Booking Management**
    - View upcoming bookings
    - Cancel bookings
-   - View booking history 
+   - View booking history
 
 4. **Payment Processing**
    - Secure payment via Stripe integration
@@ -456,18 +341,16 @@ src/
    - Driver profile management
 
 2. **Queue Management**
-   - Declare availability for specific stations
+   - Declare availability for specific Destanation
    - View position in the queue
    - Receive notifications for upcoming trips
 
 3. **Trip Management**
    - View assigned trips
-   - Start/end trips
    - View passenger details
 
 4. **Earnings Tracking**
    - View daily, weekly, and monthly earnings
-   - View trip history and details
 
 ## 6. Admin Dashboard (React.js)
 
@@ -538,7 +421,6 @@ src/
 
 2. **Station Management**
    - Create, edit, delete stations
-   - Define station capacity
    - View station activity and statistics
 
 3. **Schedule Management**
@@ -547,24 +429,18 @@ src/
    - Set special schedules for holidays/events
 
 4. **Driver Queue Management**
-   - View and modify driver queue for each station
+   - View and modify driver queue for each destenation
    - Assign drivers to trips manually if needed
    - Monitor driver performance and statistics
 
 5. **Trip Management**
-   - View all trips (scheduled, in-progress, completed)
+   - View all trips (scheduled, in-progress)
    - Cancel or modify trips as needed
    - View trip details including passengers
 
 6. **User Management**
    - View and manage user accounts
    - Verify driver accounts
-   - Handle user issues and complaints
-
-7. **Reports and Analytics**
-   - Generate reports on system usage
-   - Analyze booking patterns and route popularity
-   - View revenue statistics
 
 ## 8. Frontend Implementation Details
 
@@ -582,7 +458,7 @@ The Louagi mobile application follows a component-based architecture with the fo
 - **Navigation Structure**:
   - Authentication Navigator: Login, registration, password reset screens
   - Passenger Navigator: Home, search, booking, history screens
-  - Driver Navigator: Queue status, trip management screens
+  - Driver Navigator: Queue status
   - Profile Navigator: Settings, profile management screens
 
 - **State Management**:
@@ -609,7 +485,6 @@ The Louagi mobile application follows a component-based architecture with the fo
    - Station selection with autocomplete
    - Date and time picker
    - Available trips listing with filtering
-   - Seat selection interface
    - Booking confirmation
 
 4. **Payment Processing**:
@@ -620,18 +495,17 @@ The Louagi mobile application follows a component-based architecture with the fo
 5. **Booking Management**:
    - View active bookings
    - Booking details screen
-   - Cancellation interface with refund information
-   - Trip history with filtering options
+   - Trip history
 
 #### 8.2.2 Driver Application
 
 1. **Authentication and Profile**:
    - Driver-specific registration
-   - Vehicle details and documentation upload
+   - Vehicle details
    - Status dashboard
 
 2. **Queue Management**:
-   - Station selection interface
+   - Destenation selection interface
    - Schedule selection
    - Queue position visualization
    - Estimated departure time display
@@ -639,7 +513,6 @@ The Louagi mobile application follows a component-based architecture with the fo
 3. **Trip Management**:
    - Current trip information
    - Passenger list and details
-   - Trip status controls (start, end)
    - Trip history and earnings
 
 ### 8.3 Admin Dashboard Architecture (React.js)
@@ -665,12 +538,6 @@ The web-based administration dashboard follows modern React.js architectural pat
 
 ### 8.4 Admin Dashboard Modules
 
-1. **Analytics Dashboard**:
-   - Overview of system activity
-   - Key performance indicators
-   - Interactive charts and graphs
-   - Data export capabilities
-
 2. **Station Management**:
    - Station CRUD operations
    - Station capacity management
@@ -681,7 +548,6 @@ The web-based administration dashboard follows modern React.js architectural pat
    - Real-time queue visualization
    - Manual queue manipulation
    - Driver assignment to trips
-   - Historical queue data analysis
 
 4. **Trip Scheduling**:
    - Schedule creation and management
@@ -692,7 +558,7 @@ The web-based administration dashboard follows modern React.js architectural pat
 5. **User Management**:
    - User account administration
    - Role assignment and permissions
-   - Account verification and moderation
+   - drivers Account verification and moderation
    - User activity monitoring
 
 
@@ -706,11 +572,10 @@ The web-based administration dashboard follows modern React.js architectural pat
 4. On success, JWT token is generated and returned
 5. Frontend stores token securely (AsyncStorage for mobile, localStorage/cookies for web)
 6. Token is included in Authorization header for subsequent requests
-7. Token refresh mechanism handles session extension
 
 ### 9.2 Booking Process Flow
 
-1. Passenger searches for trips by selecting stations, date, and time
+1. Passenger searches for trips by selecting stations, Destenation
 2. Backend queries database for matching trips with availability
 3. Passenger selects desired trip and number of seats
 4. Frontend creates booking with 'pending' status
@@ -840,116 +705,78 @@ The web-based administration dashboard follows modern React.js architectural pat
   - Admin dashboard operations
   - Cross-role interactions
 
-- **Performance Testing**:
-  - Load testing of critical endpoints
-  - Response time benchmarks
-  - Mobile app performance on target devices
-  - Database query optimization
-
-
-## 12. Deployment and DevOps(optional)
-
-### 12.1 Infrastructure Setup
-
-- **Server Environment**:
-  - Node.js runtime on AWS EC2 or Heroku
-  - PostgreSQL database on AWS RDS or Heroku PostgreSQL
-  - Redis for caching and session management
-  - AWS S3 for file storage
-
-- **Frontend Hosting**:
-  - React web app on Netlify or Vercel
-  - Mobile app distribution via App Store and Google Play
-  - CDN for static assets
-
-### 12.2 CI/CD Pipeline
-
-- **Continuous Integration**:
-  - GitHub Actions for automated testing
-  - Code quality checks with ESLint and Prettier
-  - Test coverage reporting
-  - Security scanning
-
-- **Continuous Deployment**:
-  - Automated deployment to staging environment
-  - Manual promotion to production
-  - Feature flags for controlled rollouts
-  - Rollback capability
-
-### 12.3 Monitoring and Maintenance
-
-- **Application Monitoring**:
-  - Error tracking with Sentry
-  - Performance monitoring with New Relic or Datadog
-  - Custom logging solution
-  - Real-time alerts for critical issues
-
-- **Database Maintenance**:
-  - Automated backups (daily)
-  - Indexing strategy
-  - Query performance monitoring
-  - Scaling plan for growing data
-
-
 ## 13. Implementation Plan
 
 ### 13.1 Week-by-Week Development Schedule
 
-**Week 1: Project Setup and Planning**
-- Set up project repositories
+## 10-Week Project Timeline (2.5 Months)
+
+### **Week 1: Project Setup and Planning**
+- Set up Git repositorie (backend, frontend, mobile)
 - Configure development environments
-- Finalize technology stack decisions
-- Create detailed task breakdown
-- Set up project management tools
+- Finalize technology stack
+- Break down features into detailed tasks and milestones
+- Set up project management tools (e.g., Jira, Trello)
+- Draft initial wireframes for mobile app and admin dashboard
 
-**Week 2: Database and Backend Foundation**
-- Design and implement database schema
-- Set up ORM and database connections
-- Implement authentication system
-- Create base API structure
-- Set up testing framework
+### **Week 2: Database and Backend Foundation**
+- Design database schema (ER diagrams, relationships)
+- Set up PostgreSQL (or chosen DB) with ORM (e.g., Sequelize, Prisma)
+- Configure database connections and migrations
+- Implement authentication system (JWT, roles, middleware)
+- Create base API structure (versioning, routing, error handling)
+- Set up automated testing framework (unit + integration)
 
-**Week 3: Core API Development**
-- Develop user management APIs
-- Implement trip and booking logic
-- Create station and route management
-- Build driver queue system
-- Begin API documentation
+### **Week 3: Core API Development I**
+- Implement user management APIs (CRUD, roles)
+- Develop station and destination management
+- Implement trip creation and listing logic
+- Begin API documentation (e.g., Swagger, Postman)
 
-**Week 4: Advanced Backend Features**
-- Implement payment processing
-- Develop booking confirmation flow
-- Build notification system
-- Create admin dashboard APIs
-- Comprehensive API testing
 
-**Week 5: Mobile App Development - Part 1**
+### **Week 4: Core API Development II**
+- Implement booking flow (pending, confirmed, cancelled)
+- Build driver availability and queue logic
+- Add schedule management endpoints
+- Implement basic notifications logic (placeholders or logs)
+
+### **Week 5: Payments and Admin APIs**
+- Integrate Stripe for payment intent and confirmation
+- Connect payment with booking confirmation logic
+- Implement admin dashboard APIs (user, trip, driver queue)
+- Extend notification system (email, push structure)
+- Continue API testing and refine documentation
+
+### **Week 6: Mobile App Development – Part 1**
 - Set up React Native project
-- Implement authentication UI
-- Build passenger trip search and booking
-- Create navigation structure
-- Design and implement UI components
+- Implement login and registration flows
+- Build passenger trip search and booking UI
+- Create reusable UI components (buttons, forms, lists)
+- Set up navigation structure and screens
 
-**Week 6: Mobile App Development - Part 2**
-- Implement driver functionality
-- Build booking management screens
-- Integrate payment processing
-- Add offline capabilities
-- Testing on multiple devices
+### **Week 7: Mobile App Development – Part 2**
+- Implement driver-specific features (trip queue, trip start/end)
+- Build booking management views
+- Integrate payments via Stripe SDK
+- Add offline-friendly logic (local caching, queues)
+- Conduct device testing (Android + iOS)
 
-**Week 7: Admin Dashboard Development**
-- Set up React project
-- Implement authentication and user management
-- Build station and schedule management
-- Create driver queue visualization
-- Develop reporting and analytics
+### **Week 8: Admin Dashboard Development**
+- Set up React.js project for admin
+- Implement authentication and role-based access
+- Build user, station, and schedule management pages
+- Visualize driver queue in real-time
+- Implement trip, booking, and analytics dashboards
 
-**Week 8: Integration, Testing, and Deployment**
-- End-to-end integration testing
-- Bug fixing and performance optimization
-- Documentation completion
-- Deployment preparation
-- Final review and submission
+### **Week 9: Integration and Testing**
+- Conduct end-to-end testing across all platforms
+- Handle edge cases and error states
+- QA pass across mobile and web apps
+- Gather early feedback from testers
+
+### **Week 10: Finalization and Deployment**
+- Fix critical bugs and polish UX/UI
+- Complete project documentation (README, API docs, setup guides)
 
 ### 13.2 Resource Allocation
 

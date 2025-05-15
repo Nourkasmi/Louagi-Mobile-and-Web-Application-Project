@@ -44,7 +44,7 @@
 - **Server**: Node.js
 - **API Framework**: Express.js
 - **Authentication**: JSON Web Tokens (JWT)
-- **Database ORM**: Prisma
+- **Database ORM**: Sequelize 
 - **API Documentation**: Swagger/OpenAPI
 - **Payment Processing**: Stripe API
 

@@ -45,7 +45,6 @@
 - **API Framework**: Express.js
 - **Authentication**: JSON Web Tokens (JWT)
 - **Database ORM**: sequelize
-- **Database ORM**: Sequelize 
 - **API Documentation**: Swagger/OpenAPI
 - **Payment Processing**: Stripe API
 

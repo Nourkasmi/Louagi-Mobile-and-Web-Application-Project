@@ -7,7 +7,7 @@
 ```
 ┌─────────────────────┐     ┌──────────────────────┐     ┌─────────────────────┐
 │                     │     │                      │     │                     │
-│  React Native App   │────▶│   Node.js Backend    │◀───▶│    PostgreSQL DB    │
+│  React Native App   │────▶│   Node.js Backend    │◀───▶│    PostgreSQL DB  │
 │ (Passengers/Drivers)│     │   (Express.js API)   │     │                     │
 │                     │◀────│                      │     │                     │
 └─────────────────────┘     └──────────────────────┘     └─────────────────────┘
@@ -30,7 +30,6 @@
   - State Management: Redux + Redux Toolkit
   - Navigation: React Navigation
   - UI Components: React Native Paper
-  - Form Validation: Formik + Yup
   - Payment Integration: Stripe React Native SDK
 
 - **Admin Dashboard**: React.js
@@ -45,7 +44,7 @@
 - **API Framework**: Express.js
 - **Authentication**: JSON Web Tokens (JWT)
 - **Database ORM**: sequelize
-- **API Documentation**: Swagger/OpenAPI
+- **API Documentation**: Swagger
 - **Payment Processing**: Stripe API
 
 #### Database
@@ -93,8 +92,6 @@
 ```
 ## 3. API Endpoints (Entity-Based)
 
----
-
 ### 3.1 Auth
 
 | Method | Endpoint              | Description        | Response         |
@@ -104,96 +101,84 @@
 | GET    | `/api/auth/me`        | Get current user   | `{user}`         |
 | POST   | `/api/auth/logout`    | User logout        | `{message}`      |
 
----
-
 ### 3.2 Users
 
-| Method | Endpoint            | Description         | Response        |
-|--------|---------------------|---------------------|-----------------|
-| GET    | `/api/users`        | Get all users (admin only) | `[{user}]` |
-| GET    | `/api/users/:id`    | Get user by ID      | `{user}`        |
-| PUT    | `/api/users/:id`    | Update user         | `{user}`        |
-| DELETE | `/api/users/:id`    | Delete user         | `{message}`     |
-
----
+| Method | Endpoint            | Description                   | Response        |
+|--------|---------------------|-------------------------------|-----------------|
+| GET    | `/api/users`        | Get all users (admin only)    | `[{user}]`      |
+| GET    | `/api/users/:id`    | Get user by ID                | `{user}`        |
+| PUT    | `/api/users/:id`    | Update user                   | `{user}`        |
+| DELETE | `/api/users/:id`    | Delete user                   | `{message}`     |
 
 ### 3.3 Trips
 
-| Method | Endpoint               | Description                        | Response      |
-|--------|------------------------|------------------------------------|---------------|
-| GET    | `/api/trips`           | Get available trips                | `[{trip}]`    |
-| GET    | `/api/trips/:id`       | Get trip details                   | `{trip}`      |
-| GET    | `/api/drivers/trips`   | Get driver's trips(admin only)     | `[{trip}]`    |
-
----
+| Method | Endpoint                                   | Description                                      | Response      |
+|--------|--------------------------------------------|--------------------------------------------------|---------------|
+| GET    | `/api/trips`                               | Get all available trips                          | `[{trip}]`    |
+| GET    | `/api/trips/:id`                           | Get trip details                                 | `{trip}`      |
+| GET    | `/api/stations/:stationId/destinations/:destinationId/trips` | Get trips by station and destination | `[{trip}]`    |
+| GET    | `/api/drivers/trips`                       | Get driver's trips (driver only)                 | `[{trip}]`    |
 
 ### 3.4 Bookings
 
-| Method | Endpoint                        | Description             | Response        |
-|--------|---------------------------------|-------------------------|-----------------|
-| GET    | `/api/passengers/bookings`      | Get passenger's bookings | `[{booking}]`  |
-| POST   | `/api/passengers/bookings`      | Create booking          | `{booking}`     |
-| DELETE | `/api/passengers/bookings/:id`  | Cancel booking          | `{message}`     |
-| GET    | `/api/bookings/:id`             | Get booking details     | `{booking}`     |
-
----
+| Method | Endpoint                        | Description               | Response        |
+|--------|---------------------------------|---------------------------|-----------------|
+| GET    | `/api/passengers/bookings`      | Get passenger's bookings  | `[{booking}]`   |
+| POST   | `/api/passengers/bookings`      | Create booking            | `{booking}`     |
+| DELETE | `/api/passengers/bookings/:id`  | Cancel booking            | `{message}`     |
+| GET    | `/api/bookings/:id`             | Get booking details       | `{booking}`     |
 
 ### 3.5 Payments
 
-| Method | Endpoint                  | Description           | Response        |
-|--------|---------------------------|-----------------------|-----------------|
-| POST   | `/api/payments/intent`    | Create payment intent | `{clientSecret}`|
-| POST   | `/api/payments/confirm`   | Confirm payment       | `{booking}`     |
-
----
+| Method | Endpoint                  | Description           | Response            |
+|--------|---------------------------|-----------------------|---------------------|
+| POST   | `/api/payments/intent`    | Create payment intent | `{clientSecret}`    |
+| POST   | `/api/payments/confirm`   | Confirm payment       | `{booking}`         |
 
 ### 3.6 Drivers
 
-| Method | Endpoint                        | Description               | Response                        |
-|--------|---------------------------------|---------------------------|---------------------------------|
-| POST   | `/api/drivers/availability`     | Declare availability      | `{queuePosition}`              |
-| GET    | `/api/drivers/queue-position`   | Get current queue position| `{position, estimatedDeparture}` |
-
----
+| Method | Endpoint                        | Description                     | Response                              |
+|--------|---------------------------------|---------------------------------|---------------------------------------|
+| POST   | `/api/drivers/availability`     | Declare availability            | `{queuePosition}`                     |
+| GET    | `/api/drivers/queue-position`   | Get current queue position      | `{position, estimatedDeparture}`      |
 
 ### 3.7 Stations
 
-| Method | Endpoint                  | Description       | Response      |
-|--------|---------------------------|-------------------|---------------|
-| GET    | `/api/admin/stations`     | Get all stations  | `[{station}]` |
-| POST   | `/api/admin/stations`     | Create station    | `{station}`   |
-| PUT    | `/api/admin/stations/:id` | Update station    | `{station}`   |
-
----
+| Method | Endpoint                            | Description                        | Response         |
+|--------|-------------------------------------|------------------------------------|------------------|
+| GET    | `/api/stations`                     | Get all available stations (public) | `[{station}]`    |
+| GET    | `/api/stations/:id`                 | Get station details (public)       | `{station}`      |
+| GET    | `/api/stations/:id/schedules`       | Get schedules for a station        | `[{schedule}]`   |
+| GET    | `/api/stations/:id/destinations`    | Get destinations from a station    | `[{destination}]`|
+| POST   | `/api/admin/stations`               | Create station (admin)             | `{station}`      |
+| PUT    | `/api/admin/stations/:id`           | Update station (admin)             | `{station}`      |
+| DELETE | `/api/admin/stations/:id`           | Delete station (admin)             | `{message}`      |
 
 ### 3.8 Schedules
 
-| Method | Endpoint                    | Description         | Response        |
-|--------|-----------------------------|---------------------|-----------------|
-| GET    | `/api/admin/schedules`      | Get all schedules   | `[{schedule}]`  |
-| POST   | `/api/admin/schedules`      | Create schedule     | `{schedule}`    |
-| PUT    | `/api/admin/schedules/:id`  | Update schedule     | `{schedule}`    |
-| DELETE | `/api/admin/schedules/:id`  | Delete schedule     | `{message}`     |
-
----
+| Method | Endpoint                    | Description             | Response        |
+|--------|-----------------------------|-------------------------|-----------------|
+| GET    | `/api/admin/schedules`      | Get all schedules       | `[{schedule}]`  |
+| POST   | `/api/admin/schedules`      | Create schedule         | `{schedule}`    |
+| PUT    | `/api/admin/schedules/:id`  | Update schedule         | `{schedule}`    |
+| DELETE | `/api/admin/schedules/:id`  | Delete schedule         | `{message}`     |
 
 ### 3.9 Destinations
 
-| Method | Endpoint                          | Description           | Response            |
-|--------|-----------------------------------|-----------------------|---------------------|
-| GET    | `/api/admin/destinations`         | Get all destinations  | `[{destinations}]`  |
-| POST   | `/api/admin/destinations`         | Create destination    | `{destinations}`    |
-| PUT    | `/api/admin/destinations/:id`     | Update destination    | `{destinations}`    |
-| DELETE | `/api/admin/destinations/:id`     | Delete destination    | `{message}`         |
-
----
+| Method | Endpoint                          | Description                       | Response            |
+|--------|-----------------------------------|-----------------------------------|---------------------|
+| GET    | `/api/destinations`               | Get all destinations (public)     | `[{destination}]`   |
+| GET    | `/api/destinations/:id`           | Get destination details (public)  | `{destination}`     |
+| POST   | `/api/admin/destinations`         | Create destination (admin)        | `{destination}`     |
+| PUT    | `/api/admin/destinations/:id`     | Update destination (admin)        | `{destination}`     |
+| DELETE | `/api/admin/destinations/:id`     | Delete destination (admin)        | `{message}`         |
 
 ### 3.10 Driver Queue
 
-| Method | Endpoint                         | Description             | Response        |
-|--------|----------------------------------|-------------------------|-----------------|
-| GET    | `/api/admin/driver-queue`        | Get driver queue        | `[{queueItem}]` |
-| PUT    | `/api/admin/driver-queue/:id`    | Update driver in queue  | `{queueItem}`   |
+| Method | Endpoint                         | Description                  | Response        |
+|--------|----------------------------------|------------------------------|-----------------|
+| GET    | `/api/admin/driver-queue`        | Get driver queue (admin)     | `[{queueItem}]` |
+| PUT    | `/api/admin/driver-queue/:id`    | Update driver in queue       | `{queueItem}`   |
 
 ## 4. Authentication and Authorization
 
@@ -216,10 +201,12 @@
 
 The system implements role-based access control (RBAC) with three primary roles:
 
-1. **Passenger Role**:
-   - Can view available trips
-   - Can book trips and manage their bookings
-   - Can view their profile and update details
+1. **Passenger Role**
+   - Can view available trips  
+   - Can book trips and manage their bookings  
+   - Can view their profile and update details  
+   - Can view available destinations  
+   - Can view available stations  
 
 2. **Driver Role**:
    - Can declare availability for trips
@@ -230,7 +217,6 @@ The system implements role-based access control (RBAC) with three primary roles:
 3. **Admin Role**:
    - Can manage all system entities (users, stations, schedules, destenations)
    - Can view and modify the driver queue
-   - Can access usage statistics and reports
    - Has full system access
 
 ### 4.3 JWT Structure
@@ -320,14 +306,17 @@ src/
    - Password reset
 
 2. **Trip Booking**
-   - Search for trips by destanations
-   - View available Times and prices
-   - Book seats and make payment
-   - Receive booking confirmation
+   - View list of available stations  
+   - Select a departure station  
+   - View list of destinations from the selected station  
+   - Select a destination  
+   - View available trips based on selected station and destination  
+   - Choose preferred time and view trip details (e.g., duration, price, availability)  
+   - Book seats and proceed with payment  
+   - Receive booking confirmation  
 
 3. **Booking Management**
    - View upcoming bookings
-   - Cancel bookings
    - View booking history
 
 4. **Payment Processing**

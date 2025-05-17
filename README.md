@@ -56,7 +56,7 @@
 
 ```
 ┌─────────────┐       ┌─────────────┐       ┌────────────┐
-│    User     │       │   Station   │       │   Route    │
+│    User     │       │   Station   │       │Destenation │
 ├─────────────┤       ├─────────────┤       ├────────────┤
 │ id          │       │ id          │       │ id         │
 │ username    │       │ name        │       │ start_id   │──┐
@@ -237,12 +237,75 @@ The system implements role-based access control (RBAC) with three primary roles:
   "signature": "..."
 }
 ```
-
-## 5. Mobile Application (React Native)
-
-### 5.1 Application Structure
+### 4.4 Application Structure 
 
 ```
+louagi-backend/
+│
+├── config/                   # Configuration files (e.g. DB, JWT, env)
+│   ├── config.js             # Sequelize DB config
+│   └── jwt.js                # JWT secret and options
+│
+├── controllers/              # Route controllers (business logic)
+│   ├── auth.controller.js
+│   ├── user.controller.js
+│   ├── trip.controller.js
+│   ├── booking.controller.js
+│   ├── payment.controller.js
+│   ├── station.controller.js
+│   ├── schedule.controller.js
+│   ├── destination.controller.js
+│   ├── driver.controller.js
+│   └── queue.controller.js
+│
+├── middlewares/             # Custom middlewares
+│   ├── auth.middleware.js   # Role-based auth
+│   ├── error.middleware.js
+│   └── validate.middleware.js
+│
+├── models/                  # Sequelize models
+│   ├── index.js             # Sequelize init and associations
+│   ├── user.model.js
+│   ├── trip.model.js
+│   ├── booking.model.js
+│   ├── station.model.js
+│   ├── schedule.model.js
+│   ├── destination.model.js
+│   ├── driver.model.js
+│   └── queue.model.js
+│
+├── routes/                  # API route definitions
+│   ├── auth.routes.js
+│   ├── user.routes.js
+│   ├── trip.routes.js
+│   ├── booking.routes.js
+│   ├── payment.routes.js
+│   ├── station.routes.js
+│   ├── schedule.routes.js
+│   ├── destination.routes.js
+│   ├── driver.routes.js
+│   └── queue.routes.js
+│
+├── services/                # Business services and helpers
+│   ├── stripe.service.js
+│   ├── jwt.service.js
+│   └── email.service.js     # Optional
+│
+├── utils/                   # Utility functions
+│   └── logger.js
+│
+├── .env                     # Environment variables
+├── .sequelizerc             # Sequelize config path
+├── package.json
+├── server.js                # Entry point - app setup
+└── app.js                   # Express config (middleware, routes, etc.)
+```
+## Louagi Technical Documentation
+
+### 5. Mobile Application (React Native)
+
+#### 5.1 Application Structure
+```text
 src/
 ├── assets/
 │   ├── images/
@@ -298,54 +361,50 @@ src/
 └── App.js
 ```
 
-### 5.2 Key Features - Passenger App
+#### 5.2 Key Features – Passenger App
 
-1. **User Authentication**
-   - Login/Registration
-   - Profile management
-   - Password reset
+**User Authentication**
+- Register/Login
+- Profile management
+- Password reset
 
-2. **Trip Booking**
-   - View list of available stations  
-   - Select a departure station  
-   - View list of destinations from the selected station  
-   - Select a destination  
-   - View available trips based on selected station and destination  
-   - Choose preferred time and view trip details (e.g., duration, price, availability)  
-   - Book seats and proceed with payment  
-   - Receive booking confirmation  
+**Trip Booking**
+- Browse available stations
+- Select departure and destination
+- View available trips by station and destination
+- See trip details (time, price, seats available)
+- Book seats and proceed to online payment
+- Receive booking confirmation
 
-3. **Booking Management**
-   - View upcoming bookings
-   - View booking history
+**Booking Management**
+- View upcoming bookings
+- Access booking history
 
-4. **Payment Processing**
-   - Secure payment via Stripe integration
+**Secure Payments**
+- Stripe integration for seamless payment processing
 
+#### 5.3 Key Features – Driver App
 
-### 5.3 Key Features - Driver App
+**Driver Authentication**
+- Driver-specific registration/login
+- Profile and license information management
 
-1. **User Authentication**
-   - Login/Registration specific to drivers
-   - Driver profile management
+**Queue Management**
+- Declare availability by destination
+- Monitor queue position
+- Get real-time notifications for assigned trips
 
-2. **Queue Management**
-   - Declare availability for specific Destanation
-   - View position in the queue
-   - Receive notifications for upcoming trips
+**Trip Management**
+- Access trip details and schedules
+- View passenger manifests
 
-3. **Trip Management**
-   - View assigned trips
-   - View passenger details
+**Earnings Overview**
+- Monitor daily, weekly, and monthly income
 
-4. **Earnings Tracking**
-   - View daily, weekly, and monthly earnings
+### 6. Admin Dashboard (React.js)
 
-## 6. Admin Dashboard (React.js)
-
-### 6.1 Application Structure
-
-```
+#### 6.1 Application Structure
+```text
 src/
 ├── assets/
 │   ├── images/
@@ -401,35 +460,34 @@ src/
 └── index.js
 ```
 
-### 6.2 Key Features
+#### 6.2 Key Features
 
-1. **Dashboard Overview**
-   - Summary statistics (active trips, total bookings, revenue)
-   - Real-time trip and booking status
-   - Driver activity monitoring
+**Dashboard Overview**
+- Visual stats on active trips, bookings, and revenues
+- Real-time monitoring of driver and trip activity
 
-2. **Station Management**
-   - Create, edit, delete stations
-   - View station activity and statistics
+**Station Management**
+- Add, update, or remove stations
+- Monitor activity and capacity per station
 
-3. **Schedule Management**
-   - Define working hours for each station
-   - Manage operating days and hours
-   - Set special schedules for holidays/events
+**Schedule Management**
+- Set operating hours and days for stations
+- Manage exceptions (e.g., holidays or special events)
 
-4. **Driver Queue Management**
-   - View and modify driver queue for each destenation
-   - Assign drivers to trips manually if needed
-   - Monitor driver performance and statistics
+**Driver Queue Management**
+- View and edit driver queues per destination
+- Assign drivers manually if necessary
+- Track driver performance metrics
 
-5. **Trip Management**
-   - View all trips (scheduled, in-progress)
-   - Cancel or modify trips as needed
-   - View trip details including passengers
+**Trip Management**
+- Monitor all scheduled and ongoing trips
+- Modify or cancel trips when needed
+- Access trip-level data including passengers
 
-6. **User Management**
-   - View and manage user accounts
-   - Verify driver accounts
+**User Management**
+- Manage all users (passengers and drivers)
+- Approve and verify driver accounts
+- Deactivate or delete accounts if required
 
 ## 8. Frontend Implementation Details
 
@@ -585,77 +643,6 @@ The web-based administration dashboard follows modern React.js architectural pat
 6. Driver receives notification with trip details
 7. After trip completion, driver can re-enter queue if desired
 
-### 9.4 App-to-Server Communication
-
-- **API Communication Protocol**:
-  - RESTful API design for standard operations
-  - Real-time updates using WebSockets (Socket.io) for critical data
-  - Polling for non-critical, time-insensitive data
-
-- **Data Synchronization**:
-  - Optimistic updates for better UX
-  - Conflict resolution strategies
-  - Background synchronization for offline operations
-  - Retry mechanisms for failed requests
-
-- **Error Handling**:
-  - Consistent error response format
-  - Client-side error recovery
-  - Graceful degradation for network issues
-  - User-friendly error messaging
-
-
-## 10. Security Considerations
-
-### 10.1 Authentication and Authorization
-
-- **Secure Authentication**:
-  - Password hashing with bcrypt
-  - HTTPS for all communications
-  - Rate limiting on auth endpoints
-  - Account lockout after failed attempts
-
-- **Token Security**:
-  - Short-lived JWT tokens (24-hour expiry)
-  - Secure storage practices
-  - Token invalidation on logout
-  - Refresh token rotation
-
-- **Authorization Controls**:
-  - Role-based access control
-  - Resource-level permissions
-  - Input validation on all endpoints
-  - Prevention of horizontal privilege escalation
-
-### 10.2 Data Protection
-
-- **Sensitive Data Handling**:
-  - Encryption of sensitive data at rest
-  - Limited exposure of PII in responses
-  - Secure transmission of payment information
-  - Compliance with relevant data protection regulations
-
-- **Input Validation**:
-  - Server-side validation of all inputs
-  - Protection against injection attacks
-  - Request sanitization
-  - Output encoding
-
-### 10.3 Payment Security
-
-- **Secure Payment Processing**:
-  - PCI DSS compliance through Stripe
-  - No storage of credit card details
-  - Tokenization of payment information
-  - Secure webhook handling
-
-- **Transaction Integrity**:
-  - Idempotent payment operations
-  - Transaction logs
-  - Refund authorization controls
-  - Fraud detection measures
-
-
 ## 11. Testing Strategy
 
 ### 11.1 Unit Testing
@@ -774,7 +761,6 @@ The web-based administration dashboard follows modern React.js architectural pat
 - **Frontend - Admin**: Team member 2 (primary) with support from team member 1
 - **Testing**: Shared responsibility with cross-testing of each other's work
 - **Documentation**: Collaborative effort with regular review sessions
-
 
 ## 14. Future Enhancements
 

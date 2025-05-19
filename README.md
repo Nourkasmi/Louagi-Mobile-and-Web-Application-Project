@@ -972,7 +972,7 @@ The web-based administration dashboard follows modern React.js architectural pat
   - Advanced analytics and reporting
 
 - **Technical Enhancements**:
-  - Migration to GraphQL for more efficient data fetching
+  - Migration to GraphQL for more efficient data fetching 
   - Implementation of microservices architecture
   - Machine learning for trip demand prediction
   - Progressive Web App version of passenger application

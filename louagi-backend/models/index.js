@@ -1,36 +1,38 @@
-'use strict';
-
 const fs = require('fs');
 const path = require('path');
 const Sequelize = require('sequelize');
-const process = require('process');
-require('dotenv').config(); // ✅ Load environment variables
+const config = require('../config/config');
+const { logger } = require('../utils/logger');
 
-const basename = path.basename(__filename);
-const env = process.env.NODE_ENV || 'development';
-const config = require(__dirname + '/../config/config.js')[env];
+// Create Sequelize instance
+const sequelize = new Sequelize(
+  config.db.database,
+  config.db.username,
+  config.db.password,
+  {
+    host: config.db.host,
+    port: config.db.port,
+    dialect: config.db.dialect,
+    logging: config.db.logging ? (msg) => logger.debug(msg) : false,
+    pool: config.db.pool,
+    define: {
+      timestamps: true,
+      underscored: true,
+      paranoid: true // Soft deletes
+    }
+  }
+);
+
+// Initialize db object
 const db = {};
 
-let sequelize;
-
-if (config.use_env_variable) {
-  sequelize = new Sequelize(process.env[config.use_env_variable], config);
-} else {
-  sequelize = new Sequelize(
-    config.database,
-    config.username,
-    config.password,
-    config
-  );
-}
-
+// Load all model files
 fs.readdirSync(__dirname)
   .filter(file => {
     return (
       file.indexOf('.') !== 0 &&
-      file !== basename &&
-      file.slice(-3) === '.js' &&
-      file.indexOf('.test.js') === -1
+      file !== path.basename(__filename) &&
+      file.slice(-9) === '.model.js'
     );
   })
   .forEach(file => {
@@ -41,13 +43,15 @@ fs.readdirSync(__dirname)
     db[model.name] = model;
   });
 
+// Set up associations between models
 Object.keys(db).forEach(modelName => {
   if (db[modelName].associate) {
     db[modelName].associate(db);
   }
 });
 
-db.sequelize = sequelize;
+// Add Sequelize and sequelize instance to db object
 db.Sequelize = Sequelize;
+db.sequelize = sequelize;
 
 module.exports = db;

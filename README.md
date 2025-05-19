@@ -390,9 +390,14 @@ src/
 - Profile and license information management
 
 **Queue Management**
-- Declare availability by destination
-- Monitor queue position
-- Get real-time notifications for assigned trips
+- Declare availability for upcoming trips
+- Monitor queue position in real time
+- **"I'm Available" flow**: After completing a trip, drivers can press "I'm Available" to request re-entry into the queue  
+   - System checks if the previous trip is completed  
+   - Ensures the driver has not exceeded daily trip limit  
+   - Confirms enough time is left in the day to complete another trip  
+   - If all checks pass → driver is added to queue and receives a new departure slot  
+   - Else → driver is notified: “No more trips available today”
 
 **Trip Management**
 - Access trip details and schedules
@@ -635,13 +640,21 @@ The web-based administration dashboard follows modern React.js architectural pat
 
 ### 9.3 Driver Queue Management Flow
 
-1. Driver declares availability for specific station and schedule
-2. Backend checks current queue status and driver eligibility
-3. Driver is added to queue with appropriate position
-4. Queue position is continuously updated as trips depart
-5. When driver reaches position 1, they are assigned to next trip
-6. Driver receives notification with trip details
-7. After trip completion, driver can re-enter queue if desired
+### 9.3 Driver Queue Management Flow
+
+- Driver declares availability for specific station and schedule
+- Backend checks current queue status and driver eligibility
+- Driver is added to queue with appropriate position
+- Queue position is continuously updated as trips depart
+- When driver reaches position 1, they are assigned to next trip
+- Driver receives notification with trip details
+- After completing a trip, the driver may press **"I'm Available"** to request another trip:
+   - System checks that the previous trip was completed
+   - Ensures the driver has not reached the daily trip cap (e.g., 3)
+   - Confirms there is enough time left in the day
+   - If valid → driver is requeued and scheduled
+   - If not → driver receives: “No more trips available today”
+
 
 ## 11. Testing Strategy
 

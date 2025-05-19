@@ -1,0 +1,5 @@
+npm init -y
+npm install express pg sequelize sequelize-cli cors dotenv jsonwebtoken bcryptjs
+npm install --save-dev nodemon
+npm install --save-dev sequelize-cli
+npx sequelize-cli init

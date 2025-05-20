@@ -2,7 +2,7 @@ const winston = require('winston');
 const morgan = require('morgan');
 const path = require('path');
 const fs = require('fs');
-const config = require('./config');
+const config = require('../config/config');
 
 // Ensure log directory exists
 const logDir = path.join(process.cwd(), 'logs');

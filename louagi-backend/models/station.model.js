@@ -74,7 +74,7 @@ module.exports = (sequelize, DataTypes) => {
       as: 'schedules'
     });
 
-    Station.hasMany(models.queues, {
+    Station.hasMany(models.DriverQueue, {
       foreignKey: 'stationId',
       as: 'driverQueues'
     });

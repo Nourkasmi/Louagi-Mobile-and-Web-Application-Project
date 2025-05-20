@@ -89,7 +89,7 @@ module.exports = (sequelize, DataTypes) => {
       as: 'trips'
     });
 
-    Driver.hasMany(models.Queue, {
+    Driver.hasMany(models.DriverQueue, {
       foreignKey: 'driverId',
       as: 'queuePositions'
     });

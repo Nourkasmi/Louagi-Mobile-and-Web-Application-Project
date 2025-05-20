@@ -3,3 +3,13 @@ npm install express pg sequelize sequelize-cli cors dotenv jsonwebtoken bcryptjs
 npm install --save-dev nodemon
 npm install --save-dev sequelize-cli
 npx sequelize-cli init
+npm install bcryptjs
+
+
+RUN THIS after pull 
+
+NODE_ENV=development npx sequelize-cli db:migrate:undo:all
+NODE_ENV=development npx sequelize-cli db:migrate
+
+NODE_ENV=development npx sequelize-cli db:seed:undo:all
+NODE_ENV=development npx sequelize-cli db:seed:all

@@ -1,3 +1,5 @@
+'use strict';
+
 module.exports = (sequelize, DataTypes) => {
   const Station = sequelize.define(
     'Station',
@@ -11,10 +13,6 @@ module.exports = (sequelize, DataTypes) => {
         type: DataTypes.STRING,
         allowNull: false,
         unique: true
-      },
-      location: {
-        type: DataTypes.GEOMETRY('POINT'),
-        allowNull: false
       },
       address: {
         type: DataTypes.STRING,
@@ -30,7 +28,8 @@ module.exports = (sequelize, DataTypes) => {
       },
       zipCode: {
         type: DataTypes.STRING,
-        allowNull: false
+        allowNull: false,
+        field: 'zip_code'
       },
       capacity: {
         type: DataTypes.INTEGER,
@@ -40,18 +39,21 @@ module.exports = (sequelize, DataTypes) => {
       isActive: {
         type: DataTypes.BOOLEAN,
         allowNull: false,
-        defaultValue: true
+        defaultValue: true,
+        field: 'is_active'
       },
       contactPhone: {
         type: DataTypes.STRING,
-        allowNull: true
+        allowNull: true,
+        field: 'contact_phone'
       },
       contactEmail: {
         type: DataTypes.STRING,
         allowNull: true,
         validate: {
           isEmail: true
-        }
+        },
+        field: 'contact_email'
       },
       amenities: {
         type: DataTypes.JSONB,
@@ -60,25 +62,23 @@ module.exports = (sequelize, DataTypes) => {
       }
     },
     {
-      tableName: 'stations'
+      tableName: 'stations',
+      timestamps: true,
+      underscored: true
     }
   );
 
-  // Define associations
   Station.associate = (models) => {
-    // Station can have many schedules
     Station.hasMany(models.Schedule, {
       foreignKey: 'stationId',
       as: 'schedules'
     });
 
-    // Station can have many driver queues
-    Station.hasMany(models.DriverQueue, {
+    Station.hasMany(models.queues, {
       foreignKey: 'stationId',
       as: 'driverQueues'
     });
 
-    // Station can be a start or end point for many destinations
     Station.hasMany(models.Destination, {
       foreignKey: 'startId',
       as: 'startPoints'

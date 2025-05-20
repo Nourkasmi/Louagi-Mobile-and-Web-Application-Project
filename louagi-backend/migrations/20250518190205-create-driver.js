@@ -1,37 +1,79 @@
 'use strict';
-/** @type {import('sequelize-cli').Migration} */
+
 module.exports = {
-  async up(queryInterface, Sequelize) {
-    await queryInterface.createTable('Drivers', {
+  up: async (queryInterface, Sequelize) => {
+    await queryInterface.createTable('drivers', {
       id: {
+        type: Sequelize.UUID,
+        defaultValue: Sequelize.literal('uuid_generate_v4()'),
         allowNull: false,
-        autoIncrement: true,
-        primaryKey: true,
-        type: Sequelize.INTEGER
+        primaryKey: true
       },
       user_id: {
-        type: Sequelize.INTEGER
+        type: Sequelize.UUID,
+        allowNull: false,
+        unique: true,
+        references: {
+          model: 'users', // lowercase matches table name
+          key: 'id'
+        },
+        onUpdate: 'CASCADE',
+        onDelete: 'CASCADE'
       },
       license_no: {
-        type: Sequelize.STRING
+        type: Sequelize.STRING,
+        allowNull: false,
+        unique: true
+      },
+      license_expiry: {
+        type: Sequelize.DATEONLY,
+        allowNull: false
       },
       experience: {
-        type: Sequelize.INTEGER
+        type: Sequelize.INTEGER,
+        allowNull: false,
+        defaultValue: 0
       },
       rating: {
-        type: Sequelize.FLOAT
-      },
-      createdAt: {
+        type: Sequelize.FLOAT,
         allowNull: false,
-        type: Sequelize.DATE
+        defaultValue: 0
       },
-      updatedAt: {
+      vehicle_type: {
+        type: Sequelize.STRING,
+        allowNull: true
+      },
+      vehicle_capacity: {
+        type: Sequelize.INTEGER,
         allowNull: false,
-        type: Sequelize.DATE
+        defaultValue: 4
+      },
+      is_verified: {
+        type: Sequelize.BOOLEAN,
+        defaultValue: false
+      },
+      is_available: {
+        type: Sequelize.BOOLEAN,
+        defaultValue: false
+      },
+      documents: {
+        type: Sequelize.JSONB,
+        defaultValue: {}
+      },
+      created_at: {
+        allowNull: false,
+        type: Sequelize.DATE,
+        defaultValue: Sequelize.literal('CURRENT_TIMESTAMP')
+      },
+      updated_at: {
+        allowNull: false,
+        type: Sequelize.DATE,
+        defaultValue: Sequelize.literal('CURRENT_TIMESTAMP')
       }
     });
   },
-  async down(queryInterface, Sequelize) {
-    await queryInterface.dropTable('Drivers');
+
+  down: async (queryInterface, Sequelize) => {
+    await queryInterface.dropTable('drivers');
   }
 };

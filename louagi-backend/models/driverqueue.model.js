@@ -1,3 +1,5 @@
+'use strict';
+
 module.exports = (sequelize, DataTypes) => {
   const DriverQueue = sequelize.define(
     'DriverQueue',
@@ -13,7 +15,8 @@ module.exports = (sequelize, DataTypes) => {
         references: {
           model: 'stations',
           key: 'id'
-        }
+        },
+        field: 'station_id'
       },
       driverId: {
         type: DataTypes.UUID,
@@ -21,7 +24,8 @@ module.exports = (sequelize, DataTypes) => {
         references: {
           model: 'drivers',
           key: 'id'
-        }
+        },
+        field: 'driver_id'
       },
       scheduleId: {
         type: DataTypes.UUID,
@@ -29,72 +33,42 @@ module.exports = (sequelize, DataTypes) => {
         references: {
           model: 'schedules',
           key: 'id'
-        }
+        },
+        field: 'schedule_id'
       },
       position: {
         type: DataTypes.INTEGER,
         allowNull: false
       },
       status: {
-        type: DataTypes.ENUM('waiting', 'assigned', 'departed', 'completed', 'cancelled'),
+        type: DataTypes.ENUM('waiting', 'called', 'skipped', 'done'),
         allowNull: false,
         defaultValue: 'waiting'
-      },
-      joinedAt: {
-        type: DataTypes.DATE,
-        allowNull: false,
-        defaultValue: DataTypes.NOW
-      },
-      estimatedDepartureTime: {
-        type: DataTypes.DATE,
-        allowNull: true
-      },
-      actualDepartureTime: {
-        type: DataTypes.DATE,
-        allowNull: true
-      },
-      notes: {
-        type: DataTypes.TEXT,
-        allowNull: true
       }
     },
     {
-      tableName: 'driver_queue',
-      indexes: [
-        {
-          fields: ['stationId', 'status']
-        },
-        {
-          fields: ['driverId', 'status']
-        },
-        {
-          fields: ['scheduleId', 'position']
-        }
-      ]
+      tableName: 'queues', // ✅ must match your migration table name
+      timestamps: true,
+      underscored: true
     }
   );
 
-  // Define associations
   DriverQueue.associate = (models) => {
-    // DriverQueue belongs to one station
     DriverQueue.belongsTo(models.Station, {
       foreignKey: 'stationId',
       as: 'station'
     });
 
-    // DriverQueue belongs to one driver
     DriverQueue.belongsTo(models.Driver, {
       foreignKey: 'driverId',
       as: 'driver'
     });
 
-    // DriverQueue belongs to one schedule
     DriverQueue.belongsTo(models.Schedule, {
       foreignKey: 'scheduleId',
       as: 'schedule'
     });
 
-    // DriverQueue can be associated with one trip
     DriverQueue.hasOne(models.Trip, {
       foreignKey: 'queueId',
       as: 'trip'

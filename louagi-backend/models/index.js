@@ -4,7 +4,7 @@ const Sequelize = require('sequelize');
 const config = require('../config/config');
 const { logger } = require('../utils/logger');
 
-// Create Sequelize instance
+// Initialize Sequelize instance
 const sequelize = new Sequelize(
   config.db.database,
   config.db.username,
@@ -18,7 +18,8 @@ const sequelize = new Sequelize(
     define: {
       timestamps: true,
       underscored: true,
-      paranoid: true // Soft deletes
+      freezeTableName: false,
+      paranoid: true
     }
   }
 );
@@ -26,32 +27,28 @@ const sequelize = new Sequelize(
 // Initialize db object
 const db = {};
 
-// Load all model files
+// Dynamically load all .model.js files in the models directory
 fs.readdirSync(__dirname)
   .filter(file => {
     return (
       file.indexOf('.') !== 0 &&
       file !== path.basename(__filename) &&
-      file.slice(-9) === '.model.js'
+      file.endsWith('.model.js')
     );
   })
   .forEach(file => {
-    const model = require(path.join(__dirname, file))(
-      sequelize,
-      Sequelize.DataTypes
-    );
+    const model = require(path.join(__dirname, file))(sequelize, Sequelize.DataTypes);
     db[model.name] = model;
   });
 
-// Set up associations between models
+// Set up associations
 Object.keys(db).forEach(modelName => {
   if (db[modelName].associate) {
     db[modelName].associate(db);
   }
 });
 
-// Add Sequelize and sequelize instance to db object
-db.Sequelize = Sequelize;
 db.sequelize = sequelize;
+db.Sequelize = Sequelize;
 
 module.exports = db;

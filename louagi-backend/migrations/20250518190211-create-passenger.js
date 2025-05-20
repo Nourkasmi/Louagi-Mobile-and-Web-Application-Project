@@ -1,34 +1,56 @@
 'use strict';
-/** @type {import('sequelize-cli').Migration} */
+
 module.exports = {
-  async up(queryInterface, Sequelize) {
-    await queryInterface.createTable('Passengers', {
+  up: async (queryInterface, Sequelize) => {
+    await queryInterface.createTable('passengers', {
       id: {
-        allowNull: false,
-        autoIncrement: true,
-        primaryKey: true,
-        type: Sequelize.INTEGER
+        type: Sequelize.UUID,
+        defaultValue: Sequelize.literal('uuid_generate_v4()'),
+        primaryKey: true
       },
       user_id: {
-        type: Sequelize.INTEGER
+        type: Sequelize.UUID,
+        allowNull: false,
+        unique: true,
+        references: {
+          model: 'users', // table name in lowercase
+          key: 'id'
+        },
+        onUpdate: 'CASCADE',
+        onDelete: 'CASCADE'
       },
       preferences: {
-        type: Sequelize.STRING
+        type: Sequelize.JSONB,
+        allowNull: true,
+        defaultValue: {}
       },
       payment_info: {
-        type: Sequelize.STRING
+        type: Sequelize.JSONB,
+        allowNull: true,
+        defaultValue: {}
       },
-      createdAt: {
-        allowNull: false,
-        type: Sequelize.DATE
+      stripe_customer_id: {
+        type: Sequelize.STRING,
+        allowNull: true
       },
-      updatedAt: {
+      is_verified: {
+        type: Sequelize.BOOLEAN,
+        defaultValue: false
+      },
+      created_at: {
         allowNull: false,
-        type: Sequelize.DATE
+        type: Sequelize.DATE,
+        defaultValue: Sequelize.literal('CURRENT_TIMESTAMP')
+      },
+      updated_at: {
+        allowNull: false,
+        type: Sequelize.DATE,
+        defaultValue: Sequelize.literal('CURRENT_TIMESTAMP')
       }
     });
   },
-  async down(queryInterface, Sequelize) {
-    await queryInterface.dropTable('Passengers');
+
+  down: async (queryInterface, Sequelize) => {
+    await queryInterface.dropTable('passengers');
   }
 };

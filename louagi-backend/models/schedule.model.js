@@ -1,3 +1,5 @@
+'use strict';
+
 module.exports = (sequelize, DataTypes) => {
   const Schedule = sequelize.define(
     'Schedule',
@@ -13,33 +15,39 @@ module.exports = (sequelize, DataTypes) => {
         references: {
           model: 'stations',
           key: 'id'
-        }
+        },
+        field: 'station_id'
       },
       dayOfWeek: {
         type: DataTypes.INTEGER,
         allowNull: false,
         validate: {
-          min: 0, // Sunday
-          max: 6  // Saturday
-        }
+          min: 0,
+          max: 6
+        },
+        field: 'day_of_week'
       },
       startTime: {
         type: DataTypes.TIME,
-        allowNull: false
+        allowNull: false,
+        field: 'start_time'
       },
       endTime: {
         type: DataTypes.TIME,
-        allowNull: false
+        allowNull: false,
+        field: 'end_time'
       },
       isActive: {
         type: DataTypes.BOOLEAN,
         allowNull: false,
-        defaultValue: true
+        defaultValue: true,
+        field: 'is_active'
       },
       maxTrips: {
         type: DataTypes.INTEGER,
         allowNull: false,
-        defaultValue: 10
+        defaultValue: 10,
+        field: 'max_trips'
       },
       notes: {
         type: DataTypes.TEXT,
@@ -48,31 +56,29 @@ module.exports = (sequelize, DataTypes) => {
     },
     {
       tableName: 'schedules',
+      underscored: true,
+      timestamps: true,
       indexes: [
         {
           unique: true,
-          fields: ['stationId', 'dayOfWeek', 'startTime']
+          fields: ['station_id', 'day_of_week', 'start_time']
         }
       ]
     }
   );
 
-  // Define associations
   Schedule.associate = (models) => {
-    // Schedule belongs to one station
     Schedule.belongsTo(models.Station, {
       foreignKey: 'stationId',
       as: 'station'
     });
 
-    // Schedule can have many trips
     Schedule.hasMany(models.Trip, {
       foreignKey: 'scheduleId',
       as: 'trips'
     });
 
-    // Schedule can have many driver queue entries
-    Schedule.hasMany(models.DriverQueue, {
+    Schedule.hasMany(models.queues, {
       foreignKey: 'scheduleId',
       as: 'driverQueues'
     });

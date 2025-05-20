@@ -1,3 +1,5 @@
+'use strict';
+
 module.exports = (sequelize, DataTypes) => {
   const Passenger = sequelize.define(
     'Passenger',
@@ -7,14 +9,15 @@ module.exports = (sequelize, DataTypes) => {
         defaultValue: DataTypes.UUIDV4,
         primaryKey: true
       },
-      userId: {
+      user_id: {
         type: DataTypes.UUID,
         allowNull: false,
         unique: true,
         references: {
           model: 'users',
           key: 'id'
-        }
+        },
+        field: 'user_id'
       },
       preferences: {
         type: DataTypes.JSONB,
@@ -24,31 +27,33 @@ module.exports = (sequelize, DataTypes) => {
       paymentInfo: {
         type: DataTypes.JSONB,
         allowNull: true,
-        defaultValue: {}
+        defaultValue: {},
+        field: 'payment_info'
       },
       stripeCustomerId: {
         type: DataTypes.STRING,
-        allowNull: true
+        allowNull: true,
+        field: 'stripe_customer_id'
       },
-      isVerified: {
+      is_verified: {
         type: DataTypes.BOOLEAN,
-        defaultValue: false
+        defaultValue: false,
+        field: 'is_verified'
       }
     },
     {
-      tableName: 'passengers'
+      tableName: 'passengers',
+      underscored: true,
+      timestamps: true
     }
   );
 
-  // Define associations
   Passenger.associate = (models) => {
-    // Passenger belongs to one User
     Passenger.belongsTo(models.User, {
-      foreignKey: 'userId',
+      foreignKey: 'user_id',
       as: 'user'
     });
 
-    // Passenger can have many bookings
     Passenger.hasMany(models.Booking, {
       foreignKey: 'passengerId',
       as: 'bookings'

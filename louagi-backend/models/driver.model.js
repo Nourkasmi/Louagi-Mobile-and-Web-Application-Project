@@ -1,3 +1,5 @@
+'use strict';
+
 module.exports = (sequelize, DataTypes) => {
   const Driver = sequelize.define(
     'Driver',
@@ -7,26 +9,29 @@ module.exports = (sequelize, DataTypes) => {
         defaultValue: DataTypes.UUIDV4,
         primaryKey: true
       },
-      userId: {
+      user_id: {
         type: DataTypes.UUID,
         allowNull: false,
         unique: true,
         references: {
-          model: 'users',
+          model: 'users', // must match table name
           key: 'id'
-        }
+        },
+        field: 'user_id'
       },
-      licenseNo: {
+      license_no: {
         type: DataTypes.STRING,
         allowNull: false,
-        unique: true
+        unique: true,
+        field: 'license_no'
       },
-      licenseExpiry: {
+      license_expiry: {
         type: DataTypes.DATEONLY,
-        allowNull: false
+        allowNull: false,
+        field: 'license_expiry'
       },
       experience: {
-        type: DataTypes.INTEGER, // in years
+        type: DataTypes.INTEGER,
         allowNull: false,
         defaultValue: 0
       },
@@ -39,22 +44,26 @@ module.exports = (sequelize, DataTypes) => {
           max: 5
         }
       },
-      vehicleType: {
+      vehicle_type: {
         type: DataTypes.STRING,
-        allowNull: true
+        allowNull: true,
+        field: 'vehicle_type'
       },
-      vehicleCapacity: {
+      vehicle_capacity: {
         type: DataTypes.INTEGER,
         allowNull: false,
-        defaultValue: 4
+        defaultValue: 4,
+        field: 'vehicle_capacity'
       },
-      isVerified: {
+      is_verified: {
         type: DataTypes.BOOLEAN,
-        defaultValue: false
+        defaultValue: false,
+        field: 'is_verified'
       },
-      isAvailable: {
+      is_available: {
         type: DataTypes.BOOLEAN,
-        defaultValue: false
+        defaultValue: false,
+        field: 'is_available'
       },
       documents: {
         type: DataTypes.JSONB,
@@ -63,26 +72,24 @@ module.exports = (sequelize, DataTypes) => {
       }
     },
     {
-      tableName: 'drivers'
+      tableName: 'drivers',
+      underscored: true,
+      timestamps: true
     }
   );
 
-  // Define associations
   Driver.associate = (models) => {
-    // Driver belongs to one User
     Driver.belongsTo(models.User, {
-      foreignKey: 'userId',
+      foreignKey: 'user_id',
       as: 'user'
     });
 
-    // Driver can have many trips
     Driver.hasMany(models.Trip, {
       foreignKey: 'driverId',
       as: 'trips'
     });
 
-    // Driver can be in many queue positions
-    Driver.hasMany(models.DriverQueue, {
+    Driver.hasMany(models.Queue, {
       foreignKey: 'driverId',
       as: 'queuePositions'
     });

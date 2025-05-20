@@ -1,3 +1,7 @@
+'use strict';
+
+const bcrypt = require('bcrypt');
+
 module.exports = (sequelize, DataTypes) => {
   const User = sequelize.define(
     'User',
@@ -42,22 +46,25 @@ module.exports = (sequelize, DataTypes) => {
       isActive: {
         type: DataTypes.BOOLEAN,
         allowNull: false,
-        defaultValue: true
+        defaultValue: true,
+        field: 'is_active'
       },
       lastLogin: {
-        type: DataTypes.DATE
+        type: DataTypes.DATE,
+        field: 'last_login'
       },
       profileImage: {
-        type: DataTypes.STRING
+        type: DataTypes.STRING,
+        field: 'profile_image'
       }
     },
     {
       tableName: 'users',
-      // Don't return the password when converting to JSON
+      underscored: true,
+      timestamps: true,
       defaultScope: {
         attributes: { exclude: ['password'] }
       },
-      // Use this scope when needing password (authentication)
       scopes: {
         withPassword: {
           attributes: { include: ['password'] }
@@ -66,20 +73,31 @@ module.exports = (sequelize, DataTypes) => {
     }
   );
 
-  // Define associations
   User.associate = (models) => {
-    // User can have one passenger profile
     User.hasOne(models.Passenger, {
-      foreignKey: 'userId',
+      foreignKey: 'user_id',
       as: 'passengerProfile'
     });
 
-    // User can have one driver profile
     User.hasOne(models.Driver, {
-      foreignKey: 'userId',
+      foreignKey: 'user_id',
       as: 'driverProfile'
     });
   };
+
+  User.addHook('beforeCreate', async (user) => {
+    if (user.password) {
+      const salt = await bcrypt.genSalt(10);
+      user.password = await bcrypt.hash(user.password, salt);
+    }
+  });
+
+  User.addHook('beforeUpdate', async (user) => {
+    if (user.changed('password')) {
+      const salt = await bcrypt.genSalt(10);
+      user.password = await bcrypt.hash(user.password, salt);
+    }
+  });
 
   return User;
 };

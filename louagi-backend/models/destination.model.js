@@ -10,6 +10,7 @@ module.exports = (sequelize, DataTypes) => {
       startId: {
         type: DataTypes.UUID,
         allowNull: false,
+        field: 'start_id',
         references: {
           model: 'stations',
           key: 'id'
@@ -18,27 +19,30 @@ module.exports = (sequelize, DataTypes) => {
       endId: {
         type: DataTypes.UUID,
         allowNull: false,
+        field: 'end_id',
         references: {
           model: 'stations',
           key: 'id'
         }
       },
       distance: {
-        type: DataTypes.FLOAT, // in kilometers
+        type: DataTypes.FLOAT,
         allowNull: false
       },
       basePrice: {
         type: DataTypes.DECIMAL(10, 2),
-        allowNull: false
+        allowNull: false,
+        field: 'base_price'
       },
       estimatedDuration: {
-        type: DataTypes.INTEGER, // in minutes
-        allowNull: false
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        field: 'estimated_duration'
       },
       isActive: {
         type: DataTypes.BOOLEAN,
-        allowNull: false,
-        defaultValue: true
+        defaultValue: true,
+        field: 'is_active'
       },
       description: {
         type: DataTypes.TEXT,
@@ -50,27 +54,25 @@ module.exports = (sequelize, DataTypes) => {
       indexes: [
         {
           unique: true,
-          fields: ['startId', 'endId']
+          fields: ['start_id', 'end_id']
         }
-      ]
+      ],
+      timestamps: true,
+      underscored: true
     }
   );
 
-  // Define associations
   Destination.associate = (models) => {
-    // Destination belongs to start station
     Destination.belongsTo(models.Station, {
       foreignKey: 'startId',
       as: 'startStation'
     });
 
-    // Destination belongs to end station
     Destination.belongsTo(models.Station, {
       foreignKey: 'endId',
       as: 'endStation'
     });
 
-    // Destination can have many trips
     Destination.hasMany(models.Trip, {
       foreignKey: 'routeId',
       as: 'trips'

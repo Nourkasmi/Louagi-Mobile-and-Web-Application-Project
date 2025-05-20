@@ -2,7 +2,7 @@
 
 module.exports = {
   up: async (queryInterface, Sequelize) => {
-    await queryInterface.createTable('schedules', {
+    await queryInterface.createTable('queues', {
       id: {
         type: Sequelize.UUID,
         defaultValue: Sequelize.literal('uuid_generate_v4()'),
@@ -18,31 +18,34 @@ module.exports = {
         onUpdate: 'CASCADE',
         onDelete: 'CASCADE'
       },
-      day_of_week: {
+      driver_id: {
+        type: Sequelize.UUID,
+        allowNull: false,
+        references: {
+          model: 'drivers',
+          key: 'id'
+        },
+        onUpdate: 'CASCADE',
+        onDelete: 'CASCADE'
+      },
+      schedule_id: {
+        type: Sequelize.UUID,
+        allowNull: false,
+        references: {
+          model: 'schedules',
+          key: 'id'
+        },
+        onUpdate: 'CASCADE',
+        onDelete: 'CASCADE'
+      },
+      position: {
         type: Sequelize.INTEGER,
         allowNull: false
       },
-      start_time: {
-        type: Sequelize.TIME,
-        allowNull: false
-      },
-      end_time: {
-        type: Sequelize.TIME,
-        allowNull: false
-      },
-      is_active: {
-        type: Sequelize.BOOLEAN,
+      status: {
+        type: Sequelize.ENUM('waiting', 'called', 'skipped', 'done'),
         allowNull: false,
-        defaultValue: true
-      },
-      max_trips: {
-        type: Sequelize.INTEGER,
-        allowNull: false,
-        defaultValue: 10
-      },
-      notes: {
-        type: Sequelize.TEXT,
-        allowNull: true
+        defaultValue: 'waiting'
       },
       created_at: {
         allowNull: false,
@@ -56,15 +59,11 @@ module.exports = {
       }
     });
 
-    // Add unique index (station_id + day_of_week + start_time)
-    await queryInterface.addConstraint('schedules', {
-      fields: ['station_id', 'day_of_week', 'start_time'],
-      type: 'unique',
-      name: 'unique_station_day_start'
-    });
+    await queryInterface.addIndex('queues', ['station_id', 'schedule_id', 'status']);
+    await queryInterface.addIndex('queues', ['driver_id']);
   },
 
   down: async (queryInterface, Sequelize) => {
-    await queryInterface.dropTable('schedules');
+    await queryInterface.dropTable('queues');
   }
 };

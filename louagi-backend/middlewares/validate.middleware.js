@@ -15,7 +15,7 @@ const validationSchemas = {
       .message('Password must contain at least one uppercase letter, one lowercase letter, and one number'),
     phone: Joi.string().pattern(/^\+?[0-9]{10,15}$/).required(),
     role: Joi.string().valid('passenger', 'driver', 'admin').default('passenger'),
-    
+
     // Driver-specific fields (required if role is driver)
     license_no: Joi.when('role', {
       is: 'driver',
@@ -27,12 +27,17 @@ const validationSchemas = {
       then: Joi.number().integer().min(0).required(),
       otherwise: Joi.number().allow(null)
     }),
-    
+    license_expiry: Joi.when('role', {
+      is: 'driver',
+      then: Joi.date().required(),
+      otherwise: Joi.date().allow(null)
+    }),
+
     // Passenger-specific fields (optional)
     preferences: Joi.object().allow(null),
     payment_info: Joi.object().allow(null)
   }),
-  
+
   /**
    * User login schema
    */
@@ -40,7 +45,7 @@ const validationSchemas = {
     email: Joi.string().email().required(),
     password: Joi.string().required()
   }),
-  
+
   /**
    * User update schema
    */
@@ -51,11 +56,12 @@ const validationSchemas = {
     password: Joi.string().min(8)
       .pattern(new RegExp('^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)'))
       .message('Password must contain at least one uppercase letter, one lowercase letter, and one number'),
-    
+
     // Driver-specific fields
     license_no: Joi.string(),
     experience: Joi.number().integer().min(0),
-    
+    license_expiry: Joi.date(),
+
     // Passenger-specific fields
     preferences: Joi.object().allow(null),
     payment_info: Joi.object().allow(null)
@@ -74,7 +80,7 @@ const validateMiddleware = {
   validateRegistration: (data) => {
     return validationSchemas.registration.validate(data, { abortEarly: false });
   },
-  
+
   /**
    * Validate login data
    * @param {Object} data - Login data to validate
@@ -83,7 +89,7 @@ const validateMiddleware = {
   validateLogin: (data) => {
     return validationSchemas.login.validate(data, { abortEarly: false });
   },
-  
+
   /**
    * Validate user update data
    * @param {Object} data - User update data to validate

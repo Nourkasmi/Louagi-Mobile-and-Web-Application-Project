@@ -74,7 +74,8 @@ module.exports = (sequelize, DataTypes) => {
     {
       tableName: 'drivers',
       underscored: true,
-      timestamps: true
+      timestamps: true,
+      paranoid: true
     }
   );
 

@@ -34,19 +34,21 @@ app.use(compression()); // Compress responses
 app.use(express.json()); // Parse JSON request bodies
 app.use(express.urlencoded({ extended: true })); // Parse URL-encoded request bodies
 
-// API routes
+// API routes 
 const apiPrefix = `/api/${config.server.apiVersion}`;
 
-app.use(`${apiPrefix}/auth`, authRoutes);
-app.use(`${apiPrefix}/users`, userRoutes);
-app.use(`${apiPrefix}/trips`, tripRoutes);
-app.use(`${apiPrefix}/bookings`, paymentRoutes);
-app.use(`${apiPrefix}/payments`, paymentRoutes);
-app.use(`${apiPrefix}/stations`, stationRoutes);
-app.use(`${apiPrefix}/schedules`, scheduleRoutes);
-app.use(`${apiPrefix}/destinations`, destinationRoutes);
-app.use(`${apiPrefix}/drivers`, driverRoutes);
-app.use(`${apiPrefix}/admin/queue`, queueRoutes);
+app.use('/api/auth', authRoutes);
+app.use('/api/users', userRoutes);
+
+// app.use('/api/trips', tripRoutes);
+// app.use('/api/bookings', bookingRoutes);
+// app.use('/api/payments', paymentRoutes);
+// app.use('/api/stations', stationRoutes);
+// app.use('/api/schedules', scheduleRoutes);
+// app.use('/api/destinations', destinationRoutes);
+// app.use('/api/drivers', driverRoutes);
+// app.use('/api/admin/queue', queueRoutes);
+
 
 // API health check endpoint
 app.get('/health', (req, res) => {

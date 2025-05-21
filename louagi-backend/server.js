@@ -3,6 +3,8 @@ const app = require('./app');
 const { logger } = require('./utils/logger');
 const config = require('./config/config');
 const { sequelize } = require('./models');
+require('dotenv').config();
+
 
 // Get port from configuration
 const port = config.server.port;

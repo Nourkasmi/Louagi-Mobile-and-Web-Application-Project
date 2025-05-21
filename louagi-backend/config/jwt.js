@@ -1,24 +1,19 @@
 const config = require('./config');
 
-/**
- * JWT Options Configuration
- */
 const jwtOptions = {
-  // JWT access token options
   accessToken: {
-    secret: config.jwt.secret,
+    secret: config.jwt.secret || 'default_secret',
     options: {
-      expiresIn: config.jwt.accessTokenExpiry,
+      expiresIn: config.jwt.accessTokenExpiry || '1d',
       issuer: 'louagi-api',
       audience: 'louagi-client'
     }
   },
   
-  // JWT refresh token options
   refreshToken: {
-    secret: config.jwt.secret,
+    secret: config.jwt.secret || 'default_secret',
     options: {
-      expiresIn: config.jwt.refreshTokenExpiry,
+      expiresIn: config.jwt.refreshTokenExpiry || '7d',
       issuer: 'louagi-api',
       audience: 'louagi-client'
     }

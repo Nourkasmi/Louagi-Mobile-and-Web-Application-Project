@@ -74,12 +74,12 @@ const userController = {
         include: [
           {
             model: Passenger,
-            as: 'passenger',
+            as: 'passengerProfile',
             required: false
           },
           {
             model: Driver,
-            as: 'driver',
+            as: 'driverProfile',
             required: false
           }
         ]
@@ -149,9 +149,8 @@ const userController = {
         
         // Hash password if provided
         if (password) {
-          const saltRounds = 10;
-          updateData.password = await bcrypt.hash(password, saltRounds);
-        }
+          updateData.password = password;  // Store the plain password
+}
         
         // Update user
         await user.update(updateData, { transaction: t });
@@ -186,12 +185,12 @@ const userController = {
         include: [
           {
             model: Passenger,
-            as: 'passenger',
+            as: 'passengerProfile',
             required: false
           },
           {
             model: Driver,
-            as: 'driver',
+            as: 'driverProfile',
             required: false
           }
         ]

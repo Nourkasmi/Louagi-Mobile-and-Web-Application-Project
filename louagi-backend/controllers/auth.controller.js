@@ -2,19 +2,14 @@ const bcrypt = require('bcrypt');
 const { User, Passenger, Driver } = require('../models');
 const jwtService = require('../services/jwt.service');
 const { validateRegistration, validateLogin } = require('../middlewares/validate.middleware');
+const { sequelize } = require('../models');
 
-/**
- * Authentication controller
- */
 const authController = {
   /**
    * Register a new user
-   * @param {Object} req - Express request object
-   * @param {Object} res - Express response object
    */
   register: async (req, res) => {
     try {
-      // Validate request body
       const { error } = validateRegistration(req.body);
       if (error) {
         return res.status(400).json({
@@ -23,9 +18,19 @@ const authController = {
         });
       }
 
-      const { username, email, password, phone, role = 'passenger' } = req.body;
+      const {
+        username,
+        email,
+        password,
+        phone,
+        role = 'passenger',
+        preferences,
+        payment_info,
+        license_no,
+        experience,
+        license_expiry
+      } = req.body;
 
-      // Check if email already exists
       const existingUser = await User.findOne({ where: { email } });
       if (existingUser) {
         return res.status(400).json({
@@ -34,44 +39,35 @@ const authController = {
         });
       }
 
-      // Hash password
-      const saltRounds = 10;
-      const hashedPassword = await bcrypt.hash(password, saltRounds);
-
-      // Create user with transaction to ensure consistency
       const result = await sequelize.transaction(async (t) => {
-        // Create user
         const user = await User.create({
           username,
           email,
-          password: hashedPassword,
+          password,
           phone,
           role
         }, { transaction: t });
 
-        // Create role-specific profile
         if (role === 'passenger') {
           await Passenger.create({
             user_id: user.id,
-            preferences: req.body.preferences || {},
-            payment_info: req.body.payment_info || {}
+            preferences: preferences || {},
+            payment_info: payment_info || {}
           }, { transaction: t });
         } else if (role === 'driver') {
           await Driver.create({
             user_id: user.id,
-            license_no: req.body.license_no,
-            experience: req.body.experience || 0,
-            rating: 5.0 // Default rating
+            license_no,
+            experience: experience || 0,
+            license_expiry,
+            rating: 5.0
           }, { transaction: t });
         }
 
         return user;
       });
 
-      // Generate JWT token
       const token = jwtService.generateToken(result);
-
-      // Return user data (excluding password) and token
       const userData = result.toJSON();
       delete userData.password;
 
@@ -80,6 +76,7 @@ const authController = {
         token,
         user: userData
       });
+
     } catch (error) {
       console.error('Registration error:', error);
       return res.status(500).json({
@@ -91,12 +88,9 @@ const authController = {
 
   /**
    * Login user
-   * @param {Object} req - Express request object
-   * @param {Object} res - Express response object
    */
   login: async (req, res) => {
     try {
-      // Validate request body
       const { error } = validateLogin(req.body);
       if (error) {
         return res.status(400).json({
@@ -107,16 +101,16 @@ const authController = {
 
       const { email, password } = req.body;
 
-      // Find user by email
-      const user = await User.findOne({ where: { email } });
-      if (!user) {
+      // Get user including password field
+      const user = await User.scope('withPassword').findOne({ where: { email } });
+
+      if (!user || !user.password) {
         return res.status(401).json({
           success: false,
           message: 'Invalid email or password'
         });
       }
 
-      // Compare passwords
       const passwordMatch = await bcrypt.compare(password, user.password);
       if (!passwordMatch) {
         return res.status(401).json({
@@ -125,10 +119,7 @@ const authController = {
         });
       }
 
-      // Generate JWT token
       const token = jwtService.generateToken(user);
-
-      // Return user data (excluding password) and token
       const userData = user.toJSON();
       delete userData.password;
 
@@ -137,6 +128,7 @@ const authController = {
         token,
         user: userData
       });
+
     } catch (error) {
       console.error('Login error:', error);
       return res.status(500).json({
@@ -147,15 +139,22 @@ const authController = {
   },
 
   /**
+   * Logout user
+   */
+  logout: (_req, res) => {
+    return res.status(200).json({
+      success: true,
+      message: 'Logged out successfully'
+    });
+  },
+
+  /**
    * Get current user
-   * @param {Object} req - Express request object
-   * @param {Object} res - Express response object
    */
   getCurrentUser: async (req, res) => {
     try {
-      // User is attached to request by auth middleware
       const user = req.user;
-      
+
       if (!user) {
         return res.status(401).json({
           success: false,
@@ -163,8 +162,7 @@ const authController = {
         });
       }
 
-      // Remove password from response
-      const userData = user.toJSON();
+      const userData = user.toJSON ? user.toJSON() : user;
       delete userData.password;
 
       return res.status(200).json({
@@ -175,21 +173,9 @@ const authController = {
       console.error('Get current user error:', error);
       return res.status(500).json({
         success: false,
-        message: 'Failed to get user information'
+        message: 'Failed to get current user'
       });
     }
-  },
-
-  /**
-   * Logout user (client-side token deletion)
-   * @param {Object} req - Express request object
-   * @param {Object} res - Express response object
-   */
-  logout: (req, res) => {
-    return res.status(200).json({
-      success: true,
-      message: 'Logged out successfully'
-    });
   }
 };
 

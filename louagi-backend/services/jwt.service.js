@@ -1,5 +1,5 @@
 const jwt = require('jsonwebtoken');
-const config = require('../config/jwt');
+const jwtOptions = require('../config/jwt');
 
 /**
  * JWT Service for token generation and verification
@@ -17,9 +17,7 @@ class JwtService {
       role: user.role
     };
     
-    return jwt.sign(payload, config.secret, {
-      expiresIn: config.expiresIn
-    });
+    return jwt.sign(payload, jwtOptions.accessToken.secret, jwtOptions.accessToken.options);
   }
 
   /**
@@ -30,7 +28,7 @@ class JwtService {
    */
   verifyToken(token) {
     try {
-      return jwt.verify(token, config.secret);
+      return jwt.verify(token, jwtOptions.accessToken.secret);
     } catch (error) {
       throw new Error('Invalid token');
     }

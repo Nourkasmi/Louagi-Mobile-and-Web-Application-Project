@@ -24,6 +24,14 @@ router.delete(
   tripController.deleteTrip
 );
 
+// ✅ Admin: Trigger automatic trip generation
+router.post(
+  '/generate',
+  authMiddleware.authenticate,
+  authMiddleware.hasRole('admin'),
+  tripController.generateTripsFromSchedules
+);
+
 // ✅ Admin & Driver: update trip status
 router.put(
   '/:id/status',

@@ -1,6 +1,8 @@
 const { Trip, Destination, Schedule, Driver, DriverQueue } = require('../models');
 const { Op } = require('sequelize');
 const { validate: isUUID } = require('uuid');
+const generateTripsFromSchedules = require('../utils/trip.generator');
+
 
 const tripController = {
   // ✅ Create a new trip
@@ -151,6 +153,21 @@ const tripController = {
       console.error('Delete trip error:', error);
       return res.status(500).json({ success: false, message: 'Failed to delete trip' });
     }
+  }
+  
+};
+// ✅ Generate Trips Based on Active Schedules
+tripController.generateTripsFromSchedules = async (req, res) => {
+  try {
+    const logs = await generateTripsFromSchedules();
+    return res.status(200).json({
+      success: true,
+      message: 'Trip generation process completed',
+      logs
+    });
+  } catch (error) {
+    console.error('Generate trips error:', error);
+    return res.status(500).json({ success: false, message: 'Failed to generate trips' });
   }
 };
 

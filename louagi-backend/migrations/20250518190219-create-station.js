@@ -15,10 +15,6 @@ module.exports = {
         allowNull: false,
         unique: true
       },
-      location: {
-        type: Sequelize.JSONB,
-        allowNull: false
-      },
       address: {
         type: Sequelize.STRING,
         allowNull: false

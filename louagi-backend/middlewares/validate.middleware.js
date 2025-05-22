@@ -65,6 +65,22 @@ const validationSchemas = {
     // Passenger-specific fields
     preferences: Joi.object().allow(null),
     payment_info: Joi.object().allow(null)
+  }),
+
+  /**
+   * Station schema
+   */
+  station: Joi.object({
+    name: Joi.string().min(2).max(50).required(),
+    city: Joi.string().min(2).max(50).required(),
+    state: Joi.string().min(2).max(50).required(),
+    zipCode: Joi.string().pattern(/^[0-9]{4,6}$/).required(),
+    capacity: Joi.number().integer().min(1).max(1000).optional(),
+    isActive: Joi.boolean().optional(),
+    contactPhone: Joi.string().pattern(/^\+?[0-9]{8,15}$/).optional(),
+    contactEmail: Joi.string().email().optional(),
+    amenities: Joi.object().optional(),
+    address: Joi.string().min(5).max(100).required()
   })
 };
 
@@ -97,6 +113,15 @@ const validateMiddleware = {
    */
   validateUserUpdate: (data) => {
     return validationSchemas.userUpdate.validate(data, { abortEarly: false });
+  },
+
+  /**
+   * Validate station data
+   * @param {Object} data - Station data to validate
+   * @returns {Object} Validation result
+   */
+  validateStation: (data) => {
+    return validationSchemas.station.validate(data, { abortEarly: false });
   }
 };
 

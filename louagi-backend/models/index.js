@@ -19,7 +19,7 @@ const sequelize = new Sequelize(
       timestamps: true,
       underscored: true,
       freezeTableName: false,
-      paranoid: true
+      paranoid: false  
     }
   }
 );

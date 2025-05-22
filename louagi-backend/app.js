@@ -40,7 +40,7 @@ const apiPrefix = `/api/${config.server.apiVersion}`;
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 
-// app.use('/api/trips', tripRoutes);
+app.use('/api/trips', tripRoutes);
 // app.use('/api/bookings', bookingRoutes);
 // app.use('/api/payments', paymentRoutes);
 app.use('/api/stations', stationRoutes);

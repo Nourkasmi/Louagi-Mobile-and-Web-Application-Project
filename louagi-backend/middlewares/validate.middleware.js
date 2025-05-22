@@ -9,7 +9,7 @@ const validationSchemas = {
     username: Joi.string().min(3).max(30).required(),
     email: Joi.string().email().required(),
     password: Joi.string().min(8).required()
-      .pattern(new RegExp('^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)'))
+      .pattern(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/)
       .message('Password must contain at least one uppercase letter, one lowercase letter, and one number'),
     phone: Joi.string().pattern(/^\+?[0-9]{10,15}$/).required(),
     role: Joi.string().valid('passenger', 'driver', 'admin').default('passenger'),
@@ -44,7 +44,7 @@ const validationSchemas = {
     email: Joi.string().email(),
     phone: Joi.string().pattern(/^\+?[0-9]{10,15}$/),
     password: Joi.string().min(8)
-      .pattern(new RegExp('^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)'))
+      .pattern(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/)
       .message('Password must contain at least one uppercase letter, one lowercase letter, and one number'),
     license_no: Joi.string(),
     experience: Joi.number().integer().min(0),
@@ -76,6 +76,17 @@ const validationSchemas = {
     estimatedDuration: Joi.number().integer().min(1).required(),
     description: Joi.string().allow('', null),
     isActive: Joi.boolean().optional()
+  }),
+
+  // ✅ Schedule schema (added)
+  schedule: Joi.object({
+    stationId: Joi.string().uuid().required(),
+    dayOfWeek: Joi.number().integer().min(0).max(6).required(),
+    startTime: Joi.string().pattern(/^([01]\d|2[0-3]):([0-5]\d)$/).required(),
+    endTime: Joi.string().pattern(/^([01]\d|2[0-3]):([0-5]\d)$/).required(),
+    isActive: Joi.boolean().optional(),
+    maxTrips: Joi.number().integer().min(1).max(1000).optional(),
+    notes: Joi.string().allow('', null)
   })
 };
 
@@ -83,25 +94,12 @@ const validationSchemas = {
  * Validation middleware functions
  */
 const validateMiddleware = {
-  validateRegistration: (data) => {
-    return validationSchemas.registration.validate(data, { abortEarly: false });
-  },
-
-  validateLogin: (data) => {
-    return validationSchemas.login.validate(data, { abortEarly: false });
-  },
-
-  validateUserUpdate: (data) => {
-    return validationSchemas.userUpdate.validate(data, { abortEarly: false });
-  },
-
-  validateStation: (data) => {
-    return validationSchemas.station.validate(data, { abortEarly: false });
-  },
-
-  validateDestination: (data) => {
-    return validationSchemas.destination.validate(data, { abortEarly: false });
-  }
+  validateRegistration: (data) => validationSchemas.registration.validate(data, { abortEarly: false }),
+  validateLogin: (data) => validationSchemas.login.validate(data, { abortEarly: false }),
+  validateUserUpdate: (data) => validationSchemas.userUpdate.validate(data, { abortEarly: false }),
+  validateStation: (data) => validationSchemas.station.validate(data, { abortEarly: false }),
+  validateDestination: (data) => validationSchemas.destination.validate(data, { abortEarly: false }),
+  validateSchedule: (data) => validationSchemas.schedule.validate(data, { abortEarly: false }) // ✅
 };
 
 module.exports = {
@@ -109,5 +107,6 @@ module.exports = {
   validateLogin: validateMiddleware.validateLogin,
   validateUserUpdate: validateMiddleware.validateUserUpdate,
   validateStation: validateMiddleware.validateStation,
-  validateDestination: validateMiddleware.validateDestination
+  validateDestination: validateMiddleware.validateDestination,
+  validateSchedule: validateMiddleware.validateSchedule // ✅
 };

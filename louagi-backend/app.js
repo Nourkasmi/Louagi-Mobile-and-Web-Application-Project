@@ -45,7 +45,7 @@ app.use('/api/users', userRoutes);
 // app.use('/api/payments', paymentRoutes);
 app.use('/api/stations', stationRoutes);
 // app.use('/api/schedules', scheduleRoutes);
-// app.use('/api/destinations', destinationRoutes);
+app.use('/api/destinations', destinationRoutes);
 // app.use('/api/drivers', driverRoutes);
 // app.use('/api/admin/queue', queueRoutes);
 

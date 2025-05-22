@@ -1,13 +1,15 @@
 const express = require('express');
 const router = express.Router();
+
 const userController = require('../controllers/user.controller');
 const authMiddleware = require('../middlewares/auth.middleware');
+const paramMiddleware = require('../middlewares/param.middleware');
 
 /**
  * User routes
  */
 
-// Admin routes
+// Admin: Get all users
 router.get(
   '/',
   authMiddleware.authenticate,
@@ -15,27 +17,30 @@ router.get(
   userController.getAllUsers
 );
 
-// Get user by ID (user can get their own profile, admin can get any)
+// Get user by ID (self or admin)
 router.get(
   '/:id',
   authMiddleware.authenticate,
   authMiddleware.isOwnerOrAdmin((req) => req.params.id),
+  paramMiddleware.validateUUID('id'),
   userController.getUserById
 );
 
-// Update user (user can update their own profile, admin can update any)
+// Update user by ID (self or admin)
 router.put(
   '/:id',
   authMiddleware.authenticate,
   authMiddleware.isOwnerOrAdmin((req) => req.params.id),
+  paramMiddleware.validateUUID('id'),
   userController.updateUser
 );
 
-// Delete user (admin only)
+// Admin: Delete user
 router.delete(
   '/:id',
   authMiddleware.authenticate,
   authMiddleware.hasRole('admin'),
+  paramMiddleware.validateUUID('id'),
   userController.deleteUser
 );
 

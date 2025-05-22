@@ -4,9 +4,7 @@ const Joi = require('joi');
  * Validation schemas for request data
  */
 const validationSchemas = {
-  /**
-   * User registration schema
-   */
+  // User registration schema
   registration: Joi.object({
     username: Joi.string().min(3).max(30).required(),
     email: Joi.string().email().required(),
@@ -15,8 +13,6 @@ const validationSchemas = {
       .message('Password must contain at least one uppercase letter, one lowercase letter, and one number'),
     phone: Joi.string().pattern(/^\+?[0-9]{10,15}$/).required(),
     role: Joi.string().valid('passenger', 'driver', 'admin').default('passenger'),
-
-    // Driver-specific fields (required if role is driver)
     license_no: Joi.when('role', {
       is: 'driver',
       then: Joi.string().required(),
@@ -32,23 +28,17 @@ const validationSchemas = {
       then: Joi.date().required(),
       otherwise: Joi.date().allow(null)
     }),
-
-    // Passenger-specific fields (optional)
     preferences: Joi.object().allow(null),
     payment_info: Joi.object().allow(null)
   }),
 
-  /**
-   * User login schema
-   */
+  // Login schema
   login: Joi.object({
     email: Joi.string().email().required(),
     password: Joi.string().required()
   }),
 
-  /**
-   * User update schema
-   */
+  // User update schema
   userUpdate: Joi.object({
     username: Joi.string().min(3).max(30),
     email: Joi.string().email(),
@@ -56,20 +46,14 @@ const validationSchemas = {
     password: Joi.string().min(8)
       .pattern(new RegExp('^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)'))
       .message('Password must contain at least one uppercase letter, one lowercase letter, and one number'),
-
-    // Driver-specific fields
     license_no: Joi.string(),
     experience: Joi.number().integer().min(0),
     license_expiry: Joi.date(),
-
-    // Passenger-specific fields
     preferences: Joi.object().allow(null),
     payment_info: Joi.object().allow(null)
   }),
 
-  /**
-   * Station schema
-   */
+  // Station schema
   station: Joi.object({
     name: Joi.string().min(2).max(50).required(),
     city: Joi.string().min(2).max(50).required(),
@@ -81,6 +65,17 @@ const validationSchemas = {
     contactEmail: Joi.string().email().optional(),
     amenities: Joi.object().optional(),
     address: Joi.string().min(5).max(100).required()
+  }),
+
+  // Destination schema
+  destination: Joi.object({
+    startId: Joi.string().uuid().required(),
+    endId: Joi.string().uuid().required(),
+    distance: Joi.number().positive().required(),
+    basePrice: Joi.number().precision(2).positive().required(),
+    estimatedDuration: Joi.number().integer().min(1).required(),
+    description: Joi.string().allow('', null),
+    isActive: Joi.boolean().optional()
   })
 };
 
@@ -88,41 +83,31 @@ const validationSchemas = {
  * Validation middleware functions
  */
 const validateMiddleware = {
-  /**
-   * Validate registration data
-   * @param {Object} data - Registration data to validate
-   * @returns {Object} Validation result
-   */
   validateRegistration: (data) => {
     return validationSchemas.registration.validate(data, { abortEarly: false });
   },
 
-  /**
-   * Validate login data
-   * @param {Object} data - Login data to validate
-   * @returns {Object} Validation result
-   */
   validateLogin: (data) => {
     return validationSchemas.login.validate(data, { abortEarly: false });
   },
 
-  /**
-   * Validate user update data
-   * @param {Object} data - User update data to validate
-   * @returns {Object} Validation result
-   */
   validateUserUpdate: (data) => {
     return validationSchemas.userUpdate.validate(data, { abortEarly: false });
   },
 
-  /**
-   * Validate station data
-   * @param {Object} data - Station data to validate
-   * @returns {Object} Validation result
-   */
   validateStation: (data) => {
     return validationSchemas.station.validate(data, { abortEarly: false });
+  },
+
+  validateDestination: (data) => {
+    return validationSchemas.destination.validate(data, { abortEarly: false });
   }
 };
 
-module.exports = validateMiddleware;
+module.exports = {
+  validateRegistration: validateMiddleware.validateRegistration,
+  validateLogin: validateMiddleware.validateLogin,
+  validateUserUpdate: validateMiddleware.validateUserUpdate,
+  validateStation: validateMiddleware.validateStation,
+  validateDestination: validateMiddleware.validateDestination
+};

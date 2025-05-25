@@ -261,6 +261,7 @@ louagi-backend/
 ├── middlewares/             # Custom middlewares
 │   ├── auth.middleware.js   # Role-based auth
 │   ├── error.middleware.js
+│   ├── param.middleware.js
 │   └── validate.middleware.js
 │
 ├── models/                  # Sequelize models
@@ -293,6 +294,9 @@ louagi-backend/
 │
 ├── utils/                   # Utility functions
 │   └── logger.js
+│   └── trip.utils.js
+│   └── trip.generator.js
+│   └── schedule.utils.js
 │
 ├── .env                     # Environment variables
 ├── .sequelizerc             # Sequelize config path

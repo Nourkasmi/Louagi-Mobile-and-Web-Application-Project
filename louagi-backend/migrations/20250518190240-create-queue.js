@@ -18,6 +18,16 @@ module.exports = {
         onUpdate: 'CASCADE',
         onDelete: 'CASCADE'
       },
+      destination_id: {
+        type: Sequelize.UUID,
+        allowNull: false,
+        references: {
+          model: 'destinations',
+          key: 'id'
+        },
+        onUpdate: 'CASCADE',
+        onDelete: 'CASCADE'
+      },
       driver_id: {
         type: Sequelize.UUID,
         allowNull: false,
@@ -43,7 +53,7 @@ module.exports = {
         allowNull: false
       },
       status: {
-        type: Sequelize.ENUM('waiting', 'called', 'skipped', 'done'),
+        type: Sequelize.ENUM('waiting', 'called', 'skipped', 'done', 'assigned'),
         allowNull: false,
         defaultValue: 'waiting'
       },
@@ -59,8 +69,16 @@ module.exports = {
       }
     });
 
-    await queryInterface.addIndex('queues', ['station_id', 'schedule_id', 'status']);
+    // Indexes
+    await queryInterface.addIndex('queues', ['station_id', 'destination_id', 'schedule_id', 'status']);
     await queryInterface.addIndex('queues', ['driver_id']);
+
+    // Composite Unique Constraint: one driver per route
+    await queryInterface.addConstraint('queues', {
+      fields: ['station_id', 'destination_id', 'driver_id'],
+      type: 'unique',
+      name: 'unique_queue_entry_per_route'
+    });
   },
 
   down: async (queryInterface, Sequelize) => {

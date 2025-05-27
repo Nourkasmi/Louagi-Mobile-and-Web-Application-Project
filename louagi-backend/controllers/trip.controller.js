@@ -3,7 +3,6 @@ const { Op } = require('sequelize');
 const { validate: isUUID } = require('uuid');
 const generateTripsFromSchedules = require('../utils/trip.generator');
 
-
 const tripController = {
   // ✅ Create a new trip
   createTrip: async (req, res) => {
@@ -153,21 +152,69 @@ const tripController = {
       console.error('Delete trip error:', error);
       return res.status(500).json({ success: false, message: 'Failed to delete trip' });
     }
-  }
-  
-};
-// ✅ Generate Trips Based on Active Schedules
-tripController.generateTripsFromSchedules = async (req, res) => {
-  try {
-    const logs = await generateTripsFromSchedules();
-    return res.status(200).json({
-      success: true,
-      message: 'Trip generation process completed',
-      logs
-    });
-  } catch (error) {
-    console.error('Generate trips error:', error);
-    return res.status(500).json({ success: false, message: 'Failed to generate trips' });
+  },
+
+  // ✅ Generate Trips Based on Active Schedules
+  generateTripsFromSchedules: async (req, res) => {
+    try {
+      const logs = await generateTripsFromSchedules();
+      return res.status(200).json({
+        success: true,
+        message: 'Trip generation process completed',
+        logs
+      });
+    } catch (error) {
+      console.error('Generate trips error:', error);
+      return res.status(500).json({ success: false, message: 'Failed to generate trips' });
+    }
+  },
+
+  // ✅ Get all trips assigned to the logged-in driver
+  getDriverTrips: async (req, res) => {
+    try {
+      const driverId = req.user.id;
+
+      const trips = await Trip.findAll({
+        where: { driverId },
+        include: [
+          { model: Destination, as: 'route' },
+          { model: Schedule, as: 'schedule' }
+        ],
+        order: [['departureTime', 'DESC']]
+      });
+
+      return res.status(200).json({ success: true, trips });
+    } catch (error) {
+      console.error('Error fetching driver trips:', error);
+      return res.status(500).json({ success: false, message: 'Failed to fetch trips' });
+    }
+  },
+
+  // ✅ Mark a trip as completed by the driver
+  completeTrip: async (req, res) => {
+    try {
+      const tripId = req.params.id;
+      const driverId = req.user.id;
+
+      const trip = await Trip.findOne({ where: { id: tripId, driverId } });
+
+      if (!trip) {
+        return res.status(404).json({ success: false, message: 'Trip not found or not assigned to you' });
+      }
+
+      if (trip.status === 'completed') {
+        return res.status(400).json({ success: false, message: 'Trip already completed' });
+      }
+
+      trip.status = 'completed';
+      trip.arrivalTime = new Date();
+      await trip.save();
+
+      return res.status(200).json({ success: true, message: 'Trip marked as completed', trip });
+    } catch (error) {
+      console.error('Complete trip error:', error);
+      return res.status(500).json({ success: false, message: 'Failed to complete trip' });
+    }
   }
 };
 

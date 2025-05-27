@@ -14,6 +14,14 @@ router.get(
   destinationController.getDestinationById
 );
 
+// ✅ NEW: Get all trips for a destination (auth required)
+router.get(
+  '/:id/trips',
+  authMiddleware.authenticate,
+  paramMiddleware.validateUUID('id'),
+  destinationController.getTripsByDestinationId
+);
+
 // Admin-only routes
 router.post(
   '/',

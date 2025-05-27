@@ -18,6 +18,15 @@ module.exports = (sequelize, DataTypes) => {
         },
         field: 'station_id'
       },
+      destinationId: {
+        type: DataTypes.UUID,
+        allowNull: false,
+        references: {
+          model: 'destinations',
+          key: 'id'
+        },
+        field: 'destination_id'
+      },
       driverId: {
         type: DataTypes.UUID,
         allowNull: false,
@@ -41,15 +50,21 @@ module.exports = (sequelize, DataTypes) => {
         allowNull: false
       },
       status: {
-        type: DataTypes.ENUM('waiting', 'called', 'skipped', 'done'),
+        type: DataTypes.ENUM('waiting', 'called', 'skipped', 'done', 'assigned'),
         allowNull: false,
         defaultValue: 'waiting'
       }
     },
     {
-      tableName: 'queues', // ✅ must match your migration table name
+      tableName: 'queues',
+      underscored: true,
       timestamps: true,
-      underscored: true
+      indexes: [
+        {
+          unique: true,
+          fields: ['station_id', 'destination_id', 'driver_id']
+        }
+      ]
     }
   );
 
@@ -57,6 +72,11 @@ module.exports = (sequelize, DataTypes) => {
     DriverQueue.belongsTo(models.Station, {
       foreignKey: 'stationId',
       as: 'station'
+    });
+
+    DriverQueue.belongsTo(models.Destination, {
+      foreignKey: 'destinationId',
+      as: 'destination'
     });
 
     DriverQueue.belongsTo(models.Driver, {

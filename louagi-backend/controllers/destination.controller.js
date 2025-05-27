@@ -1,4 +1,4 @@
-const { Destination, Station } = require('../models');
+const { Destination, Station, Trip, Driver, Schedule } = require('../models');
 const { Op } = require('sequelize');
 const { validateDestination } = require('../middlewares/validate.middleware');
 
@@ -118,6 +118,40 @@ const destinationController = {
     } catch (error) {
       console.error('Get destination by ID error:', error);
       return res.status(500).json({ success: false, message: 'Failed to retrieve destination' });
+    }
+  },
+
+  // ✅ Get all trips linked to a specific destination (routeId)
+  getTripsByDestinationId: async (req, res) => {
+    try {
+      const { id } = req.params;
+
+      const destination = await Destination.findByPk(id);
+      if (!destination) {
+        return res.status(404).json({ success: false, message: 'Destination not found' });
+      }
+
+      const trips = await destination.getTrips({
+        include: [
+          { model: Driver, as: 'driver', attributes: ['id'] },
+          { model: Schedule, as: 'schedule' }
+        ]
+      });
+
+      return res.status(200).json({
+        success: true,
+        destination: {
+          id: destination.id,
+          description: destination.description,
+          from: destination.startId,
+          to: destination.endId
+        },
+        tripCount: trips.length,
+        trips
+      });
+    } catch (error) {
+      console.error('Get trips by destination error:', error);
+      return res.status(500).json({ success: false, message: 'Failed to retrieve trips' });
     }
   },
 

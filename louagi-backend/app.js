@@ -46,8 +46,8 @@ app.use('/api/trips', tripRoutes);
 app.use('/api/stations', stationRoutes);
 app.use('/api/schedules', scheduleRoutes);
 app.use('/api/destinations', destinationRoutes);
-// app.use('/api/drivers', driverRoutes);
-// app.use('/api/admin/queue', queueRoutes);
+app.use('/api/drivers', driverRoutes);
+app.use('/queues', queueRoutes);
 
 
 // API health check endpoint

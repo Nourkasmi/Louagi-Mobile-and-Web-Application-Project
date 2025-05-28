@@ -31,6 +31,7 @@ const authController = {
         license_expiry
       } = req.body;
 
+      // Only check for email duplicates, not username
       const existingUser = await User.findOne({ where: { email } });
       if (existingUser) {
         return res.status(400).json({
@@ -79,6 +80,30 @@ const authController = {
 
     } catch (error) {
       console.error('Registration error:', error);
+
+      // Handle Sequelize unique constraint errors
+      if (error.name === 'SequelizeUniqueConstraintError') {
+        const field = error.errors[0].path;
+        const value = error.errors[0].value;
+        
+        return res.status(400).json({
+          success: false,
+          message: `${field} '${value}' is already taken`
+        });
+      }
+
+      // Handle validation errors
+      if (error.name === 'SequelizeValidationError') {
+        return res.status(400).json({
+          success: false,
+          message: 'Validation failed',
+          errors: error.errors.map(err => ({
+            field: err.path,
+            message: err.message
+          }))
+        });
+      }
+
       return res.status(500).json({
         success: false,
         message: 'Failed to register user'

@@ -1,4 +1,4 @@
-const { Driver, Station, Schedule, Trip, DriverQueue } = require('../models');
+const { Driver, Station, Schedule, Destination, Trip, DriverQueue } = require('../models');
 const { Op } = require('sequelize');
 const queueUtils = require('../utils/queue.utils');
 const { v4: uuidv4 } = require('uuid');
@@ -21,7 +21,7 @@ const driverController = {
       }
 
       const driverId = driver.id;
-      const { stationId, scheduleId } = req.body;
+      const { stationId, scheduleId, destinationId: bodyDestinationId } = req.body;
 
       // ✅ Validate station and schedule existence
       const station = await Station.findByPk(stationId);
@@ -61,22 +61,39 @@ const driverController = {
         return res.status(403).json({ success: false, message: 'Driver not eligible to re-enter queue yet' });
       }
 
-      // ✅ Get next available queue position
-      const position = await queueUtils.getNextQueuePosition(stationId, scheduleId);
+      // ✅ If destinationId not provided, find active destination for this station
+      let destinationId = bodyDestinationId;
+      if (!destinationId) {
+        const destination = await Destination.findOne({
+          where: {
+            startId: stationId,
+            isActive: true
+          }
+        });
 
-      // ✅ Create new queue entry
+        if (!destination) {
+          return res.status(404).json({ success: false, message: 'No active destination found for this station' });
+        }
+        destinationId = destination.id;
+      }
+
+      // ✅ Get next available queue position
+      const position = await queueUtils.getNextQueuePosition(stationId, scheduleId, destinationId);
+
+      // ✅ Create new queue entry with destinationId
       await DriverQueue.create({
         id: uuidv4(),
         driverId,
         stationId,
         scheduleId,
+        destinationId,
         position,
         status: 'waiting',
         joinedAt: new Date()
       });
 
       // ✅ Attempt to generate a trip
-      const trip = await queueUtils.tryGenerateTripFromQueue?.(stationId, scheduleId);
+      const trip = await queueUtils.tryGenerateTripFromQueue?.(stationId, scheduleId, destinationId);
 
       return res.status(201).json({
         success: true,

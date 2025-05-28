@@ -33,13 +33,17 @@ const stationController = {
 
       const whereClause = {};
 
-      if (city) whereClause.city = city;
+      if (city) {
+        whereClause.city = { [Op.iLike]: `%${city}%` };
+      }
       if (search) {
         whereClause[Op.or] = [
           { name: { [Op.iLike]: `%${search}%` } },
-          { address: { [Op.iLike]: `%${search}%` } }
+          { address: { [Op.iLike]: `%${search}%` } },
+          { city: { [Op.iLike]: `%${search}%` } }
         ];
       }
+
 
       const { count, rows } = await Station.findAndCountAll({
         where: whereClause,

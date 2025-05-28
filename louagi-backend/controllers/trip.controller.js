@@ -172,10 +172,14 @@ const tripController = {
   // ✅ Get all trips assigned to the logged-in driver
   getDriverTrips: async (req, res) => {
     try {
-      const driverId = req.user.id;
+      const userId = req.user.id;
+      const driver = await Driver.findOne({ where: { user_id: userId } });
+      if (!driver) {
+        return res.status(404).json({ success: false, message: 'Driver not found' });
+      }
 
       const trips = await Trip.findAll({
-        where: { driverId },
+        where: { driverId: driver.id },
         include: [
           { model: Destination, as: 'route' },
           { model: Schedule, as: 'schedule' }
@@ -194,9 +198,15 @@ const tripController = {
   completeTrip: async (req, res) => {
     try {
       const tripId = req.params.id;
-      const driverId = req.user.id;
+      const userId = req.user.id;
 
-      const trip = await Trip.findOne({ where: { id: tripId, driverId } });
+      const driver = await Driver.findOne({ where: { user_id: userId } });
+
+      if (!driver) {
+        return res.status(404).json({ success: false, message: 'Driver profile not found' });
+      }
+
+      const trip = await Trip.findOne({ where: { id: tripId, driverId: driver.id } });
 
       if (!trip) {
         return res.status(404).json({ success: false, message: 'Trip not found or not assigned to you' });
@@ -207,7 +217,7 @@ const tripController = {
       }
 
       trip.status = 'completed';
-      trip.arrivalTime = new Date();
+      trip.actualArrivalTime = new Date();
       await trip.save();
 
       return res.status(200).json({ success: true, message: 'Trip marked as completed', trip });

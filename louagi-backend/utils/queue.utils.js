@@ -150,10 +150,29 @@ async function tryGenerateTripFromQueue(stationId, scheduleId, destinationId) {
   return null; // No eligible driver found
 }
 
+/**
+ * Check if current time is within the schedule's active hours.
+ * @param {object} schedule - must contain startTime and endTime (format: HH:mm)
+ * @returns {boolean}
+ */
+function isWithinScheduleTime(schedule) {
+  const now = new Date();
+  const nowMinutes = now.getHours() * 60 + now.getMinutes();
+
+  const [startHour, startMinute] = schedule.startTime.split(':').map(Number);
+  const [endHour, endMinute] = schedule.endTime.split(':').map(Number);
+
+  const startMinutes = startHour * 60 + startMinute;
+  const endMinutes = endHour * 60 + endMinute;
+
+  return nowMinutes >= startMinutes && nowMinutes <= endMinutes;
+}
+
 module.exports = {
   getLastCompletedTrip,
   isDriverEligible,
   estimateDepartureTime,
   getNextQueuePosition,
-  tryGenerateTripFromQueue
+  tryGenerateTripFromQueue,
+  isWithinScheduleTime // ✅ export added here
 };

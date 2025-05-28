@@ -41,4 +41,13 @@ router.put(
   tripController.updateTripStatus
 );
 
+// ✅ Driver: Complete a trip
+router.put(
+  '/:id/complete',
+  validateUUID('id'),
+  authMiddleware.authenticate,
+  authMiddleware.hasRole('driver'),
+  tripController.completeTrip
+);
+
 module.exports = router;

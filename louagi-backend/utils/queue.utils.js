@@ -1,4 +1,4 @@
-const { Trip, DriverQueue, Schedule, Destination } = require('../models');
+const { Trip, DriverQueue, Schedule, Destination, Driver } = require('../models');
 const { Op } = require('sequelize');
 const { v4: uuidv4 } = require('uuid');
 
@@ -144,7 +144,16 @@ async function tryGenerateTripFromQueue(stationId, scheduleId, destinationId) {
 
     await entry.update({ status: 'assigned' });
 
-    return trip;
+    // 🔁 Fetch full trip with all associations
+    const fullTrip = await Trip.findByPk(trip.id, {
+      include: [
+        { model: Destination, as: 'route' },
+        { model: Schedule, as: 'schedule' },
+        { model: Driver, as: 'driver' }
+      ]
+    });
+
+    return fullTrip;
   }
 
   return null; // No eligible driver found
@@ -174,5 +183,5 @@ module.exports = {
   estimateDepartureTime,
   getNextQueuePosition,
   tryGenerateTripFromQueue,
-  isWithinScheduleTime // ✅ export added here
+  isWithinScheduleTime
 };

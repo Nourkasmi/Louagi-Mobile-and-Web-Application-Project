@@ -46,6 +46,8 @@ const startServer = async () => {
     // Test database connection
     await sequelize.authenticate();
     logger.info('Database connection established successfully');
+
+    require('./services/cron.service');
     
     // Start HTTP server
     server.listen(port);

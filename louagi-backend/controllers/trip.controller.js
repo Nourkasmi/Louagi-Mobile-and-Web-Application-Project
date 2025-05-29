@@ -47,7 +47,16 @@ const tripController = {
         queueId: queueId || null
       });
 
-      return res.status(201).json({ success: true, trip });
+      // ✅ Re-fetch trip with destination included
+      const fullTrip = await Trip.findByPk(trip.id, {
+        include: [
+          { model: Destination, as: 'route' },
+          { model: Schedule, as: 'schedule' },
+          { model: Driver, as: 'driver' }
+        ]
+      });
+
+      return res.status(201).json({ success: true, trip: fullTrip });
     } catch (error) {
       console.error('Create trip error:', error);
       return res.status(500).json({ success: false, message: 'Failed to create trip' });

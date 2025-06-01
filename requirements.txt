@@ -4,6 +4,7 @@ npm install --save-dev nodemon
 npm install --save-dev sequelize-cli
 npx sequelize-cli init
 npm install bcryptjs
+npm install node-cron
 
 
 RUN THIS after pull 

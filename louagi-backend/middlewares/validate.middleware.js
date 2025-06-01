@@ -78,7 +78,7 @@ const validationSchemas = {
     isActive: Joi.boolean().optional()
   }),
 
-  // ✅ Schedule schema (added)
+  // Schedule schema
   schedule: Joi.object({
     stationId: Joi.string().uuid().required(),
     dayOfWeek: Joi.number().integer().min(0).max(6).required(),
@@ -87,6 +87,41 @@ const validationSchemas = {
     isActive: Joi.boolean().optional(),
     maxTrips: Joi.number().integer().min(1).max(1000).optional(),
     notes: Joi.string().allow('', null)
+  }),
+
+  // Booking schemas
+  booking: Joi.object({
+    tripId: Joi.string().uuid().required(),
+    seats: Joi.number().integer().min(1).max(8).default(1),
+    specialRequests: Joi.string().max(500).allow('', null),
+    paymentMethod: Joi.string().valid('card', 'cash', 'wallet').optional()
+  }),
+
+  // Booking update schema
+  bookingUpdate: Joi.object({
+    status: Joi.string().valid('pending', 'confirmed', 'cancelled', 'completed', 'no_show').required(),
+    cancellationReason: Joi.when('status', {
+      is: 'cancelled',
+      then: Joi.string().max(500).required(),
+      otherwise: Joi.string().max(500).allow('', null)
+    }),
+    paymentStatus: Joi.string().valid('pending', 'processing', 'completed', 'failed', 'refunded').optional(),
+    paymentId: Joi.string().allow('', null).optional(),
+    specialRequests: Joi.string().max(500).allow('', null).optional()
+  }),
+
+  // Payment update schema
+  paymentUpdate: Joi.object({
+    paymentStatus: Joi.string().valid('pending', 'processing', 'completed', 'failed', 'refunded').required(),
+    paymentId: Joi.string().required(),
+    amount: Joi.number().precision(2).positive().optional()
+  }),
+
+  // Bulk booking update schema
+  bulkBookingUpdate: Joi.object({
+    bookingIds: Joi.array().items(Joi.string().uuid()).min(1).required(),
+    status: Joi.string().valid('confirmed', 'cancelled', 'completed', 'no_show').required(),
+    reason: Joi.string().max(500).allow('', null)
   })
 };
 
@@ -99,7 +134,11 @@ const validateMiddleware = {
   validateUserUpdate: (data) => validationSchemas.userUpdate.validate(data, { abortEarly: false }),
   validateStation: (data) => validationSchemas.station.validate(data, { abortEarly: false }),
   validateDestination: (data) => validationSchemas.destination.validate(data, { abortEarly: false }),
-  validateSchedule: (data) => validationSchemas.schedule.validate(data, { abortEarly: false }) // ✅
+  validateSchedule: (data) => validationSchemas.schedule.validate(data, { abortEarly: false }),
+  validateBooking: (data) => validationSchemas.booking.validate(data, { abortEarly: false }),
+  validateBookingUpdate: (data) => validationSchemas.bookingUpdate.validate(data, { abortEarly: false }),
+  validatePaymentUpdate: (data) => validationSchemas.paymentUpdate.validate(data, { abortEarly: false }),
+  validateBulkBookingUpdate: (data) => validationSchemas.bulkBookingUpdate.validate(data, { abortEarly: false })
 };
 
 module.exports = {
@@ -108,5 +147,9 @@ module.exports = {
   validateUserUpdate: validateMiddleware.validateUserUpdate,
   validateStation: validateMiddleware.validateStation,
   validateDestination: validateMiddleware.validateDestination,
-  validateSchedule: validateMiddleware.validateSchedule // ✅
+  validateSchedule: validateMiddleware.validateSchedule,
+  validateBooking: validateMiddleware.validateBooking,
+  validateBookingUpdate: validateMiddleware.validateBookingUpdate,
+  validatePaymentUpdate: validateMiddleware.validatePaymentUpdate,
+  validateBulkBookingUpdate: validateMiddleware.validateBulkBookingUpdate
 };

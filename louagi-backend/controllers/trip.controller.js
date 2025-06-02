@@ -2,6 +2,39 @@ const { Trip, Destination, Schedule, Driver, DriverQueue } = require('../models'
 const { Op } = require('sequelize');
 const { validate: isUUID } = require('uuid');
 const generateTripsFromSchedules = require('../utils/trip.generator');
+const { sequelize } = require('../models');
+
+/**
+ * ✅ NEW HELPER: Reindex queue positions after driver removal
+ */
+async function reindexQueuePositions(stationId, scheduleId, destinationId, transaction) {
+  if (!stationId || !scheduleId || !destinationId) {
+    console.log('⚠️ Missing queue identifiers, skipping reindex');
+    return;
+  }
+
+  const waitingDrivers = await DriverQueue.findAll({
+    where: {
+      stationId,
+      scheduleId,
+      destinationId,
+      status: 'waiting'
+    },
+    order: [['position', 'ASC']],
+    transaction
+  });
+
+  for (let i = 0; i < waitingDrivers.length; i++) {
+    const newPosition = i + 1;
+    if (waitingDrivers[i].position !== newPosition) {
+      await waitingDrivers[i].update({ 
+        position: newPosition 
+      }, { transaction });
+    }
+  }
+
+  console.log(`✅ Reindexed ${waitingDrivers.length} queue positions`);
+}
 
 const tripController = {
   // ✅ Create a new trip
@@ -47,7 +80,6 @@ const tripController = {
         queueId: queueId || null
       });
 
-      // ✅ Re-fetch trip with destination included
       const fullTrip = await Trip.findByPk(trip.id, {
         include: [
           { model: Destination, as: 'route' },
@@ -128,24 +160,76 @@ const tripController = {
     }
   },
 
-  // ✅ Update trip status
+  /**
+   * ✅ ENHANCED: Update trip status + remove from queue when starting
+   */
   updateTripStatus: async (req, res) => {
     try {
       const { id } = req.params;
       const { status } = req.body;
 
       if (!['scheduled', 'in_progress', 'completed', 'cancelled'].includes(status)) {
-        return res.status(400).json({ success: false, message: 'Invalid status' });
+        return res.status(400).json({ 
+          success: false, 
+          message: 'Invalid status' 
+        });
       }
 
-      const trip = await Trip.findByPk(id);
-      if (!trip) return res.status(404).json({ success: false, message: 'Trip not found' });
+      // Use transaction for data consistency
+      const result = await sequelize.transaction(async (t) => {
+        // Find trip with queue entry
+        const trip = await Trip.findByPk(id, {
+          include: [{ model: DriverQueue, as: 'queueEntry' }],
+          transaction: t
+        });
 
-      await trip.update({ status });
-      return res.status(200).json({ success: true, trip });
+        if (!trip) {
+          throw new Error('Trip not found');
+        }
+
+        // Update trip status
+        await trip.update({ status }, { transaction: t });
+
+        // ✅ Remove driver from queue when trip starts (manual or auto)
+        if (status === 'in_progress' && trip.queueEntry) {
+          console.log(`🚗 Trip started - removing driver from queue`);
+          
+          const { stationId, scheduleId, destinationId } = trip.queueEntry;
+          
+          // Remove queue entry
+          await trip.queueEntry.destroy({ transaction: t });
+          
+          // Reindex remaining queue positions  
+          await reindexQueuePositions(stationId, scheduleId, destinationId, t);
+
+          console.log(`✅ Driver removed from queue, positions reindexed`);
+        }
+
+        // ✅ Also cleanup on cancellation
+        if (status === 'cancelled' && trip.queueEntry) {
+          console.log(`❌ Trip cancelled - removing driver from queue`);
+          
+          const { stationId, scheduleId, destinationId } = trip.queueEntry;
+          
+          await trip.queueEntry.destroy({ transaction: t });
+          await reindexQueuePositions(stationId, scheduleId, destinationId, t);
+        }
+
+        return trip;
+      });
+
+      return res.status(200).json({ 
+        success: true, 
+        trip: result,
+        message: `Trip status updated to ${status}` 
+      });
+
     } catch (error) {
       console.error('Update trip status error:', error);
-      return res.status(500).json({ success: false, message: 'Failed to update trip status' });
+      return res.status(500).json({ 
+        success: false, 
+        message: error.message || 'Failed to update trip status' 
+      });
     }
   },
 
@@ -203,7 +287,9 @@ const tripController = {
     }
   },
 
-  // ✅ Mark a trip as completed by the driver
+  /**
+   * ✅ ENHANCED: Mark a trip as completed by the driver
+   */
   completeTrip: async (req, res) => {
     try {
       const tripId = req.params.id;
@@ -215,24 +301,48 @@ const tripController = {
         return res.status(404).json({ success: false, message: 'Driver profile not found' });
       }
 
-      const trip = await Trip.findOne({ where: { id: tripId, driverId: driver.id } });
+      // Use transaction for data consistency
+      const result = await sequelize.transaction(async (t) => {
+        const trip = await Trip.findOne({ 
+          where: { id: tripId, driverId: driver.id },
+          include: [{ model: DriverQueue, as: 'queueEntry' }],
+          transaction: t
+        });
 
-      if (!trip) {
-        return res.status(404).json({ success: false, message: 'Trip not found or not assigned to you' });
-      }
+        if (!trip) {
+          throw new Error('Trip not found or not assigned to you');
+        }
 
-      if (trip.status === 'completed') {
-        return res.status(400).json({ success: false, message: 'Trip already completed' });
-      }
+        if (trip.status === 'completed') {
+          throw new Error('Trip already completed');
+        }
 
-      trip.status = 'completed';
-      trip.actualArrivalTime = new Date();
-      await trip.save();
+        // Complete the trip
+        trip.status = 'completed';
+        trip.actualArrivalTime = new Date();
+        await trip.save({ transaction: t });
 
-      return res.status(200).json({ success: true, message: 'Trip marked as completed', trip });
+        // Clean up queue entry if still exists (shouldn't happen but safety check)
+        if (trip.queueEntry) {
+          console.log(`🧹 Cleaning up remaining queue entry for completed trip`);
+          await trip.queueEntry.destroy({ transaction: t });
+        }
+
+        return trip;
+      });
+
+      return res.status(200).json({ 
+        success: true, 
+        message: 'Trip marked as completed', 
+        trip: result 
+      });
+
     } catch (error) {
       console.error('Complete trip error:', error);
-      return res.status(500).json({ success: false, message: 'Failed to complete trip' });
+      return res.status(500).json({ 
+        success: false, 
+        message: error.message || 'Failed to complete trip' 
+      });
     }
   }
 };

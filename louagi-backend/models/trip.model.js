@@ -1,5 +1,3 @@
-// ✅ 1. Fixed trip.model.js
-
 'use strict';
 
 module.exports = (sequelize, DataTypes) => {
@@ -42,7 +40,7 @@ module.exports = (sequelize, DataTypes) => {
         type: DataTypes.UUID,
         allowNull: true,
         references: {
-          model: 'queues', // ✅ Corrected table name
+          model: 'queues',
           key: 'id'
         },
         field: 'queue_id'
@@ -77,6 +75,12 @@ module.exports = (sequelize, DataTypes) => {
         type: DataTypes.DATE,
         allowNull: true,
         field: 'actual_arrival_time'
+      },
+      // ✅ NEW: Track when trip actually started
+      actualDepartureTime: {
+        type: DataTypes.DATE,
+        allowNull: true,
+        field: 'actual_departure_time'
       },
       basePrice: {
         type: DataTypes.DECIMAL(10, 2),
@@ -121,7 +125,7 @@ module.exports = (sequelize, DataTypes) => {
       as: 'driver'
     });
 
-    Trip.belongsTo(models.DriverQueue, { // ✅ Fixed model name
+    Trip.belongsTo(models.DriverQueue, {
       foreignKey: 'queueId',
       as: 'queueEntry'
     });

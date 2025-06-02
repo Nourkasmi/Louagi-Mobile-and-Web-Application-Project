@@ -46,16 +46,62 @@ async function hasTimeLeftToday(stationId) {
 }
 
 /**
- * Check if a driver is eligible to re-enter the queue.
+ * ✅ ENHANCED: Check if driver is eligible with active trip validation
  */
 async function isDriverEligible(driverId, stationId) {
-  const lastTrip = await getLastCompletedTrip(driverId);
-  if (lastTrip && lastTrip.status !== 'completed') {
-    return { eligible: false, lastTrip, timeLeft: null };
+  // 1. Check for active trips (most important check)
+  const activeTrip = await Trip.findOne({
+    where: {
+      driverId,
+      status: { [Op.in]: ['scheduled', 'in_progress'] }
+    }
+  });
+
+  if (activeTrip) {
+    return { 
+      eligible: false, 
+      reason: `Driver has active trip (${activeTrip.status})`,
+      activeTrip,
+      timeLeft: null 
+    };
   }
 
+  // 2. Check for existing queue entries
+  const existingQueue = await DriverQueue.findOne({
+    where: { 
+      driverId,
+      status: { [Op.in]: ['waiting', 'assigned'] }
+    }
+  });
+
+  if (existingQueue) {
+    return { 
+      eligible: false, 
+      reason: 'Driver already in queue',
+      existingQueue,
+      timeLeft: null 
+    };
+  }
+
+  // 3. Check last completed trip and time restrictions
+  const lastTrip = await getLastCompletedTrip(driverId);
   const timeLeft = await hasTimeLeftToday(stationId);
-  return { eligible: timeLeft, lastTrip, timeLeft };
+
+  if (!timeLeft) {
+    return { 
+      eligible: false, 
+      reason: 'Not enough time left in schedule',
+      lastTrip, 
+      timeLeft: false 
+    };
+  }
+
+  // Driver is eligible
+  return { 
+    eligible: true, 
+    lastTrip, 
+    timeLeft: true 
+  };
 }
 
 /**
@@ -131,20 +177,21 @@ async function tryGenerateTripFromQueue(stationId, scheduleId, destinationId) {
     const trip = await Trip.create({
       id: uuidv4(),
       driverId: entry.driverId,
-      stationId,
-      scheduleId,
       routeId: destination.id,
+      scheduleId,
       queueId: entry.id,
       departureTime,
       estimatedArrivalTime,
       basePrice,
       currentPrice,
+      capacity: 4,
+      availableSeats: 4,
       status: 'scheduled'
     });
 
     await entry.update({ status: 'assigned' });
 
-    // 🔁 Fetch full trip with all associations
+    // Fetch full trip with all associations
     const fullTrip = await Trip.findByPk(trip.id, {
       include: [
         { model: Destination, as: 'route' },
@@ -161,8 +208,6 @@ async function tryGenerateTripFromQueue(stationId, scheduleId, destinationId) {
 
 /**
  * Check if current time is within the schedule's active hours.
- * @param {object} schedule - must contain startTime and endTime (format: HH:mm)
- * @returns {boolean}
  */
 function isWithinScheduleTime(schedule) {
   const now = new Date();

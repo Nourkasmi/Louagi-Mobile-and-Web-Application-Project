@@ -4,14 +4,20 @@ const driverController = require('../controllers/driver.controller');
 const tripController = require('../controllers/trip.controller');
 const auth = require('../middlewares/auth.middleware');
 
-// Middleware to protect driver-only routes
 const requireDriver = [auth.authenticate, auth.hasRole('driver')];
 
 /**
  * @route POST /api/drivers/available
- * @desc Driver declares availability → enters queue → may trigger trip
+ * @desc Driver declares availability (with enhanced validation)
  */
 router.post('/available', requireDriver, driverController.declareAvailability);
+
+/**
+ * ✅ NEW: Get driver's current status
+ * @route GET /api/drivers/status
+ * @desc Get driver's current trip and queue status
+ */
+router.get('/status', requireDriver, driverController.getDriverStatus);
 
 /**
  * @route GET /api/drivers/trips

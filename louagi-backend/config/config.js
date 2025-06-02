@@ -7,15 +7,28 @@ dotenv.config();
 // Active environment
 const env = process.env.NODE_ENV || 'development';
 
-// Validation schema
+// Validation schema - ADD STRIPE VARIABLES
 const envVarsSchema = {
-  required: ['NODE_ENV', 'PORT', 'DB_HOST', 'DB_PORT', 'DB_NAME', 'DB_USER', 'DB_PASSWORD', 'JWT_SECRET'],
+  required: [
+    'NODE_ENV', 
+    'PORT', 
+    'DB_HOST', 
+    'DB_PORT', 
+    'DB_NAME', 
+    'DB_USER', 
+    'DB_PASSWORD', 
+    'JWT_SECRET',
+    'STRIPE_SECRET_KEY',  // ✅ NEW: Required
+    'STRIPE_WEBHOOK_SECRET'  // ✅ NEW: Required
+  ],
   validate: {
     NODE_ENV: (v) => ['development', 'test', 'production'].includes(v),
     PORT: (v) => !isNaN(parseInt(v, 10)),
     DB_PORT: (v) => !isNaN(parseInt(v, 10)),
     JWT_ACCESS_EXPIRY: (v) => !v || /^\d+(s|m|h|d)$/.test(v),
     JWT_REFRESH_EXPIRY: (v) => !v || /^\d+(s|m|h|d)$/.test(v),
+    STRIPE_SECRET_KEY: (v) => v && (v.startsWith('sk_test_') || v.startsWith('sk_live_')), // ✅ NEW: Validate Stripe key format
+    STRIPE_WEBHOOK_SECRET: (v) => v && v.startsWith('whsec_') // ✅ NEW: Validate webhook secret format
   }
 };
 
@@ -35,7 +48,7 @@ const validateEnvVars = () => {
 
 validateEnvVars();
 
-// Sequelize-compatible DB config
+// Sequelize-compatible DB config (unchanged)
 const dbEnvs = {
   development: {
     username: process.env.DB_USER,
@@ -87,9 +100,20 @@ const fullConfig = {
     level: process.env.LOG_LEVEL || 'info',
     requestFormat: process.env.REQUEST_LOG_FORMAT || 'combined'
   },
+  // ✅ ENHANCED: Payment configuration
   payment: {
     stripeSecretKey: process.env.STRIPE_SECRET_KEY,
-    stripeWebhookSecret: process.env.STRIPE_WEBHOOK_SECRET
+    stripePublishableKey: process.env.STRIPE_PUBLISHABLE_KEY, // Optional for server-side
+    stripeWebhookSecret: process.env.STRIPE_WEBHOOK_SECRET,
+    currency: process.env.DEFAULT_CURRENCY || 'usd',
+    // Payment processing settings
+    processingFeePercentage: parseFloat(process.env.PROCESSING_FEE_PERCENTAGE) || 2.9, // 2.9%
+    processingFeeFixed: parseFloat(process.env.PROCESSING_FEE_FIXED) || 0.30, // $0.30
+    // Refund settings
+    refundProcessingDays: parseInt(process.env.REFUND_PROCESSING_DAYS) || 5,
+    // Payment intent settings
+    paymentIntentConfirmationMethod: process.env.PAYMENT_INTENT_CONFIRMATION_METHOD || 'automatic',
+    paymentIntentCaptureMethod: process.env.PAYMENT_INTENT_CAPTURE_METHOD || 'automatic'
   },
   email: {
     host: process.env.SMTP_HOST,

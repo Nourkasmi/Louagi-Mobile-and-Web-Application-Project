@@ -5,6 +5,7 @@ npm install --save-dev sequelize-cli
 npx sequelize-cli init
 npm install bcryptjs
 npm install node-cron
+npm install stripe
 
 
 RUN THIS after pull 

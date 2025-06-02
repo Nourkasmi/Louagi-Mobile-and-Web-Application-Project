@@ -1,12 +1,46 @@
-const { Booking, Trip, Passenger, Destination, Schedule, Driver, User } = require('../models');
+const { Booking, Trip, Passenger, Destination, Schedule, Driver, User, DriverQueue } = require('../models');
 const { Op } = require('sequelize');
 const { validateBooking, validateBookingUpdate, validateBulkBookingUpdate } = require('../middlewares/validate.middleware');
 const { sequelize } = require('../models');
 const { v4: uuidv4 } = require('uuid');
 
+/**
+ * ✅ NEW HELPER: Reindex queue positions after driver removal
+ */
+async function reindexQueuePositions(stationId, scheduleId, destinationId, transaction) {
+  if (!stationId || !scheduleId || !destinationId) {
+    console.log('⚠️ Missing queue identifiers, skipping reindex');
+    return;
+  }
+
+  // Get all waiting drivers for this route, ordered by position
+  const waitingDrivers = await DriverQueue.findAll({
+    where: {
+      stationId,
+      scheduleId,
+      destinationId,
+      status: 'waiting'
+    },
+    order: [['position', 'ASC']],
+    transaction
+  });
+
+  // Reindex positions (1, 2, 3, ...)
+  for (let i = 0; i < waitingDrivers.length; i++) {
+    const newPosition = i + 1;
+    if (waitingDrivers[i].position !== newPosition) {
+      await waitingDrivers[i].update({ 
+        position: newPosition 
+      }, { transaction });
+    }
+  }
+
+  console.log(`✅ Reindexed ${waitingDrivers.length} queue positions`);
+}
+
 const bookingController = {
   /**
-   * Create a new booking
+   * ✅ ENHANCED: Create booking + auto-start when full
    */
   createBooking: async (req, res) => {
     try {
@@ -37,7 +71,8 @@ const bookingController = {
           include: [
             { model: Destination, as: 'route' },
             { model: Schedule, as: 'schedule' },
-            { model: Driver, as: 'driver' }
+            { model: Driver, as: 'driver' },
+            { model: DriverQueue, as: 'queueEntry' } // ✅ NEW: Include queue entry
           ],
           lock: true,
           transaction: t
@@ -92,15 +127,56 @@ const bookingController = {
         }, { transaction: t });
 
         // Update trip available seats
+        const newAvailableSeats = trip.availableSeats - seats;
         await trip.update({
-          availableSeats: trip.availableSeats - seats
+          availableSeats: newAvailableSeats
         }, { transaction: t });
 
-        return booking;
+        // ✅ NEW: Auto-start trip if fully booked
+        let wasAutoStarted = false;
+        if (newAvailableSeats === 0) {
+          console.log(`🚗 Trip ${tripId} is now FULL! Auto-starting...`);
+          
+          // Update trip status to in_progress
+          await trip.update({
+            status: 'in_progress',
+            actualDepartureTime: new Date()
+          }, { transaction: t });
+
+          // Remove driver from queue and reindex positions
+          if (trip.queueEntry) {
+            const { stationId, scheduleId, destinationId } = trip.queueEntry;
+            
+            // Remove queue entry
+            await trip.queueEntry.destroy({ transaction: t });
+            
+            // Reindex remaining queue positions
+            await reindexQueuePositions(stationId, scheduleId, destinationId, t);
+            
+            console.log(`✅ Driver removed from queue, positions reindexed`);
+          }
+
+          // Auto-confirm all pending bookings for this trip
+          await Booking.update(
+            { 
+              status: 'confirmed',
+              paymentStatus: 'completed' // Assuming payment is processed
+            },
+            { 
+              where: { tripId, status: 'pending' },
+              transaction: t 
+            }
+          );
+
+          wasAutoStarted = true;
+          console.log(`✅ Trip ${tripId} auto-started with full capacity`);
+        }
+
+        return { booking, wasAutoStarted };
       });
 
       // Fetch complete booking data
-      const completeBooking = await Booking.findByPk(result.id, {
+      const completeBooking = await Booking.findByPk(result.booking.id, {
         include: [
           {
             model: Trip,
@@ -121,7 +197,10 @@ const bookingController = {
       return res.status(201).json({
         success: true,
         booking: completeBooking,
-        message: 'Booking created successfully'
+        message: result.wasAutoStarted 
+          ? 'Booking created and trip auto-started (fully booked!)' 
+          : 'Booking created successfully',
+        tripAutoStarted: result.wasAutoStarted
       });
 
     } catch (error) {
@@ -262,7 +341,7 @@ const bookingController = {
             ]
           }
         ],
-        attributes: { exclude: ['passengerId'] } // Hide sensitive passenger info for public access
+        attributes: { exclude: ['passengerId'] }
       });
 
       if (!booking) {
@@ -350,7 +429,6 @@ const bookingController = {
       const { tripId } = req.params;
       const userId = req.user.id;
 
-      // If user is a driver, verify they own this trip
       if (req.user.role === 'driver') {
         const driver = await Driver.findOne({ where: { user_id: userId } });
         
@@ -385,7 +463,6 @@ const bookingController = {
         order: [['createdAt', 'ASC']]
       });
 
-      // Calculate summary
       const summary = {
         totalBookings: bookings.length,
         confirmedBookings: bookings.filter(b => b.status === 'confirmed').length,
@@ -437,27 +514,24 @@ const bookingController = {
           throw new Error('Booking not found');
         }
 
-        // Validate status transitions
         const validTransitions = {
           'pending': ['confirmed', 'cancelled'],
           'confirmed': ['completed', 'cancelled', 'no_show'],
-          'cancelled': [], // Cannot change from cancelled
-          'completed': [], // Cannot change from completed
-          'no_show': []   // Cannot change from no_show
+          'cancelled': [],
+          'completed': [],
+          'no_show': []
         };
 
         if (!validTransitions[booking.status].includes(status)) {
           throw new Error(`Cannot change booking status from ${booking.status} to ${status}`);
         }
 
-        // If cancelling, restore seats to trip
         if (status === 'cancelled' && booking.status !== 'cancelled') {
           await booking.trip.update({
             availableSeats: booking.trip.availableSeats + booking.seats
           }, { transaction: t });
         }
 
-        // Update booking
         const updateData = { status };
         if (status === 'cancelled' && cancellationReason) {
           updateData.cancellationReason = cancellationReason;
@@ -522,17 +596,14 @@ const bookingController = {
           throw new Error('Cannot cancel completed booking');
         }
 
-        // Check if trip has already departed
         if (new Date(booking.trip.departureTime) <= new Date()) {
           throw new Error('Cannot cancel booking for trip that has already departed');
         }
 
-        // Restore seats to trip
         await booking.trip.update({
           availableSeats: booking.trip.availableSeats + booking.seats
         }, { transaction: t });
 
-        // Update booking status
         await booking.update({
           status: 'cancelled',
           cancellationReason: cancellationReason || 'Cancelled by passenger'
@@ -581,7 +652,6 @@ const bookingController = {
         });
       }
 
-      // If user is a driver, verify they own this trip
       if (req.user.role === 'driver') {
         const driver = await Driver.findOne({ where: { user_id: userId } });
         
@@ -602,7 +672,7 @@ const bookingController = {
 
       await booking.update({
         status: 'confirmed',
-        paymentStatus: 'completed' // Assuming payment is completed on check-in
+        paymentStatus: 'completed'
       });
 
       return res.status(200).json({
@@ -645,7 +715,6 @@ const bookingController = {
         });
       }
 
-      // If user is a driver, verify they own this trip
       if (req.user.role === 'driver') {
         const driver = await Driver.findOne({ where: { user_id: userId } });
         
@@ -664,14 +733,11 @@ const bookingController = {
         });
       }
 
-      // Use transaction to restore seats and update booking
       const result = await sequelize.transaction(async (t) => {
-        // Restore seats to trip
         await booking.trip.update({
           availableSeats: booking.trip.availableSeats + booking.seats
         }, { transaction: t });
 
-        // Update booking status
         await booking.update({
           status: 'no_show',
           cancellationReason: 'Passenger did not show up'
@@ -729,7 +795,6 @@ const bookingController = {
         const updatedBookings = [];
         
         for (const booking of bookings) {
-          // Validate status transition
           const validTransitions = {
             'pending': ['confirmed', 'cancelled'],
             'confirmed': ['completed', 'cancelled', 'no_show'],
@@ -742,7 +807,6 @@ const bookingController = {
             throw new Error(`Cannot change booking ${booking.id} from ${booking.status} to ${status}`);
           }
 
-          // Handle seat restoration for cancellations and no-shows
           if ((status === 'cancelled' || status === 'no_show') && 
               !['cancelled', 'no_show'].includes(booking.status)) {
             await booking.trip.update({
@@ -806,7 +870,6 @@ const bookingController = {
       const totalBookedSeats = bookings.reduce((sum, booking) => sum + booking.seats, 0);
       const conflicts = [];
 
-      // Check for overbooking
       if (totalBookedSeats > trip.capacity) {
         conflicts.push({
           type: 'overbooking',
@@ -820,7 +883,6 @@ const bookingController = {
         });
       }
 
-      // Check for duplicate bookings (same passenger)
       const passengerCounts = {};
       bookings.forEach(booking => {
         passengerCounts[booking.passengerId] = (passengerCounts[booking.passengerId] || 0) + 1;
@@ -837,7 +899,6 @@ const bookingController = {
         }
       });
 
-      // Check for bookings after departure
       const now = new Date();
       const departureTime = new Date(trip.departureTime);
       
@@ -893,7 +954,6 @@ const bookingController = {
           throw new Error('Booking not found');
         }
 
-        // If booking is not cancelled, restore seats
         if (booking.status !== 'cancelled') {
           await booking.trip.update({
             availableSeats: booking.trip.availableSeats + booking.seats

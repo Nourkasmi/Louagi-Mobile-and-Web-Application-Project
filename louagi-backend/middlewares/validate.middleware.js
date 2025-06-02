@@ -122,6 +122,42 @@ const validationSchemas = {
     bookingIds: Joi.array().items(Joi.string().uuid()).min(1).required(),
     status: Joi.string().valid('confirmed', 'cancelled', 'completed', 'no_show').required(),
     reason: Joi.string().max(500).allow('', null)
+  }),
+
+  // ✅ NEW: Payment schemas
+  // Payment intent schema
+  paymentIntent: Joi.object({
+    bookingId: Joi.string().uuid().required(),
+    savePaymentMethod: Joi.boolean().optional().default(false),
+    returnUrl: Joi.string().uri().optional()
+  }),
+
+  // Payment confirmation schema
+  paymentConfirmation: Joi.object({
+    paymentMethodId: Joi.string().optional(),
+    returnUrl: Joi.string().uri().optional()
+  }),
+
+  // Payment cancellation schema
+  paymentCancellation: Joi.object({
+    reason: Joi.string().max(500).optional()
+  }),
+
+  // Refund schema
+  refund: Joi.object({
+    amount: Joi.number().positive().precision(2).optional(),
+    reason: Joi.string().valid(
+      'duplicate', 
+      'fraudulent', 
+      'requested_by_customer',
+      'expired_uncaptured_charge'
+    ).optional().default('requested_by_customer')
+  }),
+
+  // Setup intent schema
+  setupIntent: Joi.object({
+    usage: Joi.string().valid('on_session', 'off_session').default('off_session'),
+    returnUrl: Joi.string().uri().optional()
   })
 };
 
@@ -138,10 +174,18 @@ const validateMiddleware = {
   validateBooking: (data) => validationSchemas.booking.validate(data, { abortEarly: false }),
   validateBookingUpdate: (data) => validationSchemas.bookingUpdate.validate(data, { abortEarly: false }),
   validatePaymentUpdate: (data) => validationSchemas.paymentUpdate.validate(data, { abortEarly: false }),
-  validateBulkBookingUpdate: (data) => validationSchemas.bulkBookingUpdate.validate(data, { abortEarly: false })
+  validateBulkBookingUpdate: (data) => validationSchemas.bulkBookingUpdate.validate(data, { abortEarly: false }),
+  
+  // ✅ NEW: Payment validation functions
+  validatePaymentIntent: (data) => validationSchemas.paymentIntent.validate(data, { abortEarly: false }),
+  validatePaymentConfirmation: (data) => validationSchemas.paymentConfirmation.validate(data, { abortEarly: false }),
+  validatePaymentCancellation: (data) => validationSchemas.paymentCancellation.validate(data, { abortEarly: false }),
+  validateRefund: (data) => validationSchemas.refund.validate(data, { abortEarly: false }),
+  validateSetupIntent: (data) => validationSchemas.setupIntent.validate(data, { abortEarly: false })
 };
 
 module.exports = {
+  // Existing validations
   validateRegistration: validateMiddleware.validateRegistration,
   validateLogin: validateMiddleware.validateLogin,
   validateUserUpdate: validateMiddleware.validateUserUpdate,
@@ -151,5 +195,12 @@ module.exports = {
   validateBooking: validateMiddleware.validateBooking,
   validateBookingUpdate: validateMiddleware.validateBookingUpdate,
   validatePaymentUpdate: validateMiddleware.validatePaymentUpdate,
-  validateBulkBookingUpdate: validateMiddleware.validateBulkBookingUpdate
+  validateBulkBookingUpdate: validateMiddleware.validateBulkBookingUpdate,
+  
+  // ✅ NEW: Payment validations
+  validatePaymentIntent: validateMiddleware.validatePaymentIntent,
+  validatePaymentConfirmation: validateMiddleware.validatePaymentConfirmation,
+  validatePaymentCancellation: validateMiddleware.validatePaymentCancellation,
+  validateRefund: validateMiddleware.validateRefund,
+  validateSetupIntent: validateMiddleware.validateSetupIntent
 };

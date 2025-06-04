@@ -5,7 +5,7 @@ const { sequelize } = require('../models');
 const { v4: uuidv4 } = require('uuid');
 
 /**
- * ✅ NEW HELPER: Reindex queue positions after driver removal
+ * ✅ ENHANCED: Reindex queue positions after driver removal
  */
 async function reindexQueuePositions(stationId, scheduleId, destinationId, transaction) {
   if (!stationId || !scheduleId || !destinationId) {
@@ -72,7 +72,7 @@ const bookingController = {
             { model: Destination, as: 'route' },
             { model: Schedule, as: 'schedule' },
             { model: Driver, as: 'driver' },
-            { model: DriverQueue, as: 'queueEntry' } // ✅ NEW: Include queue entry
+            { model: DriverQueue, as: 'queueEntry' } // ✅ Include queue entry
           ],
           lock: true,
           transaction: t
@@ -132,8 +132,10 @@ const bookingController = {
           availableSeats: newAvailableSeats
         }, { transaction: t });
 
-        // ✅ NEW: Auto-start trip if fully booked
+        // ✅ ENHANCED: Auto-start trip if fully booked
         let wasAutoStarted = false;
+        let autoConfirmedBookings = 0;
+        
         if (newAvailableSeats === 0) {
           console.log(`🚗 Trip ${tripId} is now FULL! Auto-starting...`);
           
@@ -157,7 +159,7 @@ const bookingController = {
           }
 
           // Auto-confirm all pending bookings for this trip
-          await Booking.update(
+          const updateResult = await Booking.update(
             { 
               status: 'confirmed',
               paymentStatus: 'completed' // Assuming payment is processed
@@ -168,11 +170,12 @@ const bookingController = {
             }
           );
 
+          autoConfirmedBookings = updateResult[0] || 0;
           wasAutoStarted = true;
-          console.log(`✅ Trip ${tripId} auto-started with full capacity`);
+          console.log(`✅ Trip ${tripId} auto-started with full capacity, ${autoConfirmedBookings} bookings confirmed`);
         }
 
-        return { booking, wasAutoStarted };
+        return { booking, wasAutoStarted, autoConfirmedBookings };
       });
 
       // Fetch complete booking data
@@ -183,7 +186,8 @@ const bookingController = {
             as: 'trip',
             include: [
               { model: Destination, as: 'route' },
-              { model: Schedule, as: 'schedule' }
+              { model: Schedule, as: 'schedule' },
+              { model: Driver, as: 'driver' }
             ]
           },
           {
@@ -198,9 +202,10 @@ const bookingController = {
         success: true,
         booking: completeBooking,
         message: result.wasAutoStarted 
-          ? 'Booking created and trip auto-started (fully booked!)' 
+          ? `Booking created and trip auto-started! ${result.autoConfirmedBookings} bookings confirmed.` 
           : 'Booking created successfully',
-        tripAutoStarted: result.wasAutoStarted
+        tripAutoStarted: result.wasAutoStarted,
+        autoConfirmedBookings: result.autoConfirmedBookings || 0
       });
 
     } catch (error) {
@@ -213,7 +218,7 @@ const bookingController = {
   },
 
   /**
-   * Get all bookings with filtering and pagination
+   * ✅ ENHANCED: Get all bookings with filtering and pagination
    */
   getAllBookings: async (req, res) => {
     try {
@@ -221,13 +226,20 @@ const bookingController = {
       const limit = parseInt(req.query.limit) || 10;
       const offset = (page - 1) * limit;
 
-      const { status, tripId, passengerId, search, sortBy, order } = req.query;
+      const { status, tripId, passengerId, search, sortBy, order, startDate, endDate } = req.query;
 
       const whereClause = {};
 
       if (status) whereClause.status = status;
       if (tripId) whereClause.tripId = tripId;
       if (passengerId) whereClause.passengerId = passengerId;
+
+      // ✅ NEW: Date range filtering
+      if (startDate || endDate) {
+        whereClause.createdAt = {};
+        if (startDate) whereClause.createdAt[Op.gte] = new Date(startDate);
+        if (endDate) whereClause.createdAt[Op.lte] = new Date(endDate);
+      }
 
       if (search) {
         whereClause[Op.or] = [
@@ -244,7 +256,8 @@ const bookingController = {
             as: 'trip',
             include: [
               { model: Destination, as: 'route' },
-              { model: Schedule, as: 'schedule' }
+              { model: Schedule, as: 'schedule' },
+              { model: Driver, as: 'driver' }
             ]
           },
           {
@@ -258,12 +271,25 @@ const bookingController = {
         order: [[sortBy || 'createdAt', order === 'asc' ? 'ASC' : 'DESC']]
       });
 
+      // ✅ NEW: Calculate summary statistics
+      const summary = {
+        totalBookings: count,
+        totalPages: Math.ceil(count / limit),
+        currentPage: page,
+        totalRevenue: rows.reduce((sum, booking) => 
+          ['confirmed', 'completed'].includes(booking.status) ? 
+          sum + parseFloat(booking.amount) : sum, 0
+        ),
+        statusBreakdown: rows.reduce((acc, booking) => {
+          acc[booking.status] = (acc[booking.status] || 0) + 1;
+          return acc;
+        }, {})
+      };
+
       return res.status(200).json({
         success: true,
         bookings: rows,
-        total: count,
-        totalPages: Math.ceil(count / limit),
-        currentPage: page
+        summary
       });
 
     } catch (error) {
@@ -366,7 +392,7 @@ const bookingController = {
   },
 
   /**
-   * Get passenger's own bookings
+   * ✅ ENHANCED: Get passenger's own bookings with better filtering
    */
   getPassengerBookings: async (req, res) => {
     try {
@@ -383,9 +409,17 @@ const bookingController = {
         });
       }
 
-      const { status } = req.query;
+      const { status, startDate, endDate } = req.query;
       const whereClause = { passengerId: passenger.id };
+      
       if (status) whereClause.status = status;
+      
+      // ✅ NEW: Date range filtering for passenger bookings
+      if (startDate || endDate) {
+        whereClause.createdAt = {};
+        if (startDate) whereClause.createdAt[Op.gte] = new Date(startDate);
+        if (endDate) whereClause.createdAt[Op.lte] = new Date(endDate);
+      }
 
       const { count, rows } = await Booking.findAndCountAll({
         where: whereClause,
@@ -395,7 +429,8 @@ const bookingController = {
             as: 'trip',
             include: [
               { model: Destination, as: 'route' },
-              { model: Schedule, as: 'schedule' }
+              { model: Schedule, as: 'schedule' },
+              { model: Driver, as: 'driver' }
             ]
           }
         ],
@@ -404,12 +439,27 @@ const bookingController = {
         order: [['createdAt', 'DESC']]
       });
 
+      // ✅ NEW: Passenger-specific statistics
+      const summary = {
+        totalBookings: count,
+        totalPages: Math.ceil(count / limit),
+        currentPage: page,
+        totalSpent: rows.reduce((sum, booking) => 
+          ['confirmed', 'completed'].includes(booking.status) ? 
+          sum + parseFloat(booking.amount) : sum, 0
+        ),
+        upcomingTrips: rows.filter(booking => 
+          booking.trip && 
+          new Date(booking.trip.departureTime) > new Date() &&
+          ['pending', 'confirmed'].includes(booking.status)
+        ).length,
+        completedTrips: rows.filter(booking => booking.status === 'completed').length
+      };
+
       return res.status(200).json({
         success: true,
         bookings: rows,
-        total: count,
-        totalPages: Math.ceil(count / limit),
-        currentPage: page
+        summary
       });
 
     } catch (error) {
@@ -422,13 +472,14 @@ const bookingController = {
   },
 
   /**
-   * Get all bookings for a specific trip
+   * ✅ ENHANCED: Get all bookings for a specific trip with better analytics
    */
   getBookingsByTrip: async (req, res) => {
     try {
       const { tripId } = req.params;
       const userId = req.user.id;
 
+      // Verify driver access if user is driver
       if (req.user.role === 'driver') {
         const driver = await Driver.findOne({ where: { user_id: userId } });
         
@@ -463,12 +514,19 @@ const bookingController = {
         order: [['createdAt', 'ASC']]
       });
 
+      // ✅ ENHANCED: More detailed summary
       const summary = {
         totalBookings: bookings.length,
         confirmedBookings: bookings.filter(b => b.status === 'confirmed').length,
+        pendingBookings: bookings.filter(b => b.status === 'pending').length,
+        cancelledBookings: bookings.filter(b => b.status === 'cancelled').length,
+        completedBookings: bookings.filter(b => b.status === 'completed').length,
+        noShowBookings: bookings.filter(b => b.status === 'no_show').length,
         totalSeats: bookings.reduce((sum, b) => sum + b.seats, 0),
         confirmedSeats: bookings.filter(b => b.status === 'confirmed').reduce((sum, b) => sum + b.seats, 0),
-        totalRevenue: bookings.filter(b => ['confirmed', 'completed'].includes(b.status)).reduce((sum, b) => sum + parseFloat(b.amount), 0)
+        totalRevenue: bookings.filter(b => ['confirmed', 'completed'].includes(b.status)).reduce((sum, b) => sum + parseFloat(b.amount), 0),
+        averageBookingValue: bookings.length > 0 ? 
+          bookings.reduce((sum, b) => sum + parseFloat(b.amount), 0) / bookings.length : 0
       };
 
       return res.status(200).json({
@@ -487,7 +545,7 @@ const bookingController = {
   },
 
   /**
-   * Update booking status
+   * ✅ ENHANCED: Update booking status with better validation
    */
   updateBookingStatus: async (req, res) => {
     try {
@@ -526,14 +584,20 @@ const bookingController = {
           throw new Error(`Cannot change booking status from ${booking.status} to ${status}`);
         }
 
-        if (status === 'cancelled' && booking.status !== 'cancelled') {
+        // ✅ NEW: Check if trip has already departed for certain status changes
+        if (['cancelled'].includes(status) && new Date(booking.trip.departureTime) <= new Date()) {
+          throw new Error('Cannot cancel booking for trip that has already departed');
+        }
+
+        // Update available seats if cancelling or marking no-show
+        if ((status === 'cancelled' || status === 'no_show') && booking.status !== 'cancelled') {
           await booking.trip.update({
             availableSeats: booking.trip.availableSeats + booking.seats
           }, { transaction: t });
         }
 
         const updateData = { status };
-        if (status === 'cancelled' && cancellationReason) {
+        if ((status === 'cancelled' || status === 'no_show') && cancellationReason) {
           updateData.cancellationReason = cancellationReason;
         }
 
@@ -557,7 +621,7 @@ const bookingController = {
   },
 
   /**
-   * Cancel booking (passenger only)
+   * ✅ ENHANCED: Cancel booking with better validation
    */
   cancelBooking: async (req, res) => {
     try {
@@ -596,8 +660,22 @@ const bookingController = {
           throw new Error('Cannot cancel completed booking');
         }
 
-        if (new Date(booking.trip.departureTime) <= new Date()) {
+        // ✅ NEW: Check cancellation time limits
+        const departureTime = new Date(booking.trip.departureTime);
+        const now = new Date();
+        const hoursUntilDeparture = (departureTime - now) / (1000 * 60 * 60);
+
+        if (departureTime <= now) {
           throw new Error('Cannot cancel booking for trip that has already departed');
+        }
+
+        if (hoursUntilDeparture < 1) {
+          throw new Error('Cannot cancel booking less than 1 hour before departure');
+        }
+
+        // ✅ NEW: Check if trip is in progress
+        if (booking.trip.status === 'in_progress') {
+          throw new Error('Cannot cancel booking for trip that is already in progress');
         }
 
         await booking.trip.update({
@@ -979,32 +1057,129 @@ const bookingController = {
   },
 
   /**
-   * Get booking statistics (admin only)
+   * ✅ ENHANCED: Get booking statistics with more detailed analytics
    */
   getBookingStats: async (req, res) => {
     try {
-      const stats = await Booking.findAll({
-        attributes: [
-          'status',
-          [sequelize.fn('COUNT', sequelize.col('id')), 'count'],
-          [sequelize.fn('SUM', sequelize.col('amount')), 'totalAmount'],
-          [sequelize.fn('SUM', sequelize.col('seats')), 'totalSeats']
-        ],
-        group: ['status'],
-        raw: true
-      });
+      const { startDate, endDate } = req.query;
+      
+      // Build where clause for date filtering
+      const dateFilter = {};
+      if (startDate || endDate) {
+        dateFilter.createdAt = {};
+        if (startDate) dateFilter.createdAt[Op.gte] = new Date(startDate);
+        if (endDate) dateFilter.createdAt[Op.lte] = new Date(endDate);
+      }
 
-      const totalBookings = await Booking.count();
-      const totalRevenue = await Booking.sum('amount', {
-        where: { status: { [Op.in]: ['confirmed', 'completed'] } }
-      });
+      const [
+        statusStats,
+        totalBookings,
+        totalRevenue,
+        avgBookingValue,
+        todayBookings,
+        weeklyGrowth
+      ] = await Promise.all([
+        // Status breakdown
+        Booking.findAll({
+          attributes: [
+            'status',
+            [sequelize.fn('COUNT', sequelize.col('id')), 'count'],
+            [sequelize.fn('SUM', sequelize.col('amount')), 'totalAmount'],
+            [sequelize.fn('SUM', sequelize.col('seats')), 'totalSeats']
+          ],
+          where: dateFilter,
+          group: ['status'],
+          raw: true
+        }),
+        
+        // Total bookings
+        Booking.count({ where: dateFilter }),
+        
+        // Total revenue (confirmed + completed only)
+        Booking.sum('amount', {
+          where: { 
+            ...dateFilter,
+            status: { [Op.in]: ['confirmed', 'completed'] } 
+          }
+        }),
+        
+        // Average booking value
+        Booking.findOne({
+          attributes: [
+            [sequelize.fn('AVG', sequelize.col('amount')), 'avgAmount']
+          ],
+          where: dateFilter,
+          raw: true
+        }),
+        
+        // Today's bookings
+        Booking.count({
+          where: {
+            createdAt: {
+              [Op.gte]: new Date(new Date().setHours(0, 0, 0, 0))
+            }
+          }
+        }),
+        
+        // Weekly growth (this week vs last week)
+        Promise.all([
+          Booking.count({
+            where: {
+              createdAt: {
+                [Op.gte]: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+              }
+            }
+          }),
+          Booking.count({
+            where: {
+              createdAt: {
+                [Op.gte]: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000),
+                [Op.lt]: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+              }
+            }
+          })
+        ])
+      ]);
+
+      // Calculate weekly growth percentage
+      const [thisWeek, lastWeek] = weeklyGrowth;
+      const growthPercentage = lastWeek > 0 ? 
+        ((thisWeek - lastWeek) / lastWeek * 100).toFixed(1) : 
+        thisWeek > 0 ? 100 : 0;
+
+      // Calculate completion rate
+      const completedBookings = statusStats.find(s => s.status === 'completed')?.count || 0;
+      const completionRate = totalBookings > 0 ? 
+        ((completedBookings / totalBookings) * 100).toFixed(1) : 0;
 
       return res.status(200).json({
         success: true,
         stats: {
-          total: totalBookings,
-          totalRevenue: totalRevenue || 0,
-          byStatus: stats
+          overview: {
+            total: totalBookings,
+            totalRevenue: totalRevenue || 0,
+            averageBookingValue: parseFloat(avgBookingValue?.avgAmount || 0),
+            todayBookings,
+            completionRate: `${completionRate}%`
+          },
+          growth: {
+            thisWeek,
+            lastWeek,
+            percentage: `${growthPercentage}%`,
+            trend: parseFloat(growthPercentage) > 0 ? 'up' : 
+                   parseFloat(growthPercentage) < 0 ? 'down' : 'stable'
+          },
+          byStatus: statusStats.map(stat => ({
+            status: stat.status,
+            count: parseInt(stat.count),
+            totalAmount: parseFloat(stat.totalAmount || 0),
+            totalSeats: parseInt(stat.totalSeats || 0),
+            percentage: ((parseInt(stat.count) / totalBookings) * 100).toFixed(1) + '%'
+          }))
+        },
+        period: {
+          startDate: startDate || 'All time',
+          endDate: endDate || 'Now'
         }
       });
 
@@ -1013,6 +1188,119 @@ const bookingController = {
       return res.status(500).json({
         success: false,
         message: 'Failed to retrieve booking statistics'
+      });
+    }
+  },
+
+  /**
+   * ✅ NEW: Get passenger booking history with analytics
+   */
+  getPassengerAnalytics: async (req, res) => {
+    try {
+      const userId = req.user.id;
+      const { months = 12 } = req.query;
+
+      const passenger = await Passenger.findOne({ where: { user_id: userId } });
+      if (!passenger) {
+        return res.status(404).json({
+          success: false,
+          message: 'Passenger profile not found'
+        });
+      }
+
+      const startDate = new Date();
+      startDate.setMonth(startDate.getMonth() - parseInt(months));
+
+      const [
+        totalBookings,
+        completedTrips,
+        totalSpent,
+        cancelledBookings,
+        monthlyBreakdown
+      ] = await Promise.all([
+        Booking.count({
+          where: {
+            passengerId: passenger.id,
+            createdAt: { [Op.gte]: startDate }
+          }
+        }),
+        
+        Booking.count({
+          where: {
+            passengerId: passenger.id,
+            status: 'completed',
+            createdAt: { [Op.gte]: startDate }
+          }
+        }),
+        
+        Booking.sum('amount', {
+          where: {
+            passengerId: passenger.id,
+            status: { [Op.in]: ['confirmed', 'completed'] },
+            createdAt: { [Op.gte]: startDate }
+          }
+        }),
+        
+        Booking.count({
+          where: {
+            passengerId: passenger.id,
+            status: 'cancelled',
+            createdAt: { [Op.gte]: startDate }
+          }
+        }),
+        
+        // Monthly breakdown
+        Booking.findAll({
+          attributes: [
+            [sequelize.fn('DATE_TRUNC', 'month', sequelize.col('created_at')), 'month'],
+            [sequelize.fn('COUNT', sequelize.col('id')), 'bookings'],
+            [sequelize.fn('SUM', sequelize.col('amount')), 'spent']
+          ],
+          where: {
+            passengerId: passenger.id,
+            createdAt: { [Op.gte]: startDate }
+          },
+          group: [sequelize.fn('DATE_TRUNC', 'month', sequelize.col('created_at'))],
+          order: [[sequelize.fn('DATE_TRUNC', 'month', sequelize.col('created_at')), 'ASC']],
+          raw: true
+        })
+      ]);
+
+      const completionRate = totalBookings > 0 ? 
+        ((completedTrips / totalBookings) * 100).toFixed(1) : 0;
+      
+      const cancellationRate = totalBookings > 0 ? 
+        ((cancelledBookings / totalBookings) * 100).toFixed(1) : 0;
+
+      return res.status(200).json({
+        success: true,
+        analytics: {
+          summary: {
+            totalBookings,
+            completedTrips,
+            totalSpent: totalSpent || 0,
+            averageSpentPerTrip: completedTrips > 0 ? 
+              ((totalSpent || 0) / completedTrips).toFixed(2) : 0,
+            completionRate: `${completionRate}%`,
+            cancellationRate: `${cancellationRate}%`
+          },
+          monthlyBreakdown: monthlyBreakdown.map(month => ({
+            month: new Date(month.month).toLocaleDateString('en-US', { 
+              year: 'numeric', 
+              month: 'long' 
+            }),
+            bookings: parseInt(month.bookings),
+            spent: parseFloat(month.spent || 0)
+          }))
+        },
+        period: `Last ${months} months`
+      });
+
+    } catch (error) {
+      console.error('Get passenger analytics error:', error);
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to retrieve passenger analytics'
       });
     }
   }

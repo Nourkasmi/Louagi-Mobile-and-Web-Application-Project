@@ -5,7 +5,7 @@ const generateTripsFromSchedules = require('../utils/trip.generator');
 const { sequelize } = require('../models');
 
 /**
- * ✅ NEW HELPER: Reindex queue positions after driver removal
+ * ✅ ENHANCED: Reindex queue positions after driver removal
  */
 async function reindexQueuePositions(stationId, scheduleId, destinationId, transaction) {
   if (!stationId || !scheduleId || !destinationId) {
@@ -37,7 +37,7 @@ async function reindexQueuePositions(stationId, scheduleId, destinationId, trans
 }
 
 const tripController = {
-  // ✅ Create a new trip
+  // ✅ Create a new trip (Admin only)
   createTrip: async (req, res) => {
     try {
       const {

@@ -1,15 +1,16 @@
 const { Driver, Station, Schedule, Destination, Trip, DriverQueue } = require('../models');
 const { Op } = require('sequelize');
-const queueUtils = require('../utils/queue.utils');
 const { v4: uuidv4 } = require('uuid');
+const { sequelize } = require('../models');
 
 const driverController = {
   /**
-   * ✅ ENHANCED: Driver declares availability with active trip validation
+   * ✅ ENHANCED: Driver declares availability → Position 1 → Instant Trip Assignment
    */
   declareAvailability: async (req, res) => {
     try {
       const userId = req.user.id;
+      const { stationId, scheduleId, destinationId } = req.body;
 
       // Find the driver profile
       const driver = await Driver.findOne({ where: { user_id: userId } });
@@ -21,18 +22,13 @@ const driverController = {
       }
 
       const driverId = driver.id;
-      const { stationId, scheduleId, destinationId: bodyDestinationId } = req.body;
 
-      // ✅ NEW: Check if driver has any active trips
+      // ✅ CHECK: Driver has no active trips
       const activeTrip = await Trip.findOne({
         where: {
           driverId,
           status: { [Op.in]: ['scheduled', 'in_progress'] }
-        },
-        include: [
-          { model: Destination, as: 'route' },
-          { model: Schedule, as: 'schedule' }
-        ]
+        }
       });
 
       if (activeTrip) {
@@ -42,49 +38,47 @@ const driverController = {
           activeTrip: {
             id: activeTrip.id,
             status: activeTrip.status,
-            departureTime: activeTrip.departureTime,
-            route: `${activeTrip.route?.description || 'Unknown route'}`
+            departureTime: activeTrip.departureTime
           }
         });
       }
 
-      // ✅ NEW: Check if driver is already in any queue
+      // ✅ CHECK: Driver not already in queue
       const existingQueueEntry = await DriverQueue.findOne({
         where: { 
           driverId,
           status: { [Op.in]: ['waiting', 'assigned'] }
-        },
-        include: [
-          { model: Station, as: 'station' },
-          { model: Destination, as: 'destination' }
-        ]
+        }
       });
 
       if (existingQueueEntry) {
         return res.status(409).json({
           success: false,
-          message: 'Driver already in queue',
-          currentQueue: {
-            station: existingQueueEntry.station?.name,
-            destination: existingQueueEntry.destination?.description,
-            position: existingQueueEntry.position,
-            status: existingQueueEntry.status
-          }
+          message: 'Driver already in queue or assigned to trip'
         });
       }
 
-      // Validate station and schedule existence
-      const station = await Station.findByPk(stationId);
-      const schedule = await Schedule.findByPk(scheduleId);
+      // ✅ VALIDATE: Station, Schedule, Destination
+      const [station, schedule, destination] = await Promise.all([
+        Station.findByPk(stationId),
+        Schedule.findByPk(scheduleId),
+        Destination.findOne({
+          where: {
+            id: destinationId,
+            startId: stationId,
+            isActive: true
+          }
+        })
+      ]);
 
-      if (!station || !schedule) {
+      if (!station || !schedule || !destination) {
         return res.status(404).json({ 
           success: false, 
-          message: 'Station or Schedule not found' 
+          message: 'Station, Schedule, or Destination not found or invalid' 
         });
       }
 
-      // Validate schedule is active today
+      // ✅ VALIDATE: Schedule is active today
       const today = new Date().getDay();
       if (schedule.dayOfWeek !== today || !schedule.isActive) {
         return res.status(400).json({ 
@@ -93,69 +87,93 @@ const driverController = {
         });
       }
 
-      // Check time validity
-      if (!queueUtils.isWithinScheduleTime(schedule)) {
+      // ✅ VALIDATE: Within schedule time
+      const now = new Date();
+      const nowMinutes = now.getHours() * 60 + now.getMinutes();
+      const [startHour, startMinute] = schedule.startTime.split(':').map(Number);
+      const [endHour, endMinute] = schedule.endTime.split(':').map(Number);
+      const startMinutes = startHour * 60 + startMinute;
+      const endMinutes = endHour * 60 + endMinute;
+
+      if (nowMinutes < startMinutes || nowMinutes > endMinutes) {
         return res.status(400).json({ 
           success: false, 
           message: 'Outside schedule hours' 
         });
       }
 
-      // Check eligibility to enter queue
-      const { eligible, lastTrip, timeLeft } = await queueUtils.isDriverEligible(driverId, stationId);
-
-      console.log('Last trip:', lastTrip?.status || 'None');
-      console.log('Enough time left today:', timeLeft);
-
-      if (!eligible) {
-        return res.status(403).json({ 
-          success: false, 
-          message: 'Driver not eligible to enter queue yet' 
-        });
-      }
-
-      // Find or validate destination
-      let destinationId = bodyDestinationId;
-      if (!destinationId) {
-        const destination = await Destination.findOne({
+      // ✅ MAIN LOGIC: Add to queue as Position 1 + Create Trip Instantly
+      const result = await sequelize.transaction(async (t) => {
+        
+        // 1️⃣ MOVE EXISTING DRIVERS DOWN (position++)
+        await DriverQueue.increment('position', {
           where: {
-            startId: stationId,
-            isActive: true
-          }
+            stationId,
+            scheduleId,
+            destinationId,
+            status: 'waiting'
+          },
+          transaction: t
         });
 
-        if (!destination) {
-          return res.status(404).json({ 
-            success: false, 
-            message: 'No active destination found for this station' 
-          });
-        }
-        destinationId = destination.id;
-      }
+        // 2️⃣ ADD NEW DRIVER AS POSITION 1
+        const queueEntry = await DriverQueue.create({
+          id: uuidv4(),
+          driverId,
+          stationId,
+          scheduleId,
+          destinationId,
+          position: 1,           // 🥇 ALWAYS POSITION 1
+          status: 'assigned',    // 🎯 IMMEDIATELY ASSIGNED
+          joinedAt: new Date()
+        }, { transaction: t });
 
-      // Get next available queue position
-      const position = await queueUtils.getNextQueuePosition(stationId, scheduleId, destinationId);
+        // 3️⃣ CREATE TRIP IMMEDIATELY FOR THIS DRIVER
+        const departureTime = new Date(now.getTime() + 5 * 60 * 1000); // 5 minutes from now
+        const estimatedArrivalTime = new Date(
+          departureTime.getTime() + (destination.estimatedDuration * 60 * 1000)
+        );
 
-      // Create new queue entry
-      await DriverQueue.create({
-        id: uuidv4(),
-        driverId,
-        stationId,
-        scheduleId,
-        destinationId,
-        position,
-        status: 'waiting',
-        joinedAt: new Date()
+        const basePrice = parseFloat(destination.basePrice);
+        const currentPrice = parseFloat((basePrice * 1.2).toFixed(2)); // 20% markup
+
+        const trip = await Trip.create({
+          id: uuidv4(),
+          routeId: destinationId,
+          scheduleId,
+          driverId,
+          queueId: queueEntry.id,
+          departureTime,
+          estimatedArrivalTime,
+          basePrice,
+          currentPrice,
+          capacity: driver.vehicle_capacity || 4,
+          availableSeats: driver.vehicle_capacity || 4,
+          status: 'scheduled',
+          notes: 'Auto-assigned to position 1 driver'
+        }, { transaction: t });
+
+        return { trip, queueEntry };
       });
 
-      // Attempt to generate a trip
-      const trip = await queueUtils.tryGenerateTripFromQueue?.(stationId, scheduleId, destinationId);
+      // ✅ FETCH COMPLETE TRIP DATA
+      const completeTrip = await Trip.findByPk(result.trip.id, {
+        include: [
+          { model: Destination, as: 'route' },
+          { model: Schedule, as: 'schedule' },
+          { model: Driver, as: 'driver' },
+          { model: DriverQueue, as: 'queueEntry' }
+        ]
+      });
 
       return res.status(201).json({
         success: true,
-        message: trip ? 'Trip created and assigned' : 'Driver added to queue. Waiting for conditions.',
-        queuePosition: position,
-        trip: trip || null
+        message: 'Driver added as #1 in queue and trip assigned instantly!',
+        trip: completeTrip,
+        queuePosition: 1,
+        status: 'assigned',
+        departureTime: result.trip.departureTime,
+        instantAssignment: true
       });
 
     } catch (error) {
@@ -168,7 +186,7 @@ const driverController = {
   },
 
   /**
-   * ✅ NEW: Get driver's current status (trip + queue info)
+   * ✅ Get driver's current status (trip + queue info)
    */
   getDriverStatus: async (req, res) => {
     try {

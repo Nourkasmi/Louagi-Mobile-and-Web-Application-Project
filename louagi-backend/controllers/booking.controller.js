@@ -40,7 +40,7 @@ async function reindexQueuePositions(stationId, scheduleId, destinationId, trans
 
 const bookingController = {
   /**
-   * ✅ ENHANCED: Create booking + auto-start when full
+   * ✅ FIXED: Create booking + auto-start when full (Fixed lock issue)
    */
   createBooking: async (req, res) => {
     try {
@@ -66,14 +66,8 @@ const bookingController = {
 
       // Use transaction to ensure data consistency
       const result = await sequelize.transaction(async (t) => {
-        // Get trip with lock to prevent race conditions
+        // ✅ FIX: Get trip WITHOUT includes first, then lock it
         const trip = await Trip.findByPk(tripId, {
-          include: [
-            { model: Destination, as: 'route' },
-            { model: Schedule, as: 'schedule' },
-            { model: Driver, as: 'driver' },
-            { model: DriverQueue, as: 'queueEntry' } // ✅ Include queue entry
-          ],
           lock: true,
           transaction: t
         });
@@ -81,6 +75,14 @@ const bookingController = {
         if (!trip) {
           throw new Error('Trip not found');
         }
+
+        // ✅ FIX: Get related data separately (no lock needed for reads)
+        const [route, schedule, driver, queueEntry] = await Promise.all([
+          Destination.findByPk(trip.routeId, { transaction: t }),
+          Schedule.findByPk(trip.scheduleId, { transaction: t }),
+          Driver.findByPk(trip.driverId, { transaction: t }),
+          trip.queueId ? DriverQueue.findByPk(trip.queueId, { transaction: t }) : null
+        ]);
 
         // Check trip status
         if (trip.status !== 'scheduled') {
@@ -146,11 +148,11 @@ const bookingController = {
           }, { transaction: t });
 
           // Remove driver from queue and reindex positions
-          if (trip.queueEntry) {
-            const { stationId, scheduleId, destinationId } = trip.queueEntry;
+          if (queueEntry) {
+            const { stationId, scheduleId, destinationId } = queueEntry;
             
             // Remove queue entry
-            await trip.queueEntry.destroy({ transaction: t });
+            await queueEntry.destroy({ transaction: t });
             
             // Reindex remaining queue positions
             await reindexQueuePositions(stationId, scheduleId, destinationId, t);
@@ -175,10 +177,21 @@ const bookingController = {
           console.log(`✅ Trip ${tripId} auto-started with full capacity, ${autoConfirmedBookings} bookings confirmed`);
         }
 
-        return { booking, wasAutoStarted, autoConfirmedBookings };
+        return { 
+          booking, 
+          trip: {
+            ...trip.toJSON(),
+            route,
+            schedule,
+            driver,
+            queueEntry
+          },
+          wasAutoStarted, 
+          autoConfirmedBookings 
+        };
       });
 
-      // Fetch complete booking data
+      // ✅ FIX: Fetch complete booking data with separate query
       const completeBooking = await Booking.findByPk(result.booking.id, {
         include: [
           {
@@ -545,7 +558,7 @@ const bookingController = {
   },
 
   /**
-   * ✅ ENHANCED: Update booking status with better validation
+   * ✅ FIXED: Update booking status with better validation (Fixed lock issue)
    */
   updateBookingStatus: async (req, res) => {
     try {
@@ -562,8 +575,8 @@ const bookingController = {
       const { status, cancellationReason } = req.body;
 
       const result = await sequelize.transaction(async (t) => {
+        // ✅ FIX: Get booking without includes first, then lock
         const booking = await Booking.findByPk(id, {
-          include: [{ model: Trip, as: 'trip' }],
           lock: true,
           transaction: t
         });
@@ -571,6 +584,9 @@ const bookingController = {
         if (!booking) {
           throw new Error('Booking not found');
         }
+
+        // ✅ FIX: Get trip separately
+        const trip = await Trip.findByPk(booking.tripId, { transaction: t });
 
         const validTransitions = {
           'pending': ['confirmed', 'cancelled'],
@@ -585,14 +601,14 @@ const bookingController = {
         }
 
         // ✅ NEW: Check if trip has already departed for certain status changes
-        if (['cancelled'].includes(status) && new Date(booking.trip.departureTime) <= new Date()) {
+        if (['cancelled'].includes(status) && new Date(trip.departureTime) <= new Date()) {
           throw new Error('Cannot cancel booking for trip that has already departed');
         }
 
         // Update available seats if cancelling or marking no-show
         if ((status === 'cancelled' || status === 'no_show') && booking.status !== 'cancelled') {
-          await booking.trip.update({
-            availableSeats: booking.trip.availableSeats + booking.seats
+          await trip.update({
+            availableSeats: trip.availableSeats + booking.seats
           }, { transaction: t });
         }
 
@@ -621,7 +637,7 @@ const bookingController = {
   },
 
   /**
-   * ✅ ENHANCED: Cancel booking with better validation
+   * ✅ FIXED: Cancel booking with better validation (Fixed lock issue)
    */
   cancelBooking: async (req, res) => {
     try {
@@ -638,12 +654,12 @@ const bookingController = {
       }
 
       const result = await sequelize.transaction(async (t) => {
+        // ✅ FIX: Get booking without includes first, then lock
         const booking = await Booking.findOne({
           where: {
             id,
             passengerId: passenger.id
           },
-          include: [{ model: Trip, as: 'trip' }],
           lock: true,
           transaction: t
         });
@@ -651,6 +667,9 @@ const bookingController = {
         if (!booking) {
           throw new Error('Booking not found or you do not have permission to cancel it');
         }
+
+        // ✅ FIX: Get trip separately
+        const trip = await Trip.findByPk(booking.tripId, { transaction: t });
 
         if (booking.status === 'cancelled') {
           throw new Error('Booking is already cancelled');
@@ -661,7 +680,7 @@ const bookingController = {
         }
 
         // ✅ NEW: Check cancellation time limits
-        const departureTime = new Date(booking.trip.departureTime);
+        const departureTime = new Date(trip.departureTime);
         const now = new Date();
         const hoursUntilDeparture = (departureTime - now) / (1000 * 60 * 60);
 
@@ -674,12 +693,12 @@ const bookingController = {
         }
 
         // ✅ NEW: Check if trip is in progress
-        if (booking.trip.status === 'in_progress') {
+        if (trip.status === 'in_progress') {
           throw new Error('Cannot cancel booking for trip that is already in progress');
         }
 
-        await booking.trip.update({
-          availableSeats: booking.trip.availableSeats + booking.seats
+        await trip.update({
+          availableSeats: trip.availableSeats + booking.seats
         }, { transaction: t });
 
         await booking.update({
@@ -1015,15 +1034,15 @@ const bookingController = {
   },
 
   /**
-   * Delete booking (admin only)
+   * ✅ FIXED: Delete booking (admin only) - Fixed lock issue
    */
   deleteBooking: async (req, res) => {
     try {
       const { id } = req.params;
 
       const result = await sequelize.transaction(async (t) => {
+        // ✅ FIX: Get booking without includes first, then lock
         const booking = await Booking.findByPk(id, {
-          include: [{ model: Trip, as: 'trip' }],
           lock: true,
           transaction: t
         });
@@ -1032,9 +1051,12 @@ const bookingController = {
           throw new Error('Booking not found');
         }
 
+        // ✅ FIX: Get trip separately
+        const trip = await Trip.findByPk(booking.tripId, { transaction: t });
+
         if (booking.status !== 'cancelled') {
-          await booking.trip.update({
-            availableSeats: booking.trip.availableSeats + booking.seats
+          await trip.update({
+            availableSeats: trip.availableSeats + booking.seats
           }, { transaction: t });
         }
 

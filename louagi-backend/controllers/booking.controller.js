@@ -40,7 +40,7 @@ async function reindexQueuePositions(stationId, scheduleId, destinationId, trans
 
 const bookingController = {
   /**
-   * ✅ FIXED: Create booking + auto-start when full (Fixed lock issue)
+   * ✅ FIXED: Create booking + auto-start when full (Fixed lock issue and booking reference)
    */
   createBooking: async (req, res) => {
     try {
@@ -117,7 +117,12 @@ const bookingController = {
         const pricePerSeat = parseFloat(trip.currentPrice);
         const totalAmount = pricePerSeat * seats;
 
-        // Create booking
+        // ✅ FIX: Generate booking reference manually
+        const prefix = 'LG';
+        const randomDigits = Math.floor(1000000 + Math.random() * 9000000).toString();
+        const bookingReference = `${prefix}-${randomDigits}`;
+
+        // ✅ FIX: Create booking with explicit booking reference
         const booking = await Booking.create({
           tripId,
           passengerId: passenger.id,
@@ -125,7 +130,8 @@ const bookingController = {
           amount: totalAmount,
           specialRequests,
           status: 'pending',
-          paymentStatus: 'pending'
+          paymentStatus: 'pending',
+          bookingReference // ✅ CRITICAL: Explicitly set the booking reference
         }, { transaction: t });
 
         // Update trip available seats
@@ -724,9 +730,7 @@ const bookingController = {
     }
   },
 
-  /**
-   * Check in passenger (mark as confirmed)
-   */
+  // ... rest of the methods remain the same ...
   checkInPassenger: async (req, res) => {
     try {
       const { id } = req.params;
@@ -787,9 +791,6 @@ const bookingController = {
     }
   },
 
-  /**
-   * Mark passenger as no-show
-   */
   markNoShow: async (req, res) => {
     try {
       const { id } = req.params;
@@ -858,9 +859,6 @@ const bookingController = {
     }
   },
 
-  /**
-   * Bulk update booking statuses for a trip
-   */
   bulkUpdateBookingStatus: async (req, res) => {
     try {
       const { tripId } = req.params;
@@ -939,9 +937,6 @@ const bookingController = {
     }
   },
 
-  /**
-   * Get booking conflicts for a trip
-   */
   getBookingConflicts: async (req, res) => {
     try {
       const { tripId } = req.params;
@@ -1033,15 +1028,11 @@ const bookingController = {
     }
   },
 
-  /**
-   * ✅ FIXED: Delete booking (admin only) - Fixed lock issue
-   */
   deleteBooking: async (req, res) => {
     try {
       const { id } = req.params;
 
       const result = await sequelize.transaction(async (t) => {
-        // ✅ FIX: Get booking without includes first, then lock
         const booking = await Booking.findByPk(id, {
           lock: true,
           transaction: t
@@ -1051,7 +1042,6 @@ const bookingController = {
           throw new Error('Booking not found');
         }
 
-        // ✅ FIX: Get trip separately
         const trip = await Trip.findByPk(booking.tripId, { transaction: t });
 
         if (booking.status !== 'cancelled') {
@@ -1078,14 +1068,10 @@ const bookingController = {
     }
   },
 
-  /**
-   * ✅ ENHANCED: Get booking statistics with more detailed analytics
-   */
   getBookingStats: async (req, res) => {
     try {
       const { startDate, endDate } = req.query;
       
-      // Build where clause for date filtering
       const dateFilter = {};
       if (startDate || endDate) {
         dateFilter.createdAt = {};
@@ -1101,7 +1087,6 @@ const bookingController = {
         todayBookings,
         weeklyGrowth
       ] = await Promise.all([
-        // Status breakdown
         Booking.findAll({
           attributes: [
             'status',
@@ -1114,10 +1099,8 @@ const bookingController = {
           raw: true
         }),
         
-        // Total bookings
         Booking.count({ where: dateFilter }),
         
-        // Total revenue (confirmed + completed only)
         Booking.sum('amount', {
           where: { 
             ...dateFilter,
@@ -1125,7 +1108,6 @@ const bookingController = {
           }
         }),
         
-        // Average booking value
         Booking.findOne({
           attributes: [
             [sequelize.fn('AVG', sequelize.col('amount')), 'avgAmount']
@@ -1134,7 +1116,6 @@ const bookingController = {
           raw: true
         }),
         
-        // Today's bookings
         Booking.count({
           where: {
             createdAt: {
@@ -1143,7 +1124,6 @@ const bookingController = {
           }
         }),
         
-        // Weekly growth (this week vs last week)
         Promise.all([
           Booking.count({
             where: {
@@ -1163,13 +1143,11 @@ const bookingController = {
         ])
       ]);
 
-      // Calculate weekly growth percentage
       const [thisWeek, lastWeek] = weeklyGrowth;
       const growthPercentage = lastWeek > 0 ? 
         ((thisWeek - lastWeek) / lastWeek * 100).toFixed(1) : 
         thisWeek > 0 ? 100 : 0;
 
-      // Calculate completion rate
       const completedBookings = statusStats.find(s => s.status === 'completed')?.count || 0;
       const completionRate = totalBookings > 0 ? 
         ((completedBookings / totalBookings) * 100).toFixed(1) : 0;
@@ -1214,9 +1192,6 @@ const bookingController = {
     }
   },
 
-  /**
-   * ✅ NEW: Get passenger booking history with analytics
-   */
   getPassengerAnalytics: async (req, res) => {
     try {
       const userId = req.user.id;
@@ -1271,7 +1246,6 @@ const bookingController = {
           }
         }),
         
-        // Monthly breakdown
         Booking.findAll({
           attributes: [
             [sequelize.fn('DATE_TRUNC', 'month', sequelize.col('created_at')), 'month'],

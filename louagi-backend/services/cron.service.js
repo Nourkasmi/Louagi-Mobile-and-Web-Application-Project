@@ -1,6 +1,6 @@
 const cron = require('node-cron');
 const { Op } = require('sequelize');
-const { Trip, DriverQueue, Schedule } = require('../models');
+const { Trip, DriverQueue, Schedule, Driver, Destination, Booking, sequelize } = require('../models');
 const { logger } = require('../utils/logger');
 const { v4: uuidv4 } = require('uuid');
 
@@ -100,19 +100,18 @@ cron.schedule('1 0 * * *', async () => {
 });
 
 /**
- * ✅ NEW: Schedule end cleanup (runs at 6:00 PM daily)
- * Move waiting drivers to tomorrow's schedules when current schedule ends
+ * ✅ MERGED: End of schedule cleanup (runs at 6:00 PM daily)
+ * Handles drivers still in queue when schedule ends and moves them to tomorrow
  */
 cron.schedule('0 18 * * *', async () => {
   try {
-    logger.info('🕕 Running schedule end cleanup...');
+    logger.info('🕕 Running end-of-schedule cleanup...');
     
-    // Move waiting drivers to tomorrow's schedules
-    await moveWaitingDriversToNextDay();
+    const result = await handleEndOfScheduleDay();
     
-    logger.info('✅ Schedule end cleanup completed.');
+    logger.info(`✅ End-of-schedule cleanup completed: ${JSON.stringify(result)}`);
   } catch (error) {
-    logger.error('❌ Error in schedule end cleanup:', error);
+    logger.error('❌ Error in end-of-schedule cleanup:', error);
   }
 });
 
@@ -235,83 +234,12 @@ cron.schedule('*/30 * * * *', async () => {
 });
 
 /**
- * ✅ NEW: Move waiting drivers to next day
- */
-const moveWaitingDriversToNextDay = async () => {
-  const waitingDrivers = await DriverQueue.findAll({
-    where: { status: 'waiting' },
-    include: ['schedule']
-  });
-
-  let movedCount = 0;
-  let removedCount = 0;
-
-  for (const driver of waitingDrivers) {
-    try {
-      const tomorrow = new Date();
-      tomorrow.setDate(tomorrow.getDate() + 1);
-      const tomorrowDayOfWeek = tomorrow.getDay();
-      
-      const nextSchedule = await Schedule.findOne({
-        where: {
-          stationId: driver.stationId,
-          dayOfWeek: tomorrowDayOfWeek,
-          isActive: true
-        }
-      });
-
-      if (nextSchedule) {
-        // ✅ Move to tomorrow's schedule
-        await driver.update({
-          scheduleId: nextSchedule.id,
-          joinedAt: new Date(),
-          position: await getNextAvailablePosition(
-            driver.stationId,
-            nextSchedule.id,
-            driver.destinationId
-          )
-        });
-        
-        movedCount++;
-        logger.info(`Moved driver ${driver.driverId} to tomorrow's schedule`);
-      } else {
-        // ❌ Remove from queue if no tomorrow schedule
-        await driver.destroy();
-        removedCount++;
-        logger.info(`Removed driver ${driver.driverId} - no tomorrow schedule available`);
-      }
-    } catch (error) {
-      logger.error(`Error processing driver ${driver.driverId}:`, error);
-    }
-  }
-
-  logger.info(`✅ Schedule cleanup: ${movedCount} drivers moved, ${removedCount} drivers removed`);
-};
-
-/**
- * ✅ HELPER: Get next available position for tomorrow's queue
- */
-const getNextAvailablePosition = async (stationId, scheduleId, destinationId) => {
-  const maxPosition = await DriverQueue.max('position', {
-    where: {
-      stationId,
-      scheduleId,
-      destinationId,
-      status: 'waiting'
-    }
-  });
-  
-  return (maxPosition || 0) + 1;
-};
-
-/**
  * ✅ NEW: Health check for system components (runs every 5 minutes)
  * Monitor system health and log any issues
  */
 cron.schedule('*/5 * * * *', async () => {
   try {
     // Check database connectivity
-    const { sequelize } = require('../models');
     await sequelize.authenticate();
 
     // Count active components
@@ -323,7 +251,7 @@ cron.schedule('*/5 * * * *', async () => {
     ] = await Promise.all([
       Trip.count({ where: { status: { [Op.in]: ['scheduled', 'in_progress'] } } }),
       DriverQueue.count({ where: { status: 'waiting' } }),
-      require('../models').Booking.count({
+      Booking.count({
         where: {
           createdAt: {
             [Op.gte]: new Date(new Date().setHours(0, 0, 0, 0))
@@ -383,7 +311,7 @@ cron.schedule('0 23 * * 0', async () => {
           createdAt: { [Op.gte]: weekAgo }
         }
       }),
-      require('../models').Booking.count({
+      Booking.count({
         where: {
           createdAt: { [Op.gte]: weekAgo }
         }
@@ -400,7 +328,7 @@ cron.schedule('0 23 * * 0', async () => {
           updatedAt: { [Op.gte]: weekAgo }
         }
       }),
-      require('../models').Booking.sum('amount', {
+      Booking.sum('amount', {
         where: {
           status: 'completed',
           createdAt: { [Op.gte]: weekAgo }
@@ -428,14 +356,433 @@ cron.schedule('0 23 * * 0', async () => {
   }
 });
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// 🕕 END OF SCHEDULE DAY LOGIC
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/**
+ * ✅ MERGED: Handle what happens when schedule day ends
+ */
+const handleEndOfScheduleDay = async () => {
+  const now = new Date();
+  const today = now.getDay();
+  
+  // Get all active schedules that are ending today
+  const endingSchedules = await Schedule.findAll({
+    where: {
+      dayOfWeek: today,
+      isActive: true
+    }
+  });
+
+  let processedDrivers = 0;
+  let movedToTomorrow = 0;
+  let notifiedDrivers = 0;
+  let cancelledTrips = 0;
+
+  for (const schedule of endingSchedules) {
+    // Check if schedule is actually ending (within 30 minutes of end time)
+    const [endHour, endMinute] = schedule.endTime.split(':').map(Number);
+    const scheduleEndTime = new Date();
+    scheduleEndTime.setHours(endHour, endMinute, 0, 0);
+    
+    const minutesUntilEnd = (scheduleEndTime - now) / (1000 * 60);
+    
+    // Only process if schedule is ending soon (within 30 minutes)
+    if (minutesUntilEnd <= 30 && minutesUntilEnd >= -30) {
+      const stationId = schedule.stationId;
+      
+      // Find all waiting drivers for this station/schedule
+      const waitingDrivers = await DriverQueue.findAll({
+        where: {
+          stationId,
+          scheduleId: schedule.id,
+          status: { [Op.in]: ['waiting', 'assigned'] }
+        },
+        include: [
+          { model: Driver, as: 'driver', include: ['user'] },
+          { model: Destination, as: 'destination' }
+        ]
+      });
+
+      for (const queueEntry of waitingDrivers) {
+        processedDrivers++;
+        
+        // Find if driver has an active trip waiting for passengers
+        const waitingTrip = await Trip.findOne({
+          where: {
+            driverId: queueEntry.driverId,
+            status: 'scheduled',
+            queueId: queueEntry.id
+          },
+          include: [
+            {
+              model: Booking,
+              as: 'bookings',
+              where: { status: { [Op.notIn]: ['cancelled'] } },
+              required: false
+            }
+          ]
+        });
+
+        // Decision logic based on trip status
+        if (waitingTrip) {
+          const hasBookings = waitingTrip.bookings && waitingTrip.bookings.length > 0;
+          
+          if (hasBookings) {
+            // ✅ OPTION A: Trip has bookings → Move to tomorrow
+            await moveDriverToTomorrow(queueEntry, waitingTrip, 'with_bookings');
+            movedToTomorrow++;
+            
+            // Notify passengers about delay to tomorrow
+            // await notifyPassengersAboutDelay(waitingTrip.bookings);
+            
+            logger.info(`📅 Moved driver ${queueEntry.driverId} with ${waitingTrip.bookings.length} bookings to tomorrow`);
+            
+          } else {
+            // ✅ OPTION B: Trip has no bookings → Cancel or move
+            const driverChoice = await getDriverPreference(queueEntry.driverId);
+            
+            if (driverChoice === 'cancel') {
+              await cancelEmptyTrip(waitingTrip, queueEntry);
+              cancelledTrips++;
+              logger.info(`❌ Cancelled empty trip for driver ${queueEntry.driverId}`);
+            } else {
+              await moveDriverToTomorrow(queueEntry, waitingTrip, 'no_bookings');
+              movedToTomorrow++;
+              logger.info(`📅 Moved driver ${queueEntry.driverId} with no bookings to tomorrow`);
+            }
+          }
+        } else {
+          // ✅ OPTION C: Driver in queue but no trip → Move to tomorrow
+          await moveQueueEntryToTomorrow(queueEntry);
+          movedToTomorrow++;
+          logger.info(`📅 Moved queue entry for driver ${queueEntry.driverId} to tomorrow`);
+        }
+        
+        // Notify driver about the decision
+        await notifyDriverAboutEndOfDay(queueEntry.driver, waitingTrip);
+        notifiedDrivers++;
+      }
+    }
+  }
+
+  return {
+    processedDrivers,
+    movedToTomorrow,
+    notifiedDrivers,
+    cancelledTrips
+  };
+};
+
+/**
+ * ✅ Move driver and trip to tomorrow's schedule
+ */
+const moveDriverToTomorrow = async (queueEntry, trip, reason) => {
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const tomorrowDayOfWeek = tomorrow.getDay();
+  
+  // Find tomorrow's schedule for same station
+  const tomorrowSchedule = await Schedule.findOne({
+    where: {
+      stationId: queueEntry.stationId,
+      dayOfWeek: tomorrowDayOfWeek,
+      isActive: true
+    }
+  });
+
+  if (!tomorrowSchedule) {
+    // No schedule tomorrow → Cancel trip
+    await cancelEmptyTrip(trip, queueEntry);
+    return;
+  }
+
+  await sequelize.transaction(async (t) => {
+    // Get next available position in tomorrow's queue
+    const nextPosition = await getNextAvailablePosition(
+      queueEntry.stationId,
+      tomorrowSchedule.id,
+      queueEntry.destinationId
+    );
+
+    // Update queue entry
+    await queueEntry.update({
+      scheduleId: tomorrowSchedule.id,
+      position: nextPosition,
+      joinedAt: new Date(), // Reset join time
+      // Add metadata about the move
+      metadata: {
+        movedFromDate: new Date().toISOString().split('T')[0],
+        moveReason: reason,
+        originalPosition: queueEntry.position
+      }
+    }, { transaction: t });
+
+    // Update trip schedule if exists
+    if (trip) {
+      await trip.update({
+        scheduleId: tomorrowSchedule.id,
+        notes: (trip.notes || '') + ` - Moved to tomorrow (${reason})`
+      }, { transaction: t });
+    }
+  });
+};
+
+/**
+ * ✅ Move queue entry only to tomorrow (for drivers without trips)
+ */
+const moveQueueEntryToTomorrow = async (queueEntry) => {
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const tomorrowDayOfWeek = tomorrow.getDay();
+  
+  const tomorrowSchedule = await Schedule.findOne({
+    where: {
+      stationId: queueEntry.stationId,
+      dayOfWeek: tomorrowDayOfWeek,
+      isActive: true
+    }
+  });
+
+  if (!tomorrowSchedule) {
+    // No schedule tomorrow → Remove from queue
+    await queueEntry.destroy();
+    return;
+  }
+
+  const nextPosition = await getNextAvailablePosition(
+    queueEntry.stationId,
+    tomorrowSchedule.id,
+    queueEntry.destinationId
+  );
+
+  await queueEntry.update({
+    scheduleId: tomorrowSchedule.id,
+    position: nextPosition,
+    joinedAt: new Date(),
+    metadata: {
+      movedFromDate: new Date().toISOString().split('T')[0],
+      moveReason: 'queue_only',
+      originalPosition: queueEntry.position
+    }
+  });
+};
+
+/**
+ * ✅ Cancel empty trip and remove from queue
+ */
+const cancelEmptyTrip = async (trip, queueEntry) => {
+  await sequelize.transaction(async (t) => {
+    if (trip) {
+      await trip.update({
+        status: 'cancelled',
+        notes: (trip.notes || '') + ' - Cancelled at end of schedule day'
+      }, { transaction: t });
+    }
+    
+    await queueEntry.destroy({ transaction: t });
+  });
+};
+
+/**
+ * ✅ Get driver preference (simplified - could be enhanced with notifications)
+ */
+const getDriverPreference = async (driverId) => {
+  // For now, default to moving to tomorrow
+  // Could be enhanced to send push notification and get real response
+  return 'move_to_tomorrow';
+};
+
+/**
+ * ✅ Notify driver about end of day decision
+ */
+const notifyDriverAboutEndOfDay = async (driver, trip) => {
+  // This could send push notifications, SMS, or in-app notifications
+  // For now, just log it
+  logger.info(`📱 Notify driver ${driver.id}: Schedule ended, trip ${trip ? 'moved to tomorrow' : 'cancelled'}`);
+};
+
+/**
+ * ✅ UPDATED: Move waiting drivers to next day (used by both cron jobs)
+ */
+const moveWaitingDriversToNextDay = async () => {
+  const waitingDrivers = await DriverQueue.findAll({
+    where: { status: 'waiting' },
+    include: ['schedule']
+  });
+
+  let movedCount = 0;
+  let removedCount = 0;
+
+  for (const driver of waitingDrivers) {
+    try {
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      const tomorrowDayOfWeek = tomorrow.getDay();
+      
+      const nextSchedule = await Schedule.findOne({
+        where: {
+          stationId: driver.stationId,
+          dayOfWeek: tomorrowDayOfWeek,
+          isActive: true
+        }
+      });
+
+      if (nextSchedule) {
+        // ✅ Move to tomorrow's schedule
+        await driver.update({
+          scheduleId: nextSchedule.id,
+          joinedAt: new Date(),
+          position: await getNextAvailablePosition(
+            driver.stationId,
+            nextSchedule.id,
+            driver.destinationId
+          )
+        });
+        
+        movedCount++;
+        logger.info(`Moved driver ${driver.driverId} to tomorrow's schedule`);
+      } else {
+        // ❌ Remove from queue if no tomorrow schedule
+        await driver.destroy();
+        removedCount++;
+        logger.info(`Removed driver ${driver.driverId} - no tomorrow schedule available`);
+      }
+    } catch (error) {
+      logger.error(`Error processing driver ${driver.driverId}:`, error);
+    }
+  }
+
+  logger.info(`✅ Schedule cleanup: ${movedCount} drivers moved, ${removedCount} drivers removed`);
+  return { movedCount, removedCount };
+};
+
+/**
+ * ✅ HELPER: Get next available position for queue
+ */
+const getNextAvailablePosition = async (stationId, scheduleId, destinationId) => {
+  const maxPosition = await DriverQueue.max('position', {
+    where: {
+      stationId,
+      scheduleId,
+      destinationId,
+      status: 'waiting'
+    }
+  });
+  
+  return (maxPosition || 0) + 1;
+};
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// 📱 DRIVER NOTIFICATION API ENDPOINTS
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/**
+ * ✅ NEW API Endpoint: Get end-of-day options for driver
+ */
+const getEndOfDayOptions = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    
+    const driver = await Driver.findOne({ where: { user_id: userId } });
+    if (!driver) {
+      return res.status(404).json({ success: false, message: 'Driver not found' });
+    }
+
+    // Check if driver has pending trip at end of schedule
+    const queueEntry = await DriverQueue.findOne({
+      where: {
+        driverId: driver.id,
+        status: { [Op.in]: ['waiting', 'assigned'] }
+      },
+      include: [
+        { model: Schedule, as: 'schedule' },
+        { model: Destination, as: 'destination' }
+      ]
+    });
+
+    if (!queueEntry) {
+      return res.status(200).json({
+        success: true,
+        hasQueueEntry: false,
+        message: 'No active queue entry'
+      });
+    }
+
+    // Check if schedule is ending soon
+    const now = new Date();
+    const [endHour, endMinute] = queueEntry.schedule.endTime.split(':').map(Number);
+    const scheduleEndTime = new Date();
+    scheduleEndTime.setHours(endHour, endMinute, 0, 0);
+    
+    const minutesUntilEnd = (scheduleEndTime - now) / (1000 * 60);
+
+    if (minutesUntilEnd > 30) {
+      return res.status(200).json({
+        success: true,
+        scheduleEnding: false,
+        minutesUntilEnd: Math.round(minutesUntilEnd),
+        message: `Schedule ends in ${Math.round(minutesUntilEnd)} minutes`
+      });
+    }
+
+    // Find if there's a trip with bookings
+    const trip = await Trip.findOne({
+      where: {
+        driverId: driver.id,
+        status: 'scheduled',
+        queueId: queueEntry.id
+      },
+      include: [
+        {
+          model: Booking,
+          as: 'bookings',
+          where: { status: { [Op.notIn]: ['cancelled'] } },
+          required: false
+        }
+      ]
+    });
+
+    const hasBookings = trip && trip.bookings && trip.bookings.length > 0;
+
+    return res.status(200).json({
+      success: true,
+      scheduleEnding: true,
+      minutesUntilEnd: Math.round(minutesUntilEnd),
+      hasTrip: !!trip,
+      hasBookings,
+      bookingsCount: trip?.bookings?.length || 0,
+      options: hasBookings ? 
+        ['move_to_tomorrow'] : // If has bookings, must move
+        ['move_to_tomorrow', 'cancel_and_leave'], // If no bookings, can choose
+      recommendation: hasBookings ? 'move_to_tomorrow' : 'cancel_and_leave',
+      message: hasBookings ? 
+        'You have passengers booked. Trip will move to tomorrow.' :
+        'No passengers yet. You can choose to move to tomorrow or cancel.'
+    });
+
+  } catch (error) {
+    logger.error('Get end of day options error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to get end of day options'
+    });
+  }
+};
+
 /**
  * ✅ EXPORT: Manual trigger functions for testing
  */
 const manualTriggers = {
   triggerNightlyRequeue: async () => {
     logger.info('🔧 Manual trigger: Nightly requeue');
-    // Trigger the nightly requeue logic manually
     return await moveWaitingDriversToNextDay();
+  },
+  
+  triggerEndOfScheduleCleanup: async () => {
+    logger.info('🔧 Manual trigger: End of schedule cleanup');
+    return await handleEndOfScheduleDay();
   },
   
   triggerPeakHourGeneration: async () => {
@@ -468,7 +815,7 @@ const manualTriggers = {
 // ✅ Log cron service initialization
 logger.info('🚀 Cron service initialized with the following jobs:');
 logger.info('  - Nightly requeue: 1:00 AM daily');
-logger.info('  - Schedule end cleanup: 6:00 PM daily'); 
+logger.info('  - End-of-schedule cleanup: 6:00 PM daily'); 
 logger.info('  - Peak hour generation: Every 10 minutes during 7-9 AM, 5-7 PM');
 logger.info('  - Stale trip cleanup: Every hour');
 logger.info('  - Queue validation: Every 30 minutes');
@@ -476,7 +823,12 @@ logger.info('  - Health check: Every 5 minutes');
 logger.info('  - Weekly statistics: Sunday 11:00 PM');
 
 module.exports = {
+  handleEndOfScheduleDay,
+  moveDriverToTomorrow,
+  moveQueueEntryToTomorrow,
+  cancelEmptyTrip,
   moveWaitingDriversToNextDay,
   getNextAvailablePosition,
+  getEndOfDayOptions,
   manualTriggers
 };

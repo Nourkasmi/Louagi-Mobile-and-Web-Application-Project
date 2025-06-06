@@ -5,7 +5,7 @@ const { sequelize } = require('../models');
 
 const driverController = {
   /**
-   * ✅ ENHANCED: Driver declares availability → Position 1 → Instant Trip Assignment
+   * ✅ UPDATED: Driver declares availability → Position 1 → Capacity-Based Trip Creation
    */
   declareAvailability: async (req, res) => {
     try {
@@ -87,22 +87,10 @@ const driverController = {
         });
       }
 
-      // ✅ VALIDATE: Within schedule time
-      const now = new Date();
-      const nowMinutes = now.getHours() * 60 + now.getMinutes();
-      const [startHour, startMinute] = schedule.startTime.split(':').map(Number);
-      const [endHour, endMinute] = schedule.endTime.split(':').map(Number);
-      const startMinutes = startHour * 60 + startMinute;
-      const endMinutes = endHour * 60 + endMinute;
+      // ✅ REMOVED: Time-based validation - capacity system works anytime
+      // No more schedule time checks - trips can be created anytime during the day
 
-      if (nowMinutes < startMinutes || nowMinutes > endMinutes) {
-        return res.status(400).json({ 
-          success: false, 
-          message: 'Outside schedule hours' 
-        });
-      }
-
-      // ✅ MAIN LOGIC: Add to queue as Position 1 + Create Trip Instantly
+      // ✅ MAIN LOGIC: Add to queue as Position 1 + Create Capacity-Based Trip
       const result = await sequelize.transaction(async (t) => {
         
         // 1️⃣ MOVE EXISTING DRIVERS DOWN (position++)
@@ -128,12 +116,8 @@ const driverController = {
           joinedAt: new Date()
         }, { transaction: t });
 
-        // 3️⃣ CREATE TRIP IMMEDIATELY FOR THIS DRIVER
-        const departureTime = new Date(now.getTime() + 5 * 60 * 1000); // 5 minutes from now
-        const estimatedArrivalTime = new Date(
-          departureTime.getTime() + (destination.estimatedDuration * 60 * 1000)
-        );
-
+        // 3️⃣ CREATE CAPACITY-BASED TRIP FOR THIS DRIVER
+        // ✅ UPDATED: No fixed departure time - will be set when trip starts
         const basePrice = parseFloat(destination.basePrice);
         const currentPrice = parseFloat((basePrice * 1.2).toFixed(2)); // 20% markup
 
@@ -143,14 +127,14 @@ const driverController = {
           scheduleId,
           driverId,
           queueId: queueEntry.id,
-          departureTime,
-          estimatedArrivalTime,
+          departureTime: null,              // ✅ No fixed departure time
+          estimatedArrivalTime: null,       // ✅ Will be calculated when trip starts
           basePrice,
           currentPrice,
           capacity: driver.vehicle_capacity || 4,
           availableSeats: driver.vehicle_capacity || 4,
           status: 'scheduled',
-          notes: 'Auto-assigned to position 1 driver'
+          notes: 'Waiting for passengers - will start when full'
         }, { transaction: t });
 
         return { trip, queueEntry };
@@ -168,12 +152,15 @@ const driverController = {
 
       return res.status(201).json({
         success: true,
-        message: 'Driver added as #1 in queue and trip assigned instantly!',
+        message: 'Trip created! Waiting for passengers to fill all seats.',
         trip: completeTrip,
         queuePosition: 1,
         status: 'assigned',
-        departureTime: result.trip.departureTime,
-        instantAssignment: true
+        waitingForPassengers: true,
+        availableSeats: completeTrip.availableSeats,
+        totalCapacity: completeTrip.capacity,
+        systemType: 'capacity-based',
+        note: 'Trip will start automatically when all seats are booked'
       });
 
     } catch (error) {
@@ -186,7 +173,7 @@ const driverController = {
   },
 
   /**
-   * ✅ Get driver's current status (trip + queue info)
+   * ✅ ENHANCED: Get driver's current status (trip + queue info + capacity status)
    */
   getDriverStatus: async (req, res) => {
     try {
@@ -229,13 +216,25 @@ const driverController = {
         ]
       });
 
-      // Determine availability status
+      // ✅ ENHANCED: Capacity-based status determination
       let availabilityStatus = 'available';
       let statusMessage = 'Available to declare availability';
+      let capacityInfo = null;
 
       if (activeTrip) {
-        availabilityStatus = 'busy';
-        statusMessage = `Currently on trip (${activeTrip.status})`;
+        if (activeTrip.status === 'scheduled') {
+          availabilityStatus = 'waiting_passengers';
+          statusMessage = `Waiting for passengers (${activeTrip.availableSeats}/${activeTrip.capacity} seats available)`;
+          capacityInfo = {
+            availableSeats: activeTrip.availableSeats,
+            totalCapacity: activeTrip.capacity,
+            bookedSeats: activeTrip.capacity - activeTrip.availableSeats,
+            percentageFull: Math.round(((activeTrip.capacity - activeTrip.availableSeats) / activeTrip.capacity) * 100)
+          };
+        } else if (activeTrip.status === 'in_progress') {
+          availabilityStatus = 'on_trip';
+          statusMessage = `Currently on trip (in progress)`;
+        }
       } else if (queueEntry) {
         availabilityStatus = 'in_queue';
         statusMessage = `In queue at position ${queueEntry.position}`;
@@ -249,7 +248,9 @@ const driverController = {
           statusMessage,
           activeTrip: activeTrip || null,
           queueEntry: queueEntry || null,
-          canDeclareAvailability: availabilityStatus === 'available'
+          capacityInfo,
+          canDeclareAvailability: availabilityStatus === 'available',
+          systemType: 'capacity-based'
         }
       });
 
@@ -258,6 +259,152 @@ const driverController = {
       return res.status(500).json({ 
         success: false, 
         message: 'Internal server error' 
+      });
+    }
+  },
+
+  /**
+   * ✅ NEW: Get trip capacity status for active trip
+   */
+  getTripCapacityStatus: async (req, res) => {
+    try {
+      const userId = req.user.id;
+
+      const driver = await Driver.findOne({ where: { user_id: userId } });
+      if (!driver) {
+        return res.status(404).json({ 
+          success: false, 
+          message: 'Driver profile not found' 
+        });
+      }
+
+      // Find active trip
+      const activeTrip = await Trip.findOne({
+        where: {
+          driverId: driver.id,
+          status: 'scheduled' // Only for trips waiting for passengers
+        },
+        include: [
+          { model: Destination, as: 'route' },
+          { model: Schedule, as: 'schedule' },
+          {
+            model: require('../models').Booking,
+            as: 'bookings',
+            where: { status: { [Op.notIn]: ['cancelled'] } },
+            required: false
+          }
+        ]
+      });
+
+      if (!activeTrip) {
+        return res.status(404).json({
+          success: false,
+          message: 'No active trip waiting for passengers'
+        });
+      }
+
+      const totalBookedSeats = activeTrip.bookings?.reduce((sum, booking) => sum + booking.seats, 0) || 0;
+      const availableSeats = activeTrip.capacity - totalBookedSeats;
+      const percentageFull = Math.round((totalBookedSeats / activeTrip.capacity) * 100);
+
+      return res.status(200).json({
+        success: true,
+        trip: {
+          id: activeTrip.id,
+          route: activeTrip.route?.description,
+          totalCapacity: activeTrip.capacity,
+          bookedSeats: totalBookedSeats,
+          availableSeats: availableSeats,
+          percentageFull: percentageFull,
+          bookingsCount: activeTrip.bookings?.length || 0,
+          status: activeTrip.status,
+          willStartWhenFull: true,
+          estimatedStartTime: availableSeats === 0 ? 'Starting now!' : 'When all seats are booked'
+        }
+      });
+
+    } catch (error) {
+      console.error('Get trip capacity status error:', error);
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to get trip capacity status'
+      });
+    }
+  },
+
+  /**
+   * ✅ NEW: Cancel waiting trip (if no bookings yet)
+   */
+  cancelWaitingTrip: async (req, res) => {
+    try {
+      const userId = req.user.id;
+
+      const driver = await Driver.findOne({ where: { user_id: userId } });
+      if (!driver) {
+        return res.status(404).json({ 
+          success: false, 
+          message: 'Driver profile not found' 
+        });
+      }
+
+      const result = await sequelize.transaction(async (t) => {
+        // Find the scheduled trip
+        const trip = await Trip.findOne({
+          where: {
+            driverId: driver.id,
+            status: 'scheduled'
+          },
+          include: [
+            {
+              model: require('../models').Booking,
+              as: 'bookings',
+              where: { status: { [Op.notIn]: ['cancelled'] } },
+              required: false
+            }
+          ],
+          transaction: t
+        });
+
+        if (!trip) {
+          throw new Error('No scheduled trip found');
+        }
+
+        // Check if there are any active bookings
+        if (trip.bookings && trip.bookings.length > 0) {
+          throw new Error('Cannot cancel trip with existing bookings');
+        }
+
+        // Cancel the trip
+        await trip.update({ 
+          status: 'cancelled',
+          notes: (trip.notes || '') + ' - Cancelled by driver before any bookings'
+        }, { transaction: t });
+
+        // Remove from queue
+        if (trip.queueId) {
+          const queueEntry = await DriverQueue.findByPk(trip.queueId, { transaction: t });
+          if (queueEntry) {
+            await queueEntry.destroy({ transaction: t });
+          }
+        }
+
+        return trip;
+      });
+
+      return res.status(200).json({
+        success: true,
+        message: 'Trip cancelled successfully. You can declare availability again.',
+        cancelledTrip: {
+          id: result.id,
+          status: result.status
+        }
+      });
+
+    } catch (error) {
+      console.error('Cancel waiting trip error:', error);
+      return res.status(400).json({
+        success: false,
+        message: error.message || 'Failed to cancel trip'
       });
     }
   },

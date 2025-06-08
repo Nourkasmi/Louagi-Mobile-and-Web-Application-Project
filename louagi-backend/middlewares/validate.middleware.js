@@ -81,7 +81,7 @@ const validationSchemas = {
   // Schedule schema
   schedule: Joi.object({
     stationId: Joi.string().uuid().required(),
-    dayOfWeek: Joi.number().integer().min(0).max(6).required(),
+    dayOfWeek: Joi.number().integer().min(0).max(7).required(),
     startTime: Joi.string().pattern(/^([01]\d|2[0-3]):([0-5]\d)$/).required(),
     endTime: Joi.string().pattern(/^([01]\d|2[0-3]):([0-5]\d)$/).required(),
     isActive: Joi.boolean().optional(),

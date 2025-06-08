@@ -23,7 +23,7 @@ module.exports = (sequelize, DataTypes) => {
         allowNull: false,
         validate: {
           min: 0,
-          max: 6
+          max: 7
         },
         field: 'day_of_week'
       },

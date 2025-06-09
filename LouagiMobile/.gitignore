@@ -43,3 +43,37 @@ LouagiMobile/Gemfile.lock
 
 # Package lock (optional, some prefer to keep it)
 LouagiMobile/package-lock.json
+
+# Additional React Native specific files
+LouagiMobile/.bundle/
+LouagiMobile/node_modules/
+LouagiMobile/ios/build/
+LouagiMobile/ios/Pods/
+LouagiMobile/android/app/build/
+LouagiMobile/android/build/
+LouagiMobile/android/.gradle/
+
+# Metro bundler cache
+LouagiMobile/.metro-health-check*
+LouagiMobile/metro-cache/
+
+# Debug files
+LouagiMobile/flipper-server-log.log
+LouagiMobile/.flipper/
+
+# Temporary files
+LouagiMobile/tmp/
+LouagiMobile/temp/
+
+# IDE files
+LouagiMobile/.vscode/
+LouagiMobile/.idea/
+
+# OS generated files
+LouagiMobile/.DS_Store
+LouagiMobile/.DS_Store?
+LouagiMobile/._*
+LouagiMobile/.Spotlight-V100
+LouagiMobile/.Trashes
+LouagiMobile/ehthumbs.db
+LouagiMobile/Thumbs.db

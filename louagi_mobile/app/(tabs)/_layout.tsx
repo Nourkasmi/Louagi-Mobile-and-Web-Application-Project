@@ -1,0 +1,75 @@
+import { Tabs } from 'expo-router';
+import React from 'react';
+import { Platform } from 'react-native';
+import { useSelector } from 'react-redux';
+
+import { HapticTab } from '@/components/HapticTab';
+import { IconSymbol } from '@/components/ui/IconSymbol';
+import TabBarBackground from '@/components/ui/TabBarBackground';
+import { Colors } from '@/constants/Colors';
+import { useColorScheme } from '@/hooks/useColorScheme';
+
+export default function TabLayout() {
+  const colorScheme = useColorScheme();
+  const { user } = useSelector((state) => state.auth);
+
+  if (!user) return null; // Prevent rendering if user data is not yet loaded
+
+  const isPassenger = user.role === 'passenger';
+  const isDriver = user.role === 'driver';
+
+  return (
+    <Tabs
+      screenOptions={{
+        tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
+        headerShown: false,
+        tabBarButton: HapticTab,
+        tabBarBackground: TabBarBackground,
+        tabBarStyle: Platform.select({
+          ios: {
+            position: 'absolute',
+          },
+          default: {},
+        }),
+      }}
+    >
+      {isPassenger && (
+        <>
+          <Tabs.Screen
+            name="passenger/home"
+            options={{
+              title: 'Home',
+              tabBarIcon: ({ color }) => <IconSymbol size={28} name="house.fill" color={color} />,
+            }}
+          />
+          <Tabs.Screen
+            name="passenger/explore"
+            options={{
+              title: 'Explore',
+              tabBarIcon: ({ color }) => <IconSymbol size={28} name="paperplane.fill" color={color} />,
+            }}
+          />
+        </>
+      )}
+
+      {isDriver && (
+        <>
+          <Tabs.Screen
+            name="driver/home"
+            options={{
+              title: 'Home',
+              tabBarIcon: ({ color }) => <IconSymbol size={28} name="car.fill" color={color} />,
+            }}
+          />
+          <Tabs.Screen
+            name="driver/requests"
+            options={{
+              title: 'Requests',
+              tabBarIcon: ({ color }) => <IconSymbol size={28} name="bell.fill" color={color} />,
+            }}
+          />
+        </>
+      )}
+    </Tabs>
+  );
+}

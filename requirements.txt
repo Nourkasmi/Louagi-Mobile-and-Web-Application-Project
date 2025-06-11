@@ -15,3 +15,13 @@ NODE_ENV=development npx sequelize-cli db:migrate
 
 NODE_ENV=development npx sequelize-cli db:seed:undo:all
 NODE_ENV=development npx sequelize-cli db:seed:all
+
+
+
+npx expo install react-native-vector-icons
+npm install react-native-paper
+npx expo install @stripe/stripe-react-native
+npm install axios
+npm install @reduxjs/toolkit react-redux
+npx expo install @react-navigation/native @react-navigation/native-stack @react-navigation/bottom-tabs react-native-screens react-native-safe-area-context react-native-gesture-handler react-native-reanimated
+npx create-expo-app louagi_mobile

@@ -10,7 +10,7 @@ const authRoutes = require('./routes/auth.routes');
 const userRoutes = require('./routes/user.routes');
 const tripRoutes = require('./routes/trip.routes');
 const bookingRoutes = require('./routes/booking.routes');
-const paymentRoutes = require('./routes/payment.routes'); // ✅ NEW: Payment routes
+const paymentRoutes = require('./routes/payment.routes');
 const stationRoutes = require('./routes/station.routes');
 const scheduleRoutes = require('./routes/schedule.routes');
 const destinationRoutes = require('./routes/destination.routes');
@@ -23,37 +23,60 @@ const app = express();
 // Use request logger
 requestLogger(app);
 
-// Apply middlewares
-app.use(helmet()); // Security headers
-app.use(cors({
-  origin: config.server.corsOrigin,
-  credentials: true,
-  optionsSuccessStatus: 200
-}));
-app.use(compression()); // Compress responses
+// Apply security and compression middleware
+app.use(helmet());
+app.use(compression());
 
-// ✅ IMPORTANT: Special handling for Stripe webhooks (raw body needed)
+// ✅ Robust CORS handling for web + Expo mobile tunnels
+const allowedOrigins = [
+  'http://localhost:8081',
+  'http://localhost:8080',
+  'http://localhost:19006',
+  'https://*.exp.direct',
+  ...config.server.corsOrigin
+];
+
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+
+  if (allowedOrigins.includes(origin) || origin?.endsWith('.exp.direct')) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+  }
+
+  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(200);
+  }
+
+  next();
+});
+
+// ✅ Stripe webhooks must use raw body
 app.use('/api/payments/webhook', express.raw({ type: 'application/json' }));
 
-// Parse JSON request bodies for all other routes
-app.use(express.json()); 
-app.use(express.urlencoded({ extended: true })); // Parse URL-encoded request bodies
+// Standard body parsers
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
-// API routes 
+// API prefix
 const apiPrefix = `/api/${config.server.apiVersion}`;
 
+// Mount API routes
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/trips', tripRoutes);
 app.use('/api/bookings', bookingRoutes);
-app.use('/api/payments', paymentRoutes); // ✅ NEW: Payment routes
+app.use('/api/payments', paymentRoutes);
 app.use('/api/stations', stationRoutes);
 app.use('/api/schedules', scheduleRoutes);
 app.use('/api/destinations', destinationRoutes);
 app.use('/api/drivers', driverRoutes);
 app.use('/queues', queueRoutes);
 
-// API health check endpoint
+// Health check
 app.get('/health', (req, res) => {
   res.status(200).json({
     status: 'UP',
@@ -66,7 +89,7 @@ app.get('/health', (req, res) => {
   });
 });
 
-// Handle 404 errors
+// 404 handler
 app.use((req, res, next) => {
   const error = new Error('Not Found');
   error.status = 404;
@@ -77,11 +100,9 @@ app.use((req, res, next) => {
 app.use((err, req, res, next) => {
   const status = err.status || 500;
   const message = err.message || 'Internal Server Error';
-  
-  // Log error
+
   logger.error(`${status} - ${message} - ${req.originalUrl} - ${req.method} - ${req.ip}`);
-  
-  // Only include stack trace in development
+
   const response = {
     error: {
       message,
@@ -89,11 +110,11 @@ app.use((err, req, res, next) => {
       timestamp: new Date().toISOString()
     }
   };
-  
+
   if (config.server.env === 'development' && err.stack) {
     response.error.stack = err.stack;
   }
-  
+
   res.status(status).json(response);
 });
 

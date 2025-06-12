@@ -5,7 +5,7 @@ const compression = require('compression');
 const { requestLogger, logger } = require('./utils/logger');
 const config = require('./config/config');
 
-// Import routes
+// Routes
 const authRoutes = require('./routes/auth.routes');
 const userRoutes = require('./routes/user.routes');
 const tripRoutes = require('./routes/trip.routes');
@@ -17,35 +17,39 @@ const destinationRoutes = require('./routes/destination.routes');
 const driverRoutes = require('./routes/driver.routes');
 const queueRoutes = require('./routes/queue.routes');
 
-// Create Express app
 const app = express();
-
-// Use request logger
 requestLogger(app);
 
-// Apply security and compression middleware
+// Security + Compression
 app.use(helmet());
 app.use(compression());
 
-// ✅ Robust CORS handling for web + Expo mobile tunnels
+// ✅ FIXED CORS BLOCK
 const allowedOrigins = [
   'http://localhost:8081',
   'http://localhost:8080',
   'http://localhost:19006',
-  'https://*.exp.direct',
-  ...config.server.corsOrigin
+  ...(Array.isArray(config.server.corsOrigin) ? config.server.corsOrigin : [])
 ];
 
 app.use((req, res, next) => {
   const origin = req.headers.origin;
 
-  if (allowedOrigins.includes(origin) || origin?.endsWith('.exp.direct')) {
+  const isAllowed = 
+    allowedOrigins.includes(origin) ||
+    (origin && origin.endsWith('.exp.direct')) ||
+    (origin && origin.endsWith('.ngrok-free.app'));
+
+  if (isAllowed && origin) {
     res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
   }
 
   res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  res.setHeader(
+    'Access-Control-Allow-Headers',
+    req.headers['access-control-request-headers'] || 'Content-Type, Authorization'
+  );
 
   if (req.method === 'OPTIONS') {
     return res.sendStatus(200);
@@ -54,17 +58,15 @@ app.use((req, res, next) => {
   next();
 });
 
-// ✅ Stripe webhooks must use raw body
+// Stripe webhook (before body parser)
 app.use('/api/payments/webhook', express.raw({ type: 'application/json' }));
 
-// Standard body parsers
+// Body parsers
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// API prefix
 const apiPrefix = `/api/${config.server.apiVersion}`;
 
-// Mount API routes
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/trips', tripRoutes);
@@ -76,7 +78,6 @@ app.use('/api/destinations', destinationRoutes);
 app.use('/api/drivers', driverRoutes);
 app.use('/queues', queueRoutes);
 
-// Health check
 app.get('/health', (req, res) => {
   res.status(200).json({
     status: 'UP',
@@ -89,14 +90,12 @@ app.get('/health', (req, res) => {
   });
 });
 
-// 404 handler
 app.use((req, res, next) => {
   const error = new Error('Not Found');
   error.status = 404;
   next(error);
 });
 
-// Global error handler
 app.use((err, req, res, next) => {
   const status = err.status || 500;
   const message = err.message || 'Internal Server Error';

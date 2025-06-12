@@ -7,7 +7,7 @@ dotenv.config();
 // Active environment
 const env = process.env.NODE_ENV || 'development';
 
-// Validation schema - ADD STRIPE VARIABLES
+// Validation schema
 const envVarsSchema = {
   required: [
     'NODE_ENV', 
@@ -18,8 +18,8 @@ const envVarsSchema = {
     'DB_USER', 
     'DB_PASSWORD', 
     'JWT_SECRET',
-    'STRIPE_SECRET_KEY',  // ✅ NEW: Required
-    'STRIPE_WEBHOOK_SECRET'  // ✅ NEW: Required
+    'STRIPE_SECRET_KEY',
+    'STRIPE_WEBHOOK_SECRET'
   ],
   validate: {
     NODE_ENV: (v) => ['development', 'test', 'production'].includes(v),
@@ -27,12 +27,11 @@ const envVarsSchema = {
     DB_PORT: (v) => !isNaN(parseInt(v, 10)),
     JWT_ACCESS_EXPIRY: (v) => !v || /^\d+(s|m|h|d)$/.test(v),
     JWT_REFRESH_EXPIRY: (v) => !v || /^\d+(s|m|h|d)$/.test(v),
-    STRIPE_SECRET_KEY: (v) => v && (v.startsWith('sk_test_') || v.startsWith('sk_live_')), // ✅ NEW: Validate Stripe key format
-    STRIPE_WEBHOOK_SECRET: (v) => v && v.startsWith('whsec_') // ✅ NEW: Validate webhook secret format
+    STRIPE_SECRET_KEY: (v) => v && (v.startsWith('sk_test_') || v.startsWith('sk_live_')),
+    STRIPE_WEBHOOK_SECRET: (v) => v && v.startsWith('whsec_')
   }
 };
 
-// Validate env
 const validateEnvVars = () => {
   const errors = [];
   envVarsSchema.required.forEach(key => {
@@ -48,7 +47,6 @@ const validateEnvVars = () => {
 
 validateEnvVars();
 
-// Sequelize-compatible DB config (unchanged)
 const dbEnvs = {
   development: {
     username: process.env.DB_USER,
@@ -82,7 +80,6 @@ const dbEnvs = {
   }
 };
 
-// Global App Config (used inside Node app)
 const fullConfig = {
   db: dbEnvs[env],
   jwt: {
@@ -94,24 +91,23 @@ const fullConfig = {
     env,
     port: parseInt(process.env.PORT, 10),
     apiVersion: process.env.API_VERSION || 'v1',
-    corsOrigin: process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',') : '*'
+    corsOrigin: (process.env.CORS_ORIGIN || '')
+      .split(',')
+      .map((url) => url.trim())
+      .filter(Boolean)
   },
   logging: {
     level: process.env.LOG_LEVEL || 'info',
     requestFormat: process.env.REQUEST_LOG_FORMAT || 'combined'
   },
-  // ✅ ENHANCED: Payment configuration
   payment: {
     stripeSecretKey: process.env.STRIPE_SECRET_KEY,
-    stripePublishableKey: process.env.STRIPE_PUBLISHABLE_KEY, // Optional for server-side
+    stripePublishableKey: process.env.STRIPE_PUBLISHABLE_KEY,
     stripeWebhookSecret: process.env.STRIPE_WEBHOOK_SECRET,
     currency: process.env.DEFAULT_CURRENCY || 'usd',
-    // Payment processing settings
-    processingFeePercentage: parseFloat(process.env.PROCESSING_FEE_PERCENTAGE) || 2.9, // 2.9%
-    processingFeeFixed: parseFloat(process.env.PROCESSING_FEE_FIXED) || 0.30, // $0.30
-    // Refund settings
+    processingFeePercentage: parseFloat(process.env.PROCESSING_FEE_PERCENTAGE) || 2.9,
+    processingFeeFixed: parseFloat(process.env.PROCESSING_FEE_FIXED) || 0.30,
     refundProcessingDays: parseInt(process.env.REFUND_PROCESSING_DAYS) || 5,
-    // Payment intent settings
     paymentIntentConfirmationMethod: process.env.PAYMENT_INTENT_CONFIRMATION_METHOD || 'automatic',
     paymentIntentCaptureMethod: process.env.PAYMENT_INTENT_CAPTURE_METHOD || 'automatic'
   },
@@ -126,5 +122,4 @@ const fullConfig = {
   }
 };
 
-// Conditional export
 module.exports = require.main?.filename.includes('sequelize') ? dbEnvs : fullConfig;

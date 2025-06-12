@@ -1,5 +1,5 @@
-import { Tabs } from 'expo-router';
 import React from 'react';
+import { Tabs } from 'expo-router';
 import { Platform } from 'react-native';
 import { useSelector } from 'react-redux';
 
@@ -9,9 +9,12 @@ import TabBarBackground from '@/components/ui/TabBarBackground';
 import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
 
+// Import RootState from your Redux store for type safety
+import { RootState } from '@/store/store';
+
 export default function TabLayout() {
   const colorScheme = useColorScheme();
-  const { user } = useSelector((state) => state.auth);
+  const { user } = useSelector((state: RootState) => state.auth);
 
   if (!user) return null; // Prevent rendering if user data is not yet loaded
 
@@ -39,14 +42,18 @@ export default function TabLayout() {
             name="passenger/home"
             options={{
               title: 'Home',
-              tabBarIcon: ({ color }) => <IconSymbol size={28} name="house.fill" color={color} />,
+              tabBarIcon: ({ color }: { color: string }) => (
+                <IconSymbol size={28} name="house.fill" color={color} />
+              ),
             }}
           />
           <Tabs.Screen
             name="passenger/explore"
             options={{
               title: 'Explore',
-              tabBarIcon: ({ color }) => <IconSymbol size={28} name="paperplane.fill" color={color} />,
+              tabBarIcon: ({ color }: { color: string }) => (
+                <IconSymbol size={28} name="paperplane.fill" color={color} />
+              ),
             }}
           />
         </>
@@ -58,14 +65,18 @@ export default function TabLayout() {
             name="driver/home"
             options={{
               title: 'Home',
-              tabBarIcon: ({ color }) => <IconSymbol size={28} name="car.fill" color={color} />,
+              tabBarIcon: ({ color }: { color: string }) => (
+                <IconSymbol size={28} name="car.fill" color={color} />
+              ),
             }}
           />
           <Tabs.Screen
             name="driver/requests"
             options={{
               title: 'Requests',
-              tabBarIcon: ({ color }) => <IconSymbol size={28} name="bell.fill" color={color} />,
+              tabBarIcon: ({ color }: { color: string }) => (
+                <IconSymbol size={28} name="bell.fill" color={color} />
+              ),
             }}
           />
         </>

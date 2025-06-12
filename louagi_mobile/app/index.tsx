@@ -1,10 +1,13 @@
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useRouter } from 'expo-router';
 import { useSelector } from 'react-redux';
 import { ActivityIndicator, View } from 'react-native';
 
+// Import RootState type from your store
+import { RootState } from '../src/store/store';
+
 export default function Index() {
-  const auth = useSelector((state) => state.auth);
+  const auth = useSelector((state: RootState) => state.auth);
   const router = useRouter();
   const [isReady, setIsReady] = useState(false);
 

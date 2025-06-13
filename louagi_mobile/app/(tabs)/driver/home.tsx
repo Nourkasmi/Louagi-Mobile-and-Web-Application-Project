@@ -1,9 +1,12 @@
+import React from 'react';
 import { View, Text } from 'react-native';
 
-export default function PassengerHome() {
+const DriverHome: React.FC = () => {
   return (
     <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-      <Text>Welcome Passenger!</Text>
+      <Text>Welcome Driver!</Text>
     </View>
   );
-}
+};
+
+export default DriverHome;

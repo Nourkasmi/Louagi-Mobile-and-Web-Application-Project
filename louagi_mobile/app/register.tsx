@@ -1,16 +1,31 @@
 import React, { useState } from 'react';
 import { View, StyleSheet, ScrollView } from 'react-native';
-import { TextInput, Button, Title, RadioButton, HelperText } from 'react-native-paper';
+import { TextInput, Button, Title, RadioButton } from 'react-native-paper';
 import { useRouter } from 'expo-router';
 import { useDispatch } from 'react-redux';
 import { loginSuccess } from '../src/store/authSlice';
 import { register } from '../src/services/api';
 
-export default function RegisterScreen() {
+type FormState = {
+  username: string;
+  email: string;
+  password: string;
+  phone: string;
+  role: 'passenger' | 'driver';
+  license_no: string;
+  experience: string;
+  license_expiry: string;
+};
+
+type ErrorState = {
+  [key: string]: string;
+};
+
+const RegisterScreen: React.FC = () => {
   const router = useRouter();
   const dispatch = useDispatch();
 
-  const [form, setForm] = useState({
+  const [form, setForm] = useState<FormState>({
     username: '',
     email: '',
     password: '',
@@ -18,37 +33,40 @@ export default function RegisterScreen() {
     role: 'passenger',
     license_no: '',
     experience: '',
-    license_expiry: ''
+    license_expiry: '',
   });
 
-  const [errors, setErrors] = useState({});
+  const [errors, setErrors] = useState<ErrorState>({});
 
-  const handleChange = (field, value) => {
+  const handleChange = (field: keyof FormState, value: string) => {
     setForm({ ...form, [field]: value });
   };
 
-  const handleSubmit = async () => {
+  const handleSubmit = async (): Promise<void> => {
     setErrors({}); // reset errors
     try {
       const payload = {
         ...form,
         experience: form.role === 'driver' ? Number(form.experience) : undefined,
-        license_expiry: form.role === 'driver' ? form.license_expiry : undefined
+        license_expiry: form.role === 'driver' ? form.license_expiry : undefined,
       };
 
       const res = await register(payload);
 
-      if (!res.success) {
+      if (!res.success || !res.user || !res.token) {
         alert(res.message || 'Registration failed');
         return;
       }
 
+      // @ts-ignore (You can define global type for authToken if you want)
       global.authToken = res.token;
 
-      dispatch(loginSuccess({
-        user: res.user,
-        token: res.token
-      }));
+      dispatch(
+        loginSuccess({
+          user: res.user,
+          token: res.token,
+        })
+      );
 
       router.replace('/(tabs)');
     } catch (err) {
@@ -95,7 +113,7 @@ export default function RegisterScreen() {
       />
 
       <RadioButton.Group
-        onValueChange={(v) => handleChange('role', v)}
+        onValueChange={(v) => handleChange('role', v as FormState['role'])}
         value={form.role}
       >
         <View style={styles.radioRow}>
@@ -134,11 +152,7 @@ export default function RegisterScreen() {
         </>
       )}
 
-      <Button
-        mode="contained"
-        onPress={handleSubmit}
-        style={styles.button}
-      >
+      <Button mode="contained" onPress={handleSubmit} style={styles.button}>
         Register
       </Button>
       <Button onPress={() => router.back()} style={styles.link}>
@@ -146,7 +160,9 @@ export default function RegisterScreen() {
       </Button>
     </ScrollView>
   );
-}
+};
+
+export default RegisterScreen;
 
 const styles = StyleSheet.create({
   container: {

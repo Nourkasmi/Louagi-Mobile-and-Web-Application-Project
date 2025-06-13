@@ -6,27 +6,28 @@ import { useDispatch } from 'react-redux';
 import { loginSuccess } from '../src/store/authSlice';
 import { login } from '../src/services/api';
 
-function LoginScreen() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+const LoginScreen: React.FC = () => {
+  const [email, setEmail] = useState<string>('');
+  const [password, setPassword] = useState<string>('');
   const router = useRouter();
   const dispatch = useDispatch();
 
-  const handleLogin = async () => {
+  const handleLogin = async (): Promise<void> => {
     try {
       const res = await login(email, password);
 
-      if (!res.success) {
+      if (!res.success || !res.token || !res.user) {
         alert(res.message || 'Login failed');
         return;
       }
 
+      // @ts-ignore (if you have a global type, better to type this!)
       global.authToken = res.token;
 
       dispatch(
         loginSuccess({
           user: res.user,
-          token: res.token
+          token: res.token,
         })
       );
 
@@ -63,9 +64,9 @@ function LoginScreen() {
       </Button>
     </View>
   );
-}
+};
 
-export default LoginScreen; // ✅ This is what fixes the route
+export default LoginScreen;
 
 const styles = StyleSheet.create({
   container: {

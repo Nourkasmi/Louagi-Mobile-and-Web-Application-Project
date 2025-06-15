@@ -10,7 +10,7 @@ import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
 
 // Import RootState from your Redux store for type safety
-import { RootState } from '@/store/store';
+import { RootState } from '../../src/store/store';
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
@@ -54,6 +54,34 @@ export default function TabLayout() {
               tabBarIcon: ({ color }: { color: string }) => (
                 <IconSymbol size={28} name="paperplane.fill" color={color} />
               ),
+            }}
+          />
+          <Tabs.Screen
+            name="passenger/BookingHistoryScreen"
+            options={{
+              title: 'Bookings',
+              tabBarIcon: ({ color }: { color: string }) => (
+                <IconSymbol size={28} name="list.bullet" color={color} />
+              ),
+            }}
+          />
+          {/* Hidden screens - not shown in tabs but accessible via navigation */}
+          <Tabs.Screen
+            name="passenger/SearchScreen"
+            options={{
+              href: null, // Hide from tab bar
+            }}
+          />
+          <Tabs.Screen
+            name="passenger/BookingScreen"
+            options={{
+              href: null, // Hide from tab bar
+            }}
+          />
+          <Tabs.Screen
+            name="passenger/PaymentScreen"
+            options={{
+              href: null, // Hide from tab bar
             }}
           />
         </>

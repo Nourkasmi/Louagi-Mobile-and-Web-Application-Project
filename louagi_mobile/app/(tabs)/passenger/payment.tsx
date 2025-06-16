@@ -179,7 +179,7 @@ export default function PaymentScreen() {
         {
           text: 'View My Bookings',
           onPress: () => {
-            router.replace('/(tabs)/passenger/BookingHistoryScreen');
+            router.replace('/(tabs)/passenger/history');
           },
         },
       ]

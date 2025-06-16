@@ -1,4 +1,5 @@
-// app/(tabs)/_layout.tsx - Updated with All Screens
+// Update: app/(tabs)/_layout.tsx
+
 import React from 'react';
 import { Tabs } from 'expo-router';
 import { Platform } from 'react-native';
@@ -40,49 +41,21 @@ export default function TabLayout() {
       {isPassenger && (
         <>
           <Tabs.Screen
-            name="passenger/HomeScreen"
+            name="passenger"
             options={{
-              title: 'Search',
+              title: 'Home',
               tabBarIcon: ({ color }: { color: string }) => (
                 <IconSymbol size={28} name="house.fill" color={color} />
               ),
             }}
           />
           <Tabs.Screen
-            name="passenger/BookingHistoryScreen"
+            name="explore"
             options={{
-              title: 'Bookings',
+              title: 'Explore',
               tabBarIcon: ({ color }: { color: string }) => (
                 <IconSymbol size={28} name="paperplane.fill" color={color} />
               ),
-            }}
-          />
-          <Tabs.Screen
-            name="passenger/ProfileScreen"
-            options={{
-              title: 'Profile',
-              tabBarIcon: ({ color }: { color: string }) => (
-                <IconSymbol size={28} name="chevron.left.forwardslash.chevron.right" color={color} />
-              ),
-            }}
-          />
-          {/* Hidden screens that don't appear in tabs */}
-          <Tabs.Screen
-            name="passenger/SearchScreen"
-            options={{
-              href: null, // Hide from tab bar
-            }}
-          />
-          <Tabs.Screen
-            name="passenger/BookingScreen"
-            options={{
-              href: null, // Hide from tab bar
-            }}
-          />
-          <Tabs.Screen
-            name="passenger/PaymentScreen"
-            options={{
-              href: null, // Hide from tab bar
             }}
           />
         </>
@@ -91,37 +64,21 @@ export default function TabLayout() {
       {isDriver && (
         <>
           <Tabs.Screen
-            name="driver/home"
+            name="driver"
             options={{
-              title: 'Dashboard',
+              title: 'Home',
               tabBarIcon: ({ color }: { color: string }) => (
-                <IconSymbol size={28} name="house.fill" color={color} />
+                <IconSymbol size={28} name="car.fill" color={color} />
               ),
             }}
           />
           <Tabs.Screen
-            name="driver/TripHistoryScreen"
+            name="requests"
             options={{
-              title: 'Trips',
+              title: 'Requests',
               tabBarIcon: ({ color }: { color: string }) => (
-                <IconSymbol size={28} name="paperplane.fill" color={color} />
+                <IconSymbol size={28} name="bell.fill" color={color} />
               ),
-            }}
-          />
-          <Tabs.Screen
-            name="driver/EarningsScreen"
-            options={{
-              title: 'Earnings',
-              tabBarIcon: ({ color }: { color: string }) => (
-                <IconSymbol size={28} name="chevron.left.forwardslash.chevron.right" color={color} />
-              ),
-            }}
-          />
-          {/* Hidden driver screens */}
-          <Tabs.Screen
-            name="driver/requests"
-            options={{
-              href: null, // Hide from tab bar - keeping for compatibility
             }}
           />
         </>

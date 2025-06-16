@@ -1,3 +1,4 @@
+// app/(tabs)/driver/home.tsx - Enhanced for Capacity-Based System
 import React, { useEffect, useState, useCallback } from 'react';
 import {
   View,
@@ -8,6 +9,8 @@ import {
   StyleSheet,
   Alert,
   RefreshControl,
+  Modal,
+  FlatList,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { 
@@ -17,9 +20,16 @@ import {
   cancelWaitingTrip,
   getDriverTrips,
   updateTripStatus,
+  completeTrip,
+  getStations,
+  getDestinations,
+  getDriverEarnings,
+  getDriverQueue,
   type DriverStatus,
   type TripCapacityStatus,
-  type Trip
+  type Trip,
+  type Station,
+  type Destination
 } from '../../../src/services/api';
 
 export default function DriverHome() {
@@ -29,12 +39,22 @@ export default function DriverHome() {
   const [driverStatus, setDriverStatus] = useState<DriverStatus | null>(null);
   const [capacityStatus, setCapacityStatus] = useState<TripCapacityStatus | null>(null);
   const [activeTrip, setActiveTrip] = useState<Trip | null>(null);
-  const [availableStations, setAvailableStations] = useState([]);
+  const [earnings, setEarnings] = useState<any>(null);
+  const [queueInfo, setQueueInfo] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
+  
+  // Modal states for availability declaration
+  const [showAvailabilityModal, setShowAvailabilityModal] = useState(false);
+  const [stations, setStations] = useState<Station[]>([]);
+  const [destinations, setDestinations] = useState<Destination[]>([]);
+  const [selectedStation, setSelectedStation] = useState<Station | null>(null);
+  const [selectedDestination, setSelectedDestination] = useState<Destination | null>(null);
+  const [loadingStations, setLoadingStations] = useState(false);
+  const [loadingDestinations, setLoadingDestinations] = useState(false);
 
-  // Fetch driver status and data
+  // Fetch driver data
   const fetchDriverData = useCallback(async (isRefresh = false) => {
     try {
       if (isRefresh) {
@@ -45,22 +65,37 @@ export default function DriverHome() {
 
       // Fetch driver status
       const statusResponse = await getDriverStatus();
-      if (statusResponse.success) {
-        setDriverStatus(statusResponse.driver);
-        setActiveTrip(statusResponse.driver.activeTrip);
+      if (statusResponse.success && statusResponse.data) {
+        setDriverStatus(statusResponse.data);
+        setActiveTrip(statusResponse.data.activeTrip);
 
         // If driver has active trip waiting for passengers, get capacity status
-        if (statusResponse.driver.activeTrip?.status === 'scheduled') {
+        if (statusResponse.data.activeTrip?.status === 'scheduled') {
           const capacityResponse = await getTripCapacityStatus();
-          if (capacityResponse.success) {
-            setCapacityStatus(capacityResponse.trip);
+          if (capacityResponse.success && capacityResponse.data) {
+            setCapacityStatus(capacityResponse.data);
           }
+        } else {
+          setCapacityStatus(null);
         }
       }
 
-      // Fetch available stations for availability declaration
-      // This would come from your stations API
-      // setAvailableStations(stationsData);
+      // Fetch today's earnings
+      const earningsResponse = await getDriverEarnings({
+        startDate: new Date().toISOString().split('T')[0],
+        endDate: new Date().toISOString().split('T')[0],
+      });
+      if (earningsResponse.success && earningsResponse.data) {
+        setEarnings(earningsResponse.data.earnings);
+      }
+
+      // Fetch queue info if in queue
+      if (statusResponse.data?.queueEntry) {
+        const queueResponse = await getDriverQueue();
+        if (queueResponse.success && queueResponse.data) {
+          setQueueInfo(queueResponse.data);
+        }
+      }
 
     } catch (error) {
       console.error('Error fetching driver data:', error);
@@ -71,7 +106,7 @@ export default function DriverHome() {
     }
   }, []);
 
-  // Initial load
+  // Initial load and periodic refresh
   useEffect(() => {
     fetchDriverData();
     
@@ -85,21 +120,70 @@ export default function DriverHome() {
     return () => clearInterval(interval);
   }, [fetchDriverData, activeTrip]);
 
+  // Load stations for availability declaration
+  const loadStations = async () => {
+    try {
+      setLoadingStations(true);
+      const response = await getStations({ limit: 50 });
+      if (response.success && response.data) {
+        setStations(response.data.stations);
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Failed to load stations');
+    } finally {
+      setLoadingStations(false);
+    }
+  };
+
+  // Load destinations for selected station
+  const loadDestinations = async (stationId: string) => {
+    try {
+      setLoadingDestinations(true);
+      const response = await getDestinations(stationId, { limit: 50 });
+      if (response.success && response.data) {
+        setDestinations(response.data.destinations);
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Failed to load destinations');
+    } finally {
+      setLoadingDestinations(false);
+    }
+  };
+
+  // Handle station selection
+  const handleStationSelection = (station: Station) => {
+    setSelectedStation(station);
+    setSelectedDestination(null);
+    setDestinations([]);
+    loadDestinations(station.id);
+  };
+
   // Declare availability action
-  const handleDeclareAvailability = async (stationId: string, scheduleId: string, destinationId: string) => {
+  const handleDeclareAvailability = async () => {
+    if (!selectedStation || !selectedDestination) {
+      Alert.alert('Error', 'Please select both station and destination');
+      return;
+    }
+
     try {
       setActionLoading(true);
       
+      // For now, we'll use a mock schedule ID - in production, you'd let user select or detect current time
+      const mockScheduleId = 'schedule-1'; // You'd get this from available schedules
+      
       const response = await declareAvailability({
-        stationId,
-        scheduleId,
-        destinationId
+        stationId: selectedStation.id,
+        scheduleId: mockScheduleId,
+        destinationId: selectedDestination.id
       });
 
-      if (response.success) {
+      if (response.success && response.data) {
+        setShowAvailabilityModal(false);
         Alert.alert(
           'Success!', 
-          response.message || 'Trip created! Waiting for passengers.',
+          response.data.wasAutoStarted 
+            ? `Trip auto-started with ${response.data.autoConfirmedBookings} passengers!`
+            : `Trip created! Waiting for passengers (${response.data.availableSeats}/${response.data.totalCapacity} seats available)`,
           [{ text: 'OK', onPress: () => fetchDriverData() }]
         );
       } else {
@@ -119,7 +203,7 @@ export default function DriverHome() {
 
     Alert.alert(
       'Start Trip',
-      'Are you sure you want to start this trip?',
+      `Are you sure you want to start this trip? ${capacityStatus ? `Current passengers: ${capacityStatus.bookedSeats}/${capacityStatus.totalCapacity}` : ''}`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -162,10 +246,10 @@ export default function DriverHome() {
             try {
               setActionLoading(true);
               
-              const response = await updateTripStatus(activeTrip.id, 'completed');
+              const response = await completeTrip(activeTrip.id);
               
               if (response.success) {
-                Alert.alert('Success', 'Trip completed successfully!');
+                Alert.alert('Success', 'Trip completed successfully! 🎉');
                 fetchDriverData();
               } else {
                 Alert.alert('Error', response.message || 'Failed to complete trip');
@@ -183,7 +267,12 @@ export default function DriverHome() {
 
   // Cancel waiting trip
   const handleCancelWaitingTrip = async () => {
-    if (!activeTrip) return;
+    if (!activeTrip || !capacityStatus) return;
+
+    if (capacityStatus.bookedSeats > 0) {
+      Alert.alert('Cannot Cancel', 'You cannot cancel a trip that already has passengers booked.');
+      return;
+    }
 
     Alert.alert(
       'Cancel Trip',
@@ -223,15 +312,24 @@ export default function DriverHome() {
     const { availabilityStatus, statusMessage, canDeclareAvailability } = driverStatus;
     
     let statusColor = '#28a745'; // green
-    if (availabilityStatus === 'waiting_passengers') statusColor = '#ffc107'; // yellow
-    if (availabilityStatus === 'on_trip') statusColor = '#007bff'; // blue
-    if (availabilityStatus === 'in_queue') statusColor = '#6c757d'; // gray
+    let statusIcon = '✅';
+    
+    if (availabilityStatus === 'waiting_passengers') {
+      statusColor = '#ffc107'; // yellow
+      statusIcon = '⏳';
+    } else if (availabilityStatus === 'on_trip') {
+      statusColor = '#007bff'; // blue
+      statusIcon = '🚗';
+    } else if (availabilityStatus === 'in_queue') {
+      statusColor = '#6c757d'; // gray
+      statusIcon = '🔄';
+    }
 
     return (
       <View style={styles.statusCard}>
         <View style={styles.statusHeader}>
           <View style={[styles.statusIndicator, { backgroundColor: statusColor }]} />
-          <Text style={styles.statusTitle}>Driver Status</Text>
+          <Text style={styles.statusTitle}>Driver Status {statusIcon}</Text>
         </View>
         <Text style={styles.statusMessage}>{statusMessage}</Text>
         
@@ -239,19 +337,8 @@ export default function DriverHome() {
           <TouchableOpacity
             style={styles.declareButton}
             onPress={() => {
-              // For demo, show simple station selection
-              // In production, you'd show a proper station/destination picker
-              Alert.alert(
-                'Declare Availability',
-                'Choose your station and destination',
-                [
-                  { text: 'Cancel', style: 'cancel' },
-                  { 
-                    text: 'Station A → Destination B', 
-                    onPress: () => handleDeclareAvailability('station1', 'schedule1', 'dest1')
-                  }
-                ]
-              );
+              setShowAvailabilityModal(true);
+              loadStations();
             }}
             disabled={actionLoading}
           >
@@ -259,6 +346,18 @@ export default function DriverHome() {
               {actionLoading ? 'Processing...' : 'Declare Availability'}
             </Text>
           </TouchableOpacity>
+        )}
+        
+        {queueInfo && queueInfo.inQueue && (
+          <View style={styles.queueInfo}>
+            <Text style={styles.queueTitle}>Queue Position: #{queueInfo.queue.position}</Text>
+            <Text style={styles.queueDetails}>
+              Waiting: {queueInfo.queue.waitingTimeMinutes} minutes
+            </Text>
+            <Text style={styles.queueDetails}>
+              Route: {queueInfo.queue.station} → {queueInfo.queue.destination}
+            </Text>
+          </View>
         )}
       </View>
     );
@@ -270,33 +369,45 @@ export default function DriverHome() {
 
     return (
       <View style={styles.tripCard}>
-        <Text style={styles.tripCardTitle}>Active Trip</Text>
+        <Text style={styles.tripCardTitle}>
+          Active Trip {activeTrip.status === 'scheduled' ? '⏳' : activeTrip.status === 'in_progress' ? '🚗' : '✅'}
+        </Text>
         
         <View style={styles.tripInfo}>
           <Text style={styles.tripRoute}>{activeTrip.route.description}</Text>
           <Text style={styles.tripTime}>
-            Departure: {new Date(activeTrip.departureTime).toLocaleTimeString()}
+            Departure: {activeTrip.departureTime ? new Date(activeTrip.departureTime).toLocaleTimeString() : 'When full'}
           </Text>
           <Text style={styles.tripStatus}>Status: {activeTrip.status}</Text>
         </View>
 
         {capacityStatus && (
           <View style={styles.capacityInfo}>
-            <Text style={styles.capacityTitle}>Passenger Status</Text>
+            <Text style={styles.capacityTitle}>
+              Passenger Status {capacityStatus.percentageFull === 100 ? '🚀' : '👥'}
+            </Text>
             <View style={styles.capacityBar}>
               <View 
                 style={[
                   styles.capacityFill, 
-                  { width: `${capacityStatus.percentageFull}%` }
+                  { 
+                    width: `${capacityStatus.percentageFull}%`,
+                    backgroundColor: capacityStatus.percentageFull === 100 ? '#28a745' : '#ffc107'
+                  }
                 ]} 
               />
             </View>
             <Text style={styles.capacityText}>
-              {capacityStatus.bookedSeats}/{capacityStatus.totalCapacity} seats filled
+              {capacityStatus.bookedSeats}/{capacityStatus.totalCapacity} seats filled ({capacityStatus.percentageFull}%)
             </Text>
             <Text style={styles.capacitySubtext}>
-              {capacityStatus.bookingsCount} bookings
+              {capacityStatus.bookingsCount} bookings • {capacityStatus.availableSeats} seats available
             </Text>
+            {capacityStatus.willStartWhenFull && (
+              <Text style={styles.autoStartText}>
+                🚀 Will auto-start when full
+              </Text>
+            )}
           </View>
         )}
 
@@ -312,11 +423,17 @@ export default function DriverHome() {
               </TouchableOpacity>
               
               <TouchableOpacity
-                style={[styles.actionButton, styles.cancelButton]}
+                style={[
+                  styles.actionButton, 
+                  styles.cancelButton,
+                  (capacityStatus?.bookedSeats || 0) > 0 && styles.disabledButton
+                ]}
                 onPress={handleCancelWaitingTrip}
                 disabled={actionLoading || (capacityStatus?.bookedSeats || 0) > 0}
               >
-                <Text style={styles.actionButtonText}>Cancel</Text>
+                <Text style={styles.actionButtonText}>
+                  {(capacityStatus?.bookedSeats || 0) > 0 ? 'Has Passengers' : 'Cancel'}
+                </Text>
               </TouchableOpacity>
             </>
           )}
@@ -335,30 +452,132 @@ export default function DriverHome() {
     );
   };
 
-  // Render quick stats
-  const renderQuickStats = () => (
+  // Render earnings card
+  const renderEarningsCard = () => (
     <View style={styles.statsContainer}>
       <TouchableOpacity 
         style={styles.statCard}
-        onPress={() => router.push('/(tabs)/driver/TripHistoryScreen')}
+        onPress={() => router.push('/(tabs)/driver/earnings')}
       >
-        <Text style={styles.statNumber}>12</Text>
-        <Text style={styles.statLabel}>Trips Today</Text>
+        <Text style={styles.statNumber}>
+          ${earnings?.totalEarnings?.toFixed(2) || '0.00'}
+        </Text>
+        <Text style={styles.statLabel}>Today's Earnings</Text>
       </TouchableOpacity>
       
       <TouchableOpacity 
         style={styles.statCard}
-        onPress={() => router.push('/(tabs)/driver/EarningsScreen')}
+        onPress={() => router.push('/(tabs)/driver/trips')}
       >
-        <Text style={styles.statNumber}>$245</Text>
-        <Text style={styles.statLabel}>Today's Earnings</Text>
+        <Text style={styles.statNumber}>{earnings?.totalTrips || 0}</Text>
+        <Text style={styles.statLabel}>Trips Today</Text>
       </TouchableOpacity>
       
       <View style={styles.statCard}>
-        <Text style={styles.statNumber}>4.8⭐</Text>
+        <Text style={styles.statNumber}>
+          {driverStatus?.profile?.rating?.toFixed(1) || '5.0'}⭐
+        </Text>
         <Text style={styles.statLabel}>Rating</Text>
       </View>
     </View>
+  );
+
+  // Render availability declaration modal
+  const renderAvailabilityModal = () => (
+    <Modal
+      visible={showAvailabilityModal}
+      animationType="slide"
+      presentationStyle="pageSheet"
+    >
+      <View style={styles.modalContainer}>
+        <View style={styles.modalHeader}>
+          <Text style={styles.modalTitle}>Declare Availability</Text>
+          <TouchableOpacity
+            onPress={() => setShowAvailabilityModal(false)}
+            style={styles.modalCloseButton}
+          >
+            <Text style={styles.modalCloseText}>✕</Text>
+          </TouchableOpacity>
+        </View>
+
+        <ScrollView style={styles.modalContent}>
+          {/* Station Selection */}
+          <Text style={styles.selectionLabel}>Select Station:</Text>
+          {loadingStations ? (
+            <ActivityIndicator size="small" color="#007bff" />
+          ) : (
+            <FlatList
+              data={stations}
+              keyExtractor={(item) => item.id}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={[
+                    styles.selectionItem,
+                    selectedStation?.id === item.id && styles.selectedItem
+                  ]}
+                  onPress={() => handleStationSelection(item)}
+                >
+                  <Text style={styles.selectionItemTitle}>{item.name}</Text>
+                  <Text style={styles.selectionItemSubtitle}>
+                    {item.city}, {item.state}
+                  </Text>
+                </TouchableOpacity>
+              )}
+              style={styles.selectionList}
+            />
+          )}
+
+          {/* Destination Selection */}
+          {selectedStation && (
+            <>
+              <Text style={styles.selectionLabel}>Select Destination:</Text>
+              {loadingDestinations ? (
+                <ActivityIndicator size="small" color="#007bff" />
+              ) : (
+                <FlatList
+                  data={destinations}
+                  keyExtractor={(item) => item.id}
+                  renderItem={({ item }) => (
+                    <TouchableOpacity
+                      style={[
+                        styles.selectionItem,
+                        selectedDestination?.id === item.id && styles.selectedItem
+                      ]}
+                      onPress={() => setSelectedDestination(item)}
+                    >
+                      <Text style={styles.selectionItemTitle}>
+                        {item.endStation.name}
+                      </Text>
+                      <Text style={styles.selectionItemSubtitle}>
+                        ${item.basePrice} • {item.estimatedDuration} min
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+                  style={styles.selectionList}
+                />
+              )}
+            </>
+          )}
+
+          {/* Confirm Button */}
+          {selectedStation && selectedDestination && (
+            <TouchableOpacity
+              style={[styles.confirmButton, actionLoading && styles.disabledButton]}
+              onPress={handleDeclareAvailability}
+              disabled={actionLoading}
+            >
+              {actionLoading ? (
+                <ActivityIndicator color="white" />
+              ) : (
+                <Text style={styles.confirmButtonText}>
+                  Create Trip: {selectedStation.name} → {selectedDestination.endStation.name}
+                </Text>
+              )}
+            </TouchableOpacity>
+          )}
+        </ScrollView>
+      </View>
+    </Modal>
   );
 
   if (loading) {
@@ -382,28 +601,32 @@ export default function DriverHome() {
     >
       <View style={styles.header}>
         <Text style={styles.title}>Driver Dashboard</Text>
-        <Text style={styles.subtitle}>Welcome back!</Text>
+        <Text style={styles.subtitle}>
+          Welcome back, {driverStatus?.profile?.user?.username}! 👋
+        </Text>
       </View>
 
       {renderStatusCard()}
       {renderActiveTripCard()}
-      {renderQuickStats()}
+      {renderEarningsCard()}
       
       <View style={styles.quickActions}>
         <TouchableOpacity 
           style={styles.quickActionButton}
-          onPress={() => router.push('/(tabs)/driver/TripHistoryScreen')}
+          onPress={() => router.push('/(tabs)/driver/trips')}
         >
-          <Text style={styles.quickActionText}>Trip History</Text>
+          <Text style={styles.quickActionText}>📋 Trip History</Text>
         </TouchableOpacity>
         
         <TouchableOpacity 
           style={styles.quickActionButton}
-          onPress={() => router.push('/(tabs)/driver/EarningsScreen')}
+          onPress={() => router.push('/(tabs)/driver/earnings')}
         >
-          <Text style={styles.quickActionText}>Earnings</Text>
+          <Text style={styles.quickActionText}>💰 Earnings</Text>
         </TouchableOpacity>
       </View>
+
+      {renderAvailabilityModal()}
     </ScrollView>
   );
 }
@@ -475,11 +698,30 @@ const styles = StyleSheet.create({
     padding: 14,
     borderRadius: 8,
     alignItems: 'center',
+    marginBottom: 12,
   },
   declareButtonText: {
     color: 'white',
     fontSize: 16,
     fontWeight: '600',
+  },
+  queueInfo: {
+    backgroundColor: '#f0f8ff',
+    padding: 12,
+    borderRadius: 8,
+    borderLeftWidth: 4,
+    borderLeftColor: '#007bff',
+  },
+  queueTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#007bff',
+    marginBottom: 4,
+  },
+  queueDetails: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 2,
   },
   tripCard: {
     backgroundColor: 'white',
@@ -538,7 +780,6 @@ const styles = StyleSheet.create({
   },
   capacityFill: {
     height: '100%',
-    backgroundColor: '#28a745',
     borderRadius: 4,
   },
   capacityText: {
@@ -549,6 +790,12 @@ const styles = StyleSheet.create({
   capacitySubtext: {
     fontSize: 12,
     color: '#666',
+    marginBottom: 8,
+  },
+  autoStartText: {
+    fontSize: 12,
+    color: '#28a745',
+    fontWeight: '600',
   },
   tripActions: {
     flexDirection: 'row',
@@ -568,6 +815,9 @@ const styles = StyleSheet.create({
   },
   completeButton: {
     backgroundColor: '#007bff',
+  },
+  disabledButton: {
+    backgroundColor: '#6c757d',
   },
   actionButtonText: {
     color: 'white',
@@ -622,5 +872,78 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: '#007bff',
+  },
+  modalContainer: {
+    flex: 1,
+    backgroundColor: 'white',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    paddingTop: 60,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  modalCloseButton: {
+    padding: 8,
+  },
+  modalCloseText: {
+    fontSize: 18,
+    color: '#666',
+  },
+  modalContent: {
+    flex: 1,
+    padding: 16,
+  },
+  selectionLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 12,
+    marginTop: 16,
+  },
+  selectionList: {
+    maxHeight: 200,
+    marginBottom: 16,
+  },
+  selectionItem: {
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    marginBottom: 8,
+  },
+  selectedItem: {
+    borderColor: '#007bff',
+    backgroundColor: '#f0f8ff',
+  },
+  selectionItemTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 4,
+  },
+  selectionItemSubtitle: {
+    fontSize: 14,
+    color: '#666',
+  },
+  confirmButton: {
+    backgroundColor: '#007bff',
+    padding: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginTop: 20,
+  },
+  confirmButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });

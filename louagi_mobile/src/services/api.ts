@@ -443,11 +443,25 @@ export const getDriverQueue = async (): Promise<ApiResponse<{
 
 // ==================== PAYMENT ENDPOINTS ====================
 
-export const createPaymentIntent = async (bookingId: string, savePaymentMethod?: boolean): Promise<ApiResponse<{
-  payment: Payment;
-  clientSecret: string;
-}>> => {
+export const createPaymentIntent = async (
+  bookingId: string, 
+  savePaymentMethod?: boolean
+): Promise<{
+  success: boolean;
+  message?: string;
+  data?: {
+    payment: Payment;
+    clientSecret: string;
+  };
+  clientSecret?: string; // Add this for backward compatibility
+}> => {
   const res = await api.post('/payments/intent', { bookingId, savePaymentMethod });
+  
+  // Add clientSecret to root level for backward compatibility
+  if (res.data.success && res.data.data?.clientSecret) {
+    res.data.clientSecret = res.data.data.clientSecret;
+  }
+  
   return res.data;
 };
 

@@ -10,7 +10,7 @@ import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
 
 // Import RootState from your Redux store for type safety
-import { RootState } from '@/store/store';
+import { RootState } from '@/src/store/store';
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
@@ -39,7 +39,7 @@ export default function TabLayout() {
       {isPassenger && (
         <>
           <Tabs.Screen
-            name="passenger/home"
+            name="passenger"
             options={{
               title: 'Home',
               tabBarIcon: ({ color }: { color: string }) => (
@@ -48,9 +48,9 @@ export default function TabLayout() {
             }}
           />
           <Tabs.Screen
-            name="passenger/explore"
+            name="profile"
             options={{
-              title: 'Explore',
+              title: 'Profile',
               tabBarIcon: ({ color }: { color: string }) => (
                 <IconSymbol size={28} name="paperplane.fill" color={color} />
               ),
@@ -62,7 +62,7 @@ export default function TabLayout() {
       {isDriver && (
         <>
           <Tabs.Screen
-            name="driver/home"
+            name="driver"
             options={{
               title: 'Home',
               tabBarIcon: ({ color }: { color: string }) => (
@@ -71,9 +71,9 @@ export default function TabLayout() {
             }}
           />
           <Tabs.Screen
-            name="driver/requests"
+            name="trips"
             options={{
-              title: 'Requests',
+              title: 'Trips',
               tabBarIcon: ({ color }: { color: string }) => (
                 <IconSymbol size={28} name="bell.fill" color={color} />
               ),

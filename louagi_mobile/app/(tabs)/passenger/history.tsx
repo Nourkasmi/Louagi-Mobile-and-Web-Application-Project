@@ -305,7 +305,7 @@ export default function BookingHistoryScreen() {
             </Text>
             <TouchableOpacity
               style={styles.exploreButton}
-              onPress={() => router.push('/(tabs)/passenger/passanger/')}
+              onPress={() => router.push('/(tabs)/passenger')}
             >
               <Text style={styles.exploreButtonText}>Explore Trips</Text>
             </TouchableOpacity>

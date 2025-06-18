@@ -2,7 +2,7 @@
 const Config = {
   // API Configuration
   API_BASE_URL: __DEV__ 
-    ? 'https://eaf3-197-0-185-236.ngrok-free.app/api' // Replace with your ngrok URL
+    ? 'https://583c-197-2-87-147.ngrok-free.app/api' // Replace with your ngrok URL
     : 'https://your-production-api.com/api',
   
   // Stripe Configuration

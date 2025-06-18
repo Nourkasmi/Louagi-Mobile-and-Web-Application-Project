@@ -93,10 +93,10 @@ export default function BookingScreen() {
 
       // Step 3: Navigate to payment screen with client secret
       router.push({
-        pathname: '/(tabs)/passenger/payment',
+        pathname: '/payment',
         params: {
           bookingId: booking.id,
-          clientSecret: paymentResponse.clientSecret,
+          clientSecret: paymentResponse.clientSecret || paymentResponse.data?.clientSecret,
           amount: totalAmount.toString(),
           bookingReference: booking.bookingReference,
         }

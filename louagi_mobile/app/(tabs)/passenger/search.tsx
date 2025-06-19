@@ -1,4 +1,4 @@
-// app/(tabs)/passenger/SearchScreen.tsx - Enhanced with Real-time Updates
+// app/(tabs)/passenger/search.tsx - Destination & Trip Selection
 import React, { useEffect, useState, useCallback } from 'react';
 import { 
   View, 
@@ -18,7 +18,7 @@ import {
   type Trip 
 } from '../../../src/services/api';
 
-export default function SearchScreen() {
+export default function PassengerSearchScreen() {
   const { stationId, stationName } = useLocalSearchParams<{ 
     stationId: string; 
     stationName: string; 
@@ -130,15 +130,6 @@ export default function SearchScreen() {
     });
   };
 
-  // Calculate duration
-  const calculateDuration = (departure: string | null, arrival: string | null) => {
-    if (!departure || !arrival) return 'Est. duration';
-    const diff = new Date(arrival).getTime() - new Date(departure).getTime();
-    const hours = Math.floor(diff / (1000 * 60 * 60));
-    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-    return `${hours}h ${minutes}m`;
-  };
-
   // Get trip status info
   const getTripStatusInfo = (trip: Trip) => {
     const bookedSeats = trip.capacity - trip.availableSeats;
@@ -182,7 +173,24 @@ export default function SearchScreen() {
     });
   };
 
-  // Render trip item with enhanced capacity information
+  // Render destination item
+  const renderDestinationItem = ({ item }: { item: Destination }) => (
+    <TouchableOpacity
+      style={styles.destinationCard}
+      onPress={() => searchTrips(item)}
+    >
+      <Text style={styles.destinationName}>{item.description}</Text>
+      <Text style={styles.destinationDetails}>
+        To: {item.endStation.name}, {item.endStation.city}
+      </Text>
+      <View style={styles.destinationMeta}>
+        <Text style={styles.price}>From ${item.basePrice}</Text>
+        <Text style={styles.duration}>{item.estimatedDuration} min</Text>
+      </View>
+    </TouchableOpacity>
+  );
+
+  // Render trip item
   const renderTripItem = ({ item }: { item: Trip }) => {
     const bookedSeats = item.capacity - item.availableSeats;
     const statusInfo = getTripStatusInfo(item);
@@ -258,7 +266,7 @@ export default function SearchScreen() {
             </Text>
           </View>
           
-          <Text style={styles.duration}>
+          <Text style={styles.durationText}>
             ⏱️ {item.route.estimatedDuration} min trip
           </Text>
         </View>
@@ -304,6 +312,9 @@ export default function SearchScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+          <Text style={styles.backButtonText}>← Back</Text>
+        </TouchableOpacity>
         <Text style={styles.title}>Search Trips</Text>
         <Text style={styles.subtitle}>From: {stationName}</Text>
       </View>
@@ -314,22 +325,9 @@ export default function SearchScreen() {
           <FlatList
             data={destinations}
             keyExtractor={(item) => item.id}
-            renderItem={({ item }) => (
-              <TouchableOpacity
-                style={styles.destinationCard}
-                onPress={() => searchTrips(item)}
-              >
-                <Text style={styles.destinationName}>{item.description}</Text>
-                <Text style={styles.destinationDetails}>
-                  To: {item.endStation.name}, {item.endStation.city}
-                </Text>
-                <View style={styles.destinationMeta}>
-                  <Text style={styles.price}>From ${item.basePrice}</Text>
-                  <Text style={styles.duration}>{item.estimatedDuration} min</Text>
-                </View>
-              </TouchableOpacity>
-            )}
+            renderItem={renderDestinationItem}
             showsVerticalScrollIndicator={false}
+            contentContainerStyle={styles.listContainer}
           />
         </>
       ) : (
@@ -378,6 +376,7 @@ export default function SearchScreen() {
                   />
                 }
                 showsVerticalScrollIndicator={false}
+                contentContainerStyle={styles.listContainer}
                 ListEmptyComponent={
                   <View style={styles.emptyState}>
                     <Text style={styles.emptyIcon}>🚐</Text>
@@ -416,11 +415,26 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f8f9fa',
-    padding: 16,
+  },
+  centered: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   header: {
-    marginBottom: 20,
-    paddingTop: 40,
+    backgroundColor: 'white',
+    padding: 16,
+    paddingTop: 60,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
+  backButton: {
+    marginBottom: 8,
+  },
+  backButtonText: {
+    fontSize: 16,
+    color: '#0066cc',
+    fontWeight: '600',
   },
   title: {
     fontSize: 28,
@@ -436,7 +450,11 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '600',
     color: '#333',
+    margin: 16,
     marginBottom: 12,
+  },
+  listContainer: {
+    padding: 16,
   },
   destinationCard: {
     backgroundColor: 'white',
@@ -477,8 +495,8 @@ const styles = StyleSheet.create({
   selectedRoute: {
     backgroundColor: '#e3f2fd',
     padding: 12,
+    margin: 16,
     borderRadius: 8,
-    marginBottom: 16,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
@@ -503,6 +521,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginHorizontal: 16,
     marginBottom: 12,
   },
   refreshButton: {
@@ -633,6 +652,10 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#666',
   },
+  durationText: {
+    fontSize: 12,
+    color: '#666',
+  },
   tripFooter: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -671,11 +694,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#155724',
     fontWeight: '500',
-  },
-  centered: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
   },
   loadingText: {
     marginTop: 12,

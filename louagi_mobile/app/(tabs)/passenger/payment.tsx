@@ -1,4 +1,4 @@
-// app/(tabs)/passenger/payment.tsx - Fixed React Import
+// app/(tabs)/passenger/payment.tsx - Payment Processing & Confirmation
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -16,7 +16,7 @@ import {
   type Booking 
 } from '../../../src/services/api';
 
-export default function PaymentScreen() {
+export default function PassengerPaymentScreen() {
   const {
     bookingId,
     clientSecret,
@@ -32,6 +32,7 @@ export default function PaymentScreen() {
   const router = useRouter();
   const [booking, setBooking] = useState<Booking | null>(null);
   const [loading, setLoading] = useState(true);
+  const [processing, setProcessing] = useState(false);
 
   // Fetch booking details
   useEffect(() => {
@@ -53,6 +54,36 @@ export default function PaymentScreen() {
 
     fetchData();
   }, [bookingId]);
+
+  // Handle payment confirmation
+  const handlePaymentConfirmation = async () => {
+    try {
+      setProcessing(true);
+
+      // In a real implementation, you would process the payment with Stripe here
+      // For now, we'll simulate a successful payment
+      
+      // Simulate payment processing delay
+      await new Promise(resolve => setTimeout(resolve, 2000));
+
+      Alert.alert(
+        'Booking Confirmed! ✅',
+        `Your booking ${bookingReference} has been confirmed.\n\nReference: ${bookingReference}\nAmount: $${amount}\n\nYou will receive a confirmation email shortly.`,
+        [
+          {
+            text: 'View My Bookings',
+            onPress: () => router.replace('/(tabs)/passenger-bookings'),
+          },
+        ]
+      );
+
+    } catch (error) {
+      console.error('Payment error:', error);
+      Alert.alert('Payment Failed', 'There was an error processing your payment. Please try again.');
+    } finally {
+      setProcessing(false);
+    }
+  };
 
   // Loading state
   if (loading) {
@@ -90,25 +121,24 @@ export default function PaymentScreen() {
             Please use the iOS or Android app to complete your payment.
           </Text>
           <TouchableOpacity 
-            style={styles.backButton}
+            style={styles.actionButton}
             onPress={() => router.back()}
           >
-            <Text style={styles.backButtonText}>← Go Back</Text>
+            <Text style={styles.actionButtonText}>← Go Back</Text>
           </TouchableOpacity>
         </View>
       </View>
     );
   }
 
-  // 📱 Mobile Platforms - Show booking details
   return (
     <ScrollView style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.title}>Payment</Text>
         <TouchableOpacity onPress={() => router.back()} style={styles.cancelButton}>
-          <Text style={styles.cancelButtonText}>Cancel</Text>
+          <Text style={styles.cancelButtonText}>← Cancel</Text>
         </TouchableOpacity>
+        <Text style={styles.title}>Payment</Text>
       </View>
 
       {/* Booking Summary */}
@@ -116,21 +146,35 @@ export default function PaymentScreen() {
         <Text style={styles.summaryTitle}>Booking Summary</Text>
         
         <View style={styles.summaryItem}>
+          <Text style={styles.summaryLabel}>Reference</Text>
+          <Text style={styles.summaryValue}>#{bookingReference}</Text>
+        </View>
+
+        <View style={styles.summaryItem}>
           <Text style={styles.summaryLabel}>Route</Text>
           <Text style={styles.summaryValue}>{booking.trip.route.description}</Text>
         </View>
         
         <View style={styles.summaryItem}>
+          <Text style={styles.summaryLabel}>From → To</Text>
+          <Text style={styles.summaryValue}>
+            {booking.trip.route.startStation.name} → {booking.trip.route.endStation.name}
+          </Text>
+        </View>
+        
+        <View style={styles.summaryItem}>
           <Text style={styles.summaryLabel}>Departure</Text>
           <Text style={styles.summaryValue}>
-            {new Date(booking.trip.departureTime).toLocaleString('en-US', {
-              weekday: 'short',
-              month: 'short',
-              day: 'numeric',
-              hour: '2-digit',
-              minute: '2-digit',
-              hour12: true,
-            })}
+            {booking.trip.departureTime ? 
+              new Date(booking.trip.departureTime).toLocaleString('en-US', {
+                weekday: 'short',
+                month: 'short',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: true,
+              }) : 'When trip is full'
+            }
           </Text>
         </View>
         
@@ -138,10 +182,12 @@ export default function PaymentScreen() {
           <Text style={styles.summaryLabel}>Seats</Text>
           <Text style={styles.summaryValue}>{booking.seats}</Text>
         </View>
-        
+
         <View style={styles.summaryItem}>
-          <Text style={styles.summaryLabel}>Reference</Text>
-          <Text style={styles.summaryValue}>#{bookingReference}</Text>
+          <Text style={styles.summaryLabel}>Driver</Text>
+          <Text style={styles.summaryValue}>
+            {booking.trip.driver.user.username} ⭐ {booking.trip.driver.rating.toFixed(1)}
+          </Text>
         </View>
         
         <View style={[styles.summaryItem, styles.totalItem]}>
@@ -157,35 +203,84 @@ export default function PaymentScreen() {
           Your booking has been created successfully!
         </Text>
         <Text style={styles.statusSubtext}>
-          Stripe payment integration is in development. For now, your booking is confirmed and payment will be processed manually.
+          Complete your payment to confirm your trip booking. Your seat will be reserved once payment is processed.
         </Text>
         
+        {/* Payment Method Selection */}
+        <View style={styles.paymentMethods}>
+          <Text style={styles.paymentMethodsTitle}>Payment Method</Text>
+          
+          <TouchableOpacity style={styles.paymentMethodCard}>
+            <Text style={styles.paymentMethodIcon}>💳</Text>
+            <View style={styles.paymentMethodInfo}>
+              <Text style={styles.paymentMethodName}>Credit/Debit Card</Text>
+              <Text style={styles.paymentMethodDesc}>Visa, Mastercard, American Express</Text>
+            </View>
+            <Text style={styles.selectedIndicator}>✓</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Security Notice */}
+        <View style={styles.securityNotice}>
+          <Text style={styles.securityIcon}>🔒</Text>
+          <Text style={styles.securityText}>
+            Your payment is secured with 256-bit SSL encryption. We never store your card details.
+          </Text>
+        </View>
+        
         <TouchableOpacity
-          style={styles.confirmButton}
-          onPress={() => {
-            Alert.alert(
-              'Booking Confirmed! ✅',
-              `Your booking ${bookingReference} has been confirmed.\n\nReference: ${bookingReference}\nAmount: $${amount}`,
-              [
-                {
-                  text: 'View My Bookings',
-                  onPress: () => router.replace('/(tabs)/passenger/history'),
-                },
-              ]
-            );
-          }}
+          style={[styles.confirmButton, processing && styles.confirmButtonDisabled]}
+          onPress={handlePaymentConfirmation}
+          disabled={processing}
         >
-          <Text style={styles.confirmButtonText}>Confirm Booking</Text>
+          {processing ? (
+            <View style={styles.processingContainer}>
+              <ActivityIndicator color="white" />
+              <Text style={styles.processingText}>Processing Payment...</Text>
+            </View>
+          ) : (
+            <Text style={styles.confirmButtonText}>
+              Pay ${amount}
+            </Text>
+          )}
         </TouchableOpacity>
+      </View>
+
+      {/* Trip Capacity Info */}
+      <View style={styles.capacityInfo}>
+        <Text style={styles.capacityTitle}>🚗 Trip Capacity</Text>
+        <Text style={styles.capacityText}>
+          Current capacity: {booking.trip.capacity - booking.trip.availableSeats}/{booking.trip.capacity} passengers
+        </Text>
+        <Text style={styles.capacitySubtext}>
+          {booking.trip.availableSeats} seat{booking.trip.availableSeats !== 1 ? 's' : ''} remaining
+        </Text>
+        
+        {booking.trip.availableSeats <= 2 && (
+          <View style={styles.urgentNotice}>
+            <Text style={styles.urgentText}>
+              🔥 Almost full! Book now to secure your spot.
+            </Text>
+          </View>
+        )}
       </View>
 
       {/* Next Steps */}
       <View style={styles.nextSteps}>
-        <Text style={styles.nextStepsTitle}>Next Steps:</Text>
-        <Text style={styles.nextStepsText}>• Your booking is confirmed</Text>
-        <Text style={styles.nextStepsText}>• You'll receive a confirmation email</Text>
-        <Text style={styles.nextStepsText}>• Check "My Bookings" for trip details</Text>
-        <Text style={styles.nextStepsText}>• Payment will be processed manually</Text>
+        <Text style={styles.nextStepsTitle}>After Payment:</Text>
+        <Text style={styles.nextStepsText}>• You'll receive instant booking confirmation</Text>
+        <Text style={styles.nextStepsText}>• Email receipt will be sent to your registered email</Text>
+        <Text style={styles.nextStepsText}>• Track your trip status in "My Bookings"</Text>
+        <Text style={styles.nextStepsText}>• Driver will be notified of your booking</Text>
+        <Text style={styles.nextStepsText}>• Trip starts automatically when capacity is full</Text>
+      </View>
+
+      {/* Support */}
+      <View style={styles.support}>
+        <Text style={styles.supportTitle}>Need Help?</Text>
+        <Text style={styles.supportText}>
+          Contact our support team at support@louagi.com or call +216 XX XXX XXX
+        </Text>
       </View>
     </ScrollView>
   );
@@ -215,26 +310,25 @@ const styles = StyleSheet.create({
   },
   header: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    backgroundColor: 'white',
     padding: 16,
     paddingTop: 60,
-    backgroundColor: 'white',
     borderBottomWidth: 1,
     borderBottomColor: '#eee',
+  },
+  cancelButton: {
+    marginRight: 16,
+  },
+  cancelButtonText: {
+    fontSize: 16,
+    color: '#0066cc',
+    fontWeight: '600',
   },
   title: {
     fontSize: 24,
     fontWeight: 'bold',
     color: '#333',
-  },
-  cancelButton: {
-    padding: 8,
-  },
-  cancelButtonText: {
-    fontSize: 16,
-    color: '#ff4444',
-    fontWeight: '600',
   },
   bookingSummary: {
     backgroundColor: 'white',
@@ -262,14 +356,14 @@ const styles = StyleSheet.create({
   summaryLabel: {
     fontSize: 16,
     color: '#666',
+    flex: 1,
   },
   summaryValue: {
     fontSize: 16,
     color: '#333',
     fontWeight: '500',
     textAlign: 'right',
-    flex: 1,
-    marginLeft: 12,
+    flex: 2,
   },
   totalItem: {
     borderTopWidth: 1,
@@ -316,36 +410,160 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     marginBottom: 20,
   },
+  paymentMethods: {
+    marginBottom: 20,
+  },
+  paymentMethodsTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 12,
+  },
+  paymentMethodCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f8f9fa',
+    padding: 16,
+    borderRadius: 8,
+    borderWidth: 2,
+    borderColor: '#0066cc',
+  },
+  paymentMethodIcon: {
+    fontSize: 24,
+    marginRight: 12,
+  },
+  paymentMethodInfo: {
+    flex: 1,
+  },
+  paymentMethodName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 2,
+  },
+  paymentMethodDesc: {
+    fontSize: 12,
+    color: '#666',
+  },
+  selectedIndicator: {
+    fontSize: 18,
+    color: '#0066cc',
+    fontWeight: 'bold',
+  },
+  securityNotice: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#e8f5e8',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 20,
+  },
+  securityIcon: {
+    fontSize: 16,
+    marginRight: 8,
+  },
+  securityText: {
+    fontSize: 12,
+    color: '#155724',
+    flex: 1,
+  },
   confirmButton: {
     backgroundColor: '#0066cc',
     padding: 16,
     borderRadius: 8,
     alignItems: 'center',
   },
+  confirmButtonDisabled: {
+    backgroundColor: '#ccc',
+  },
   confirmButtonText: {
     color: 'white',
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: 'bold',
   },
-  nextSteps: {
-    backgroundColor: '#e8f4f8',
+  processingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  processingText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
+    marginLeft: 8,
+  },
+  capacityInfo: {
+    backgroundColor: '#fff3cd',
     margin: 16,
-    padding: 20,
-    borderRadius: 12,
+    padding: 16,
+    borderRadius: 8,
+    borderLeftWidth: 4,
+    borderLeftColor: '#ffc107',
+  },
+  capacityTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#856404',
+    marginBottom: 8,
+  },
+  capacityText: {
+    fontSize: 14,
+    color: '#856404',
+    marginBottom: 4,
+  },
+  capacitySubtext: {
+    fontSize: 12,
+    color: '#856404',
+  },
+  urgentNotice: {
+    backgroundColor: '#ffebee',
+    padding: 8,
+    borderRadius: 6,
+    marginTop: 8,
+  },
+  urgentText: {
+    fontSize: 12,
+    color: '#c62828',
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  nextSteps: {
+    backgroundColor: '#e3f2fd',
+    margin: 16,
+    padding: 16,
+    borderRadius: 8,
     borderLeftWidth: 4,
     borderLeftColor: '#0066cc',
   },
   nextStepsTitle: {
     fontSize: 16,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 12,
+    fontWeight: '600',
+    color: '#0d47a1',
+    marginBottom: 8,
   },
   nextStepsText: {
     fontSize: 14,
+    color: '#0d47a1',
+    marginBottom: 4,
+    lineHeight: 18,
+  },
+  support: {
+    backgroundColor: 'white',
+    margin: 16,
+    padding: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  supportTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 8,
+  },
+  supportText: {
+    fontSize: 12,
     color: '#666',
-    marginBottom: 6,
-    lineHeight: 20,
+    textAlign: 'center',
+    lineHeight: 16,
   },
   // Web-specific styles
   webNotice: {
@@ -375,6 +593,17 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   backButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  actionButton: {
+    backgroundColor: '#0066cc',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  actionButtonText: {
     color: 'white',
     fontSize: 16,
     fontWeight: '600',

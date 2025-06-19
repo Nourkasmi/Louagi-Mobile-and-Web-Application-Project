@@ -1,4 +1,4 @@
-// app/(tabs)/driver/home.tsx - Enhanced for Capacity-Based System
+// app/(tabs)/driver/index.tsx - Driver Dashboard Screen
 import React, { useEffect, useState, useCallback } from 'react';
 import {
   View,
@@ -18,13 +18,11 @@ import {
   declareAvailability, 
   getTripCapacityStatus,
   cancelWaitingTrip,
-  getDriverTrips,
   updateTripStatus,
   completeTrip,
   getStations,
   getDestinations,
   getDriverEarnings,
-  getDriverQueue,
   type DriverStatus,
   type TripCapacityStatus,
   type Trip,
@@ -32,7 +30,7 @@ import {
   type Destination
 } from '../../../src/services/api';
 
-export default function DriverHome() {
+export default function DriverDashboard() {
   const router = useRouter();
   
   // State management
@@ -40,7 +38,6 @@ export default function DriverHome() {
   const [capacityStatus, setCapacityStatus] = useState<TripCapacityStatus | null>(null);
   const [activeTrip, setActiveTrip] = useState<Trip | null>(null);
   const [earnings, setEarnings] = useState<any>(null);
-  const [queueInfo, setQueueInfo] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
@@ -87,14 +84,6 @@ export default function DriverHome() {
       });
       if (earningsResponse.success && earningsResponse.data) {
         setEarnings(earningsResponse.data.earnings);
-      }
-
-      // Fetch queue info if in queue
-      if (statusResponse.data?.queueEntry) {
-        const queueResponse = await getDriverQueue();
-        if (queueResponse.success && queueResponse.data) {
-          setQueueInfo(queueResponse.data);
-        }
       }
 
     } catch (error) {
@@ -168,8 +157,8 @@ export default function DriverHome() {
     try {
       setActionLoading(true);
       
-      // For now, we'll use a mock schedule ID - in production, you'd let user select or detect current time
-      const mockScheduleId = 'schedule-1'; // You'd get this from available schedules
+      // For now, we'll use a mock schedule ID - in production, you'd let user select
+      const mockScheduleId = 'schedule-1'; 
       
       const response = await declareAvailability({
         stationId: selectedStation.id,
@@ -211,7 +200,6 @@ export default function DriverHome() {
           onPress: async () => {
             try {
               setActionLoading(true);
-              
               const response = await updateTripStatus(activeTrip.id, 'in_progress');
               
               if (response.success) {
@@ -245,7 +233,6 @@ export default function DriverHome() {
           onPress: async () => {
             try {
               setActionLoading(true);
-              
               const response = await completeTrip(activeTrip.id);
               
               if (response.success) {
@@ -285,7 +272,6 @@ export default function DriverHome() {
           onPress: async () => {
             try {
               setActionLoading(true);
-              
               const response = await cancelWaitingTrip();
               
               if (response.success) {
@@ -305,7 +291,7 @@ export default function DriverHome() {
     );
   };
 
-  // Render availability status
+  // Render status card
   const renderStatusCard = () => {
     if (!driverStatus) return null;
 
@@ -346,18 +332,6 @@ export default function DriverHome() {
               {actionLoading ? 'Processing...' : 'Declare Availability'}
             </Text>
           </TouchableOpacity>
-        )}
-        
-        {queueInfo && queueInfo.inQueue && (
-          <View style={styles.queueInfo}>
-            <Text style={styles.queueTitle}>Queue Position: #{queueInfo.queue.position}</Text>
-            <Text style={styles.queueDetails}>
-              Waiting: {queueInfo.queue.waitingTimeMinutes} minutes
-            </Text>
-            <Text style={styles.queueDetails}>
-              Route: {queueInfo.queue.station} → {queueInfo.queue.destination}
-            </Text>
-          </View>
         )}
       </View>
     );
@@ -482,7 +456,7 @@ export default function DriverHome() {
     </View>
   );
 
-  // Render availability declaration modal
+  // Render availability modal
   const renderAvailabilityModal = () => (
     <Modal
       visible={showAvailabilityModal}
@@ -698,30 +672,11 @@ const styles = StyleSheet.create({
     padding: 14,
     borderRadius: 8,
     alignItems: 'center',
-    marginBottom: 12,
   },
   declareButtonText: {
     color: 'white',
     fontSize: 16,
     fontWeight: '600',
-  },
-  queueInfo: {
-    backgroundColor: '#f0f8ff',
-    padding: 12,
-    borderRadius: 8,
-    borderLeftWidth: 4,
-    borderLeftColor: '#007bff',
-  },
-  queueTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#007bff',
-    marginBottom: 4,
-  },
-  queueDetails: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 2,
   },
   tripCard: {
     backgroundColor: 'white',

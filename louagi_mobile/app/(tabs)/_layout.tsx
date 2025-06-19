@@ -1,4 +1,4 @@
-// app/(tabs)/_layout.tsx - FINAL FIXED VERSION
+// app/(tabs)/_layout.tsx - Role-based Navigation
 import React from 'react';
 import { Tabs } from 'expo-router';
 import { Platform } from 'react-native';
@@ -9,18 +9,18 @@ import { IconSymbol } from '@/components/ui/IconSymbol';
 import TabBarBackground from '@/components/ui/TabBarBackground';
 import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
-
-// Import RootState from your Redux store for type safety
 import { RootState } from '@/src/store/store';
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
   const { user } = useSelector((state: RootState) => state.auth);
 
-  if (!user) return null; // Prevent rendering if user data is not yet loaded
+  // If no user, don't render anything (auth check handles this)
+  if (!user) return null;
 
   const isPassenger = user.role === 'passenger';
   const isDriver = user.role === 'driver';
+  const isAdmin = user.role === 'admin';
 
   return (
     <Tabs
@@ -37,50 +37,136 @@ export default function TabLayout() {
         }),
       }}
     >
-      {/* PASSENGER SCREENS */}
+      {/* ===== PASSENGER TABS ===== */}
+      {isPassenger && (
+        <>
+          <Tabs.Screen
+            name="passenger"
+            options={{
+              title: 'Home',
+              tabBarIcon: ({ color }: { color: string }) => (
+                <IconSymbol size={28} name="house.fill" color={color} />
+              ),
+            }}
+          />
+          <Tabs.Screen
+            name="passenger-bookings"
+            options={{
+              title: 'My Bookings',
+              tabBarIcon: ({ color }: { color: string }) => (
+                <IconSymbol size={28} name="bell.fill" color={color} />
+              ),
+            }}
+          />
+          <Tabs.Screen
+            name="passenger-profile"
+            options={{
+              title: 'Profile',
+              tabBarIcon: ({ color }: { color: string }) => (
+                <IconSymbol size={28} name="paperplane.fill" color={color} />
+              ),
+            }}
+          />
+        </>
+      )}
+
+      {/* ===== DRIVER TABS ===== */}
+      {isDriver && (
+        <>
+          <Tabs.Screen
+            name="driver"
+            options={{
+              title: 'Dashboard',
+              tabBarIcon: ({ color }: { color: string }) => (
+                <IconSymbol size={28} name="car.fill" color={color} />
+              ),
+            }}
+          />
+          <Tabs.Screen
+            name="driver-trips"
+            options={{
+              title: 'My Trips',
+              tabBarIcon: ({ color }: { color: string }) => (
+                <IconSymbol size={28} name="bell.fill" color={color} />
+              ),
+            }}
+          />
+          <Tabs.Screen
+            name="driver-profile"
+            options={{
+              title: 'Profile',
+              tabBarIcon: ({ color }: { color: string }) => (
+                <IconSymbol size={28} name="paperplane.fill" color={color} />
+              ),
+            }}
+          />
+        </>
+      )}
+
+      {/* ===== ADMIN TABS ===== */}
+      {isAdmin && (
+        <>
+          <Tabs.Screen
+            name="admin"
+            options={{
+              title: 'Dashboard',
+              tabBarIcon: ({ color }: { color: string }) => (
+                <IconSymbol size={28} name="house.fill" color={color} />
+              ),
+            }}
+          />
+          <Tabs.Screen
+            name="admin-management"
+            options={{
+              title: 'Management',
+              tabBarIcon: ({ color }: { color: string }) => (
+                <IconSymbol size={28} name="car.fill" color={color} />
+              ),
+            }}
+          />
+          <Tabs.Screen
+            name="admin-profile"
+            options={{
+              title: 'Profile',
+              tabBarIcon: ({ color }: { color: string }) => (
+                <IconSymbol size={28} name="paperplane.fill" color={color} />
+              ),
+            }}
+          />
+        </>
+      )}
+
+      {/* ===== HIDDEN TABS (for unused routes) ===== */}
+      
+      {/* Hide original passenger routes if not passenger */}
       <Tabs.Screen
         name="passenger"
         options={{
-          title: 'Home',
-          tabBarIcon: ({ color }: { color: string }) => (
-            <IconSymbol size={28} name="house.fill" color={color} />
-          ),
-          href: isPassenger ? '/(tabs)/passenger' : null,
+          href: null, // This hides the tab completely
         }}
       />
       
-      {/* DRIVER SCREENS */}
+      {/* Hide original driver routes if not driver */}
       <Tabs.Screen
         name="driver"
         options={{
-          title: 'Dashboard',
-          tabBarIcon: ({ color }: { color: string }) => (
-            <IconSymbol size={28} name="car.fill" color={color} />
-          ),
-          href: isDriver ? '/(tabs)/driver' : null,
+          href: null,
         }}
       />
       
-      <Tabs.Screen
-        name="trips"
-        options={{
-          title: 'My Trips',
-          tabBarIcon: ({ color }: { color: string }) => (
-            <IconSymbol size={28} name="bell.fill" color={color} />
-          ),
-          href: isDriver ? '/(tabs)/trips' : null,
-        }}
-      />
-
-      {/* PROFILE SCREEN - Show for both but different content */}
+      {/* Hide original profile if we have role-specific profiles */}
       <Tabs.Screen
         name="profile"
         options={{
-          title: 'Profile',
-          tabBarIcon: ({ color }: { color: string }) => (
-            <IconSymbol size={28} name="paperplane.fill" color={color} />
-          ),
-          href: '/(tabs)/profile',
+          href: null,
+        }}
+      />
+      
+      {/* Hide trips if not driver */}
+      <Tabs.Screen
+        name="trips"
+        options={{
+          href: null,
         }}
       />
     </Tabs>

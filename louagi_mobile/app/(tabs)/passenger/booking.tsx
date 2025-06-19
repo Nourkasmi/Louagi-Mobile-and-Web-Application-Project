@@ -1,4 +1,4 @@
-// app/(tabs)/passenger/BookingScreen.tsx
+// app/(tabs)/passenger/booking.tsx - Trip Booking & Seat Selection
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -13,7 +13,7 @@ import {
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { createBooking, createPaymentIntent, type Trip } from '../../../src/services/api';
 
-export default function BookingScreen() {
+export default function PassengerBookingScreen() {
   const { tripId, tripData } = useLocalSearchParams<{
     tripId: string;
     tripData: string;
@@ -33,7 +33,8 @@ export default function BookingScreen() {
   const totalAmount = trip ? (trip.currentPrice / trip.capacity) * selectedSeats : 0;
 
   // Format time for display
-  const formatTime = (dateString: string) => {
+  const formatTime = (dateString: string | null) => {
+    if (!dateString) return 'When full';
     return new Date(dateString).toLocaleTimeString('en-US', {
       hour: '2-digit',
       minute: '2-digit',
@@ -42,7 +43,8 @@ export default function BookingScreen() {
   };
 
   // Format date for display
-  const formatDate = (dateString: string) => {
+  const formatDate = (dateString: string | null) => {
+    if (!dateString) return 'Today';
     return new Date(dateString).toLocaleDateString('en-US', {
       weekday: 'long',
       year: 'numeric',
@@ -93,7 +95,7 @@ export default function BookingScreen() {
 
       // Step 3: Navigate to payment screen with client secret
       router.push({
-        pathname: '/payment',
+        pathname: '/(tabs)/passenger/payment',
         params: {
           bookingId: booking.id,
           clientSecret: paymentResponse.clientSecret || paymentResponse.data?.clientSecret,
@@ -124,10 +126,10 @@ export default function BookingScreen() {
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.title}>Book Your Trip</Text>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
           <Text style={styles.backButtonText}>← Back</Text>
         </TouchableOpacity>
+        <Text style={styles.title}>Book Your Trip</Text>
       </View>
 
       {/* Trip Summary Card */}
@@ -158,6 +160,32 @@ export default function BookingScreen() {
         <View style={styles.driverInfo}>
           <Text style={styles.driverLabel}>Driver: {trip.driver.user.username}</Text>
           <Text style={styles.driverRating}>⭐ {trip.driver.rating.toFixed(1)}</Text>
+        </View>
+
+        {/* Capacity Status */}
+        <View style={styles.capacityStatus}>
+          <View style={styles.capacityHeader}>
+            <Text style={styles.capacityLabel}>Trip Capacity</Text>
+            <Text style={styles.capacityCount}>
+              {trip.capacity - trip.availableSeats}/{trip.capacity} booked
+            </Text>
+          </View>
+          
+          <View style={styles.capacityBar}>
+            <View 
+              style={[
+                styles.capacityFill, 
+                { 
+                  width: `${((trip.capacity - trip.availableSeats) / trip.capacity) * 100}%`,
+                  backgroundColor: trip.availableSeats <= 1 ? '#dc3545' : '#28a745'
+                }
+              ]} 
+            />
+          </View>
+          
+          <Text style={styles.availabilityText}>
+            {trip.availableSeats} seat{trip.availableSeats !== 1 ? 's' : ''} remaining
+          </Text>
         </View>
       </View>
 
@@ -236,17 +264,26 @@ export default function BookingScreen() {
         </View>
       </View>
 
+      {/* Important Notes */}
+      <View style={styles.notesSection}>
+        <Text style={styles.notesTitle}>Important Notes:</Text>
+        <Text style={styles.notesText}>• Payment will be processed after booking confirmation</Text>
+        <Text style={styles.notesText}>• Cancellations must be made at least 1 hour before departure</Text>
+        <Text style={styles.notesText}>• Trip may start automatically when capacity is full</Text>
+        <Text style={styles.notesText}>• You'll receive booking confirmation via email</Text>
+      </View>
+
       {/* Book Button */}
       <TouchableOpacity
         style={[styles.bookButton, loading && styles.bookButtonDisabled]}
         onPress={handleBooking}
-        disabled={loading}
+        disabled={loading || trip.availableSeats === 0}
       >
         {loading ? (
           <ActivityIndicator color="white" />
         ) : (
           <Text style={styles.bookButtonText}>
-            Book Trip - ${totalAmount.toFixed(2)}
+            {trip.availableSeats === 0 ? 'Trip Full' : `Book Trip - $${totalAmount.toFixed(2)}`}
           </Text>
         )}
       </TouchableOpacity>
@@ -254,7 +291,7 @@ export default function BookingScreen() {
       {/* Terms */}
       <Text style={styles.termsText}>
         By booking this trip, you agree to our terms and conditions. 
-        Cancellations must be made at least 1 hour before departure.
+        Your booking will be confirmed after successful payment processing.
       </Text>
     </ScrollView>
   );
@@ -276,25 +313,24 @@ const styles = StyleSheet.create({
     color: '#666',
   },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    backgroundColor: 'white',
     padding: 16,
     paddingTop: 60,
-    backgroundColor: 'white',
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#333',
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
   },
   backButton: {
-    padding: 8,
+    marginBottom: 8,
   },
   backButtonText: {
     fontSize: 16,
     color: '#0066cc',
     fontWeight: '600',
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#333',
   },
   tripSummary: {
     backgroundColor: 'white',
@@ -356,6 +392,7 @@ const styles = StyleSheet.create({
     paddingTop: 16,
     borderTopWidth: 1,
     borderTopColor: '#eee',
+    marginBottom: 16,
   },
   driverLabel: {
     fontSize: 14,
@@ -364,6 +401,41 @@ const styles = StyleSheet.create({
   driverRating: {
     fontSize: 14,
     color: '#666',
+  },
+  capacityStatus: {
+    backgroundColor: '#f8f9fa',
+    padding: 12,
+    borderRadius: 8,
+  },
+  capacityHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  capacityLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#333',
+  },
+  capacityCount: {
+    fontSize: 14,
+    color: '#666',
+  },
+  capacityBar: {
+    height: 8,
+    backgroundColor: '#e9ecef',
+    borderRadius: 4,
+    marginBottom: 8,
+  },
+  capacityFill: {
+    height: '100%',
+    borderRadius: 4,
+  },
+  availabilityText: {
+    fontSize: 12,
+    color: '#666',
+    textAlign: 'center',
   },
   section: {
     backgroundColor: 'white',
@@ -418,11 +490,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#666',
     marginTop: 4,
-  },
-  availabilityText: {
-    textAlign: 'center',
-    fontSize: 14,
-    color: '#666',
   },
   textInput: {
     borderWidth: 1,
@@ -490,6 +557,27 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: 'bold',
     color: '#0066cc',
+  },
+  notesSection: {
+    backgroundColor: '#fff3cd',
+    marginHorizontal: 16,
+    marginBottom: 16,
+    padding: 16,
+    borderRadius: 8,
+    borderLeftWidth: 4,
+    borderLeftColor: '#ffc107',
+  },
+  notesTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#856404',
+    marginBottom: 8,
+  },
+  notesText: {
+    fontSize: 14,
+    color: '#856404',
+    marginBottom: 4,
+    lineHeight: 18,
   },
   bookButton: {
     backgroundColor: '#0066cc',

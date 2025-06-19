@@ -1,3 +1,4 @@
+// app/(tabs)/passenger/_layout.tsx
 import { Stack } from 'expo-router';
 
 export default function PassengerLayout() {
@@ -7,7 +8,6 @@ export default function PassengerLayout() {
       <Stack.Screen name="search" />
       <Stack.Screen name="booking" />
       <Stack.Screen name="payment" />
-      <Stack.Screen name="history" />
     </Stack>
   );
 }

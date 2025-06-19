@@ -1,86 +1,48 @@
+// app/(tabs)/passenger/index.tsx - Passenger Home (Station Selection)
 import React, { useEffect, useState } from 'react';
-import { View, Text, FlatList, TouchableOpacity, ActivityIndicator, StyleSheet, Alert } from 'react-native';
+import { 
+  View, 
+  Text, 
+  FlatList, 
+  TouchableOpacity, 
+  ActivityIndicator, 
+  StyleSheet, 
+  Alert,
+  RefreshControl 
+} from 'react-native';
 import { useRouter } from 'expo-router';
-import { getStations, Station } from '../../../src/services/api';
-import Config from '../../../src/config';
+import { getStations, type Station } from '../../../src/services/api';
 
-export default function HomeScreen() {
+export default function PassengerHomeScreen() {
   const [stations, setStations] = useState<Station[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
 
-  // ✅ ADDED: Debug function
-  const testConnection = async () => {
+  // Fetch stations
+  const fetchStations = async (isRefresh = false) => {
     try {
-      console.log('🧪 Testing connection to:', Config.API_BASE_URL);
-      
-      // Test basic fetch first
-      const response = await fetch(`${Config.API_BASE_URL}/stations`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'ngrok-skip-browser-warning': 'true',
-        },
-      });
-      
-      console.log('🧪 Response status:', response.status);
-      console.log('🧪 Response headers:', Object.fromEntries(response.headers.entries()));
-      
-      const text = await response.text();
-      console.log('🧪 Raw response:', text.substring(0, 200) + '...');
-      
-      try {
-        const data = JSON.parse(text);
-        console.log('🧪 Parsed JSON:', data);
-        
-        Alert.alert(
-          'Connection Test Result', 
-          `Status: ${response.status}\nStations: ${data.stations?.length || 0}\nSuccess: ${data.success}`,
-          [{ text: 'OK' }]
-        );
-      } catch (parseError) {
-        console.error('🧪 JSON Parse Error:', parseError);
-        Alert.alert('Connection Test', `Got response but not JSON.\nStatus: ${response.status}\nContent: ${text.substring(0, 100)}...`);
+      if (isRefresh) {
+        setRefreshing(true);
+      } else {
+        setLoading(true);
       }
-      
-    } catch (error: any) {
-      console.error('🧪 Connection test failed:', error);
-      Alert.alert('Connection Failed', error.message || 'Unknown error');
-    }
-  };
-
-  const fetchStations = async () => {
-    try {
-      setLoading(true);
       setError(null);
       
-      console.log('📱 Fetching stations...');
-      const data = await getStations();
+      const response = await getStations({ limit: 50 });
       
-      console.log('📱 Received stations data:', data);
-      
-      if (data.success && data.stations) {
-        setStations(data.stations);
-        console.log('📱 Set stations:', data.stations.length);
+      if (response.success && response.data) {
+        setStations(response.data.stations);
       } else {
-        setError('No stations available');
+        setError('Failed to load stations');
       }
     } catch (err: any) {
-      console.error('📱 Error fetching stations:', err);
+      console.error('Error fetching stations:', err);
       setError('Failed to load stations. Please check your connection.');
-      
-      Alert.alert(
-        'Connection Error', 
-        'Could not load stations. Please check your internet connection and try again.',
-        [
-          { text: 'Test Connection', onPress: testConnection },
-          { text: 'Retry', onPress: fetchStations },
-          { text: 'Cancel', style: 'cancel' }
-        ]
-      );
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
 
@@ -88,38 +50,52 @@ export default function HomeScreen() {
     fetchStations();
   }, []);
 
-  if (loading) {
+  // Navigate to search screen
+  const handleStationSelect = (station: Station) => {
+    router.push({
+      pathname: '/(tabs)/passenger/search',
+      params: { 
+        stationId: station.id, 
+        stationName: station.name 
+      }
+    });
+  };
+
+  // Render station item
+  const renderStationItem = ({ item }: { item: Station }) => (
+    <TouchableOpacity
+      style={styles.stationCard}
+      onPress={() => handleStationSelect(item)}
+    >
+      <Text style={styles.stationName}>{item.name}</Text>
+      <Text style={styles.stationLocation}>{item.city}, {item.state}</Text>
+      <Text style={styles.stationAddress}>{item.address}</Text>
+      
+      {item.amenities && Object.keys(item.amenities).length > 0 && (
+        <View style={styles.amenitiesContainer}>
+          <Text style={styles.amenitiesText}>Amenities available</Text>
+        </View>
+      )}
+    </TouchableOpacity>
+  );
+
+  // Loading state
+  if (loading && stations.length === 0) {
     return (
       <View style={styles.centered}>
-        <ActivityIndicator size="large" color="#007AFF" />
+        <ActivityIndicator size="large" color="#0066cc" />
         <Text style={styles.loadingText}>Loading stations...</Text>
-        <Text style={styles.debugText}>API: {Config.API_BASE_URL}</Text>
       </View>
     );
   }
 
-  if (error) {
+  // Error state
+  if (error && stations.length === 0) {
     return (
       <View style={styles.centered}>
         <Text style={styles.errorText}>{error}</Text>
-        <Text style={styles.debugText}>API: {Config.API_BASE_URL}</Text>
-        <TouchableOpacity style={styles.button} onPress={testConnection}>
-          <Text style={styles.buttonText}>Test Connection</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.button} onPress={fetchStations}>
-          <Text style={styles.buttonText}>Retry</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
-
-  if (stations.length === 0) {
-    return (
-      <View style={styles.centered}>
-        <Text style={styles.emptyText}>No stations available</Text>
-        <Text style={styles.debugText}>API: {Config.API_BASE_URL}</Text>
-        <TouchableOpacity style={styles.button} onPress={testConnection}>
-          <Text style={styles.buttonText}>Test Connection</Text>
+        <TouchableOpacity style={styles.retryButton} onPress={() => fetchStations()}>
+          <Text style={styles.retryButtonText}>Retry</Text>
         </TouchableOpacity>
       </View>
     );
@@ -127,59 +103,122 @@ export default function HomeScreen() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Select a Station</Text>
-      <Text style={styles.debugText}>Found {stations.length} stations</Text>
-      
-      {/* ✅ TEMPORARY: Debug button */}
-      <TouchableOpacity style={styles.debugButton} onPress={testConnection}>
-        <Text style={styles.debugButtonText}>🧪 Test API</Text>
-      </TouchableOpacity>
-      
+      {/* Header */}
+      <View style={styles.header}>
+        <Text style={styles.title}>Find Your Trip</Text>
+        <Text style={styles.subtitle}>Select your departure station</Text>
+      </View>
+
+      {/* Quick Stats */}
+      <View style={styles.statsContainer}>
+        <View style={styles.statItem}>
+          <Text style={styles.statNumber}>{stations.length}</Text>
+          <Text style={styles.statLabel}>Stations</Text>
+        </View>
+        <View style={styles.statItem}>
+          <Text style={styles.statNumber}>🚗</Text>
+          <Text style={styles.statLabel}>Available Now</Text>
+        </View>
+        <View style={styles.statItem}>
+          <Text style={styles.statNumber}>⚡</Text>
+          <Text style={styles.statLabel}>Instant Booking</Text>
+        </View>
+      </View>
+
+      {/* Stations List */}
       <FlatList
         data={stations}
         keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
-          <TouchableOpacity
-            style={styles.stationCard}
-            onPress={() =>
-              router.push({
-                pathname: '/(tabs)/passenger/search',
-                params: { stationId: item.id, stationName: item.name }
-              })
-            }
-          >
-            <Text style={styles.stationName}>{item.name}</Text>
-            <Text style={styles.stationLocation}>{item.city}, {item.state}</Text>
-            <Text style={styles.stationAddress}>{item.address}</Text>
-          </TouchableOpacity>
-        )}
-        refreshing={loading}
-        onRefresh={fetchStations}
+        renderItem={renderStationItem}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={() => fetchStations(true)}
+            colors={['#0066cc']}
+          />
+        }
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.listContainer}
+        ListEmptyComponent={
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyText}>No stations available</Text>
+            <TouchableOpacity 
+              style={styles.retryButton} 
+              onPress={() => fetchStations()}
+            >
+              <Text style={styles.retryButtonText}>Refresh</Text>
+            </TouchableOpacity>
+          </View>
+        }
       />
     </View>
   );
-  
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 16,
-    backgroundColor: '#fff',
+    backgroundColor: '#f8f9fa',
+  },
+  centered: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  header: {
+    backgroundColor: 'white',
+    padding: 20,
+    paddingTop: 60,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
   },
   title: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 4,
+  },
+  subtitle: {
+    fontSize: 16,
+    color: '#666',
+  },
+  statsContainer: {
+    flexDirection: 'row',
+    backgroundColor: 'white',
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
+  statItem: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  statNumber: {
     fontSize: 24,
     fontWeight: 'bold',
-    marginBottom: 16,
-    color: '#333',
+    color: '#0066cc',
+    marginBottom: 4,
+  },
+  statLabel: {
+    fontSize: 12,
+    color: '#666',
+    textAlign: 'center',
+  },
+  listContainer: {
+    padding: 16,
   },
   stationCard: {
+    backgroundColor: 'white',
     padding: 16,
-    backgroundColor: '#f8f9fa',
     marginBottom: 12,
     borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#e9ecef',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   stationName: {
     fontSize: 18,
@@ -195,12 +234,19 @@ const styles = StyleSheet.create({
   stationAddress: {
     fontSize: 12,
     color: '#888',
+    marginBottom: 8,
   },
-  centered: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
+  amenitiesContainer: {
+    backgroundColor: '#e3f2fd',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+    alignSelf: 'flex-start',
+  },
+  amenitiesText: {
+    fontSize: 10,
+    color: '#0066cc',
+    fontWeight: '500',
   },
   loadingText: {
     marginTop: 12,
@@ -213,41 +259,25 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 16,
   },
-  emptyText: {
-    fontSize: 18,
-    color: '#666',
-    textAlign: 'center',
-    marginBottom: 8,
-  },
-  debugText: {
-    fontSize: 12,
-    color: '#888',
-    textAlign: 'center',
-    marginVertical: 8,
-  },
-  button: {
-    backgroundColor: '#007AFF',
+  retryButton: {
+    backgroundColor: '#0066cc',
     paddingHorizontal: 20,
     paddingVertical: 10,
     borderRadius: 8,
-    marginVertical: 5,
   },
-  buttonText: {
-    color: '#fff',
+  retryButtonText: {
+    color: 'white',
     fontSize: 16,
     fontWeight: '600',
   },
-  debugButton: {
-    backgroundColor: '#28a745',
-    paddingHorizontal: 15,
-    paddingVertical: 8,
-    borderRadius: 6,
-    marginBottom: 10,
-    alignSelf: 'center',
+  emptyState: {
+    alignItems: 'center',
+    padding: 40,
   },
-  debugButtonText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '600',
+  emptyText: {
+    fontSize: 18,
+    color: '#666',
+    marginBottom: 16,
+    textAlign: 'center',
   },
 });

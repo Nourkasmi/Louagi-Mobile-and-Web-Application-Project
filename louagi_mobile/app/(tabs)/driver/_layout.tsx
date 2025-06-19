@@ -1,4 +1,4 @@
-// app/(tabs)/driver/_layout.tsx - Updated with Profile
+// app/(tabs)/driver/_layout.tsx - Driver Layout with Profile
 import { Stack } from 'expo-router';
 
 export default function DriverLayout() {
@@ -9,6 +9,7 @@ export default function DriverLayout() {
       <Stack.Screen name="earnings" />
       <Stack.Screen name="profile" />
       <Stack.Screen name="TripHistoryScreen" />
+      <Stack.Screen name="availability" />
     </Stack>
   );
 }

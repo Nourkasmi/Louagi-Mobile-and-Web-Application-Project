@@ -1,3 +1,4 @@
+// app/(tabs)/_layout.tsx - CORRECTED Tab Layout
 import React from 'react';
 import { Tabs } from 'expo-router';
 import { Platform } from 'react-native';

@@ -1,88 +1,52 @@
-// Update: app/(tabs)/_layout.tsx
+// app/_layout.tsx - CORRECTED Root Layout
+import React, { useEffect } from 'react';
+import { Stack } from 'expo-router';
+import { Provider } from 'react-redux';
+import { PaperProvider } from 'react-native-paper';
+import store from '../src/store/store';
+import { notificationService } from '../src/services/notifications';
+import { offlineService } from '../src/services/offlineService';
 
-import React from 'react';
-import { Tabs } from 'expo-router';
-import { Platform } from 'react-native';
-import { useSelector } from 'react-redux';
+export default function RootLayout() {
+  useEffect(() => {
+    // Initialize services when app starts
+    const initializeServices = async () => {
+      try {
+        // Initialize notifications
+        await notificationService.initialize();
+        
+        // Initialize offline service
+        await offlineService.initialize();
+        
+        console.log('App services initialized successfully');
+      } catch (error) {
+        console.error('Error initializing app services:', error);
+      }
+    };
 
-import { HapticTab } from '@/components/HapticTab';
-import { IconSymbol } from '@/components/ui/IconSymbol';
-import TabBarBackground from '@/components/ui/TabBarBackground';
-import { Colors } from '@/constants/Colors';
-import { useColorScheme } from '@/hooks/useColorScheme';
+    initializeServices();
 
-// Import RootState from your Redux store for type safety
-import { RootState } from '@/src/store/store';
-
-export default function TabLayout() {
-  const colorScheme = useColorScheme();
-  const { user } = useSelector((state: RootState) => state.auth);
-
-  if (!user) return null; // Prevent rendering if user data is not yet loaded
-
-  const isPassenger = user.role === 'passenger';
-  const isDriver = user.role === 'driver';
+    // Cleanup services when app unmounts
+    return () => {
+      notificationService.cleanup();
+      offlineService.cleanup();
+    };
+  }, []);
 
   return (
-    <Tabs
-      screenOptions={{
-        tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
-        headerShown: false,
-        tabBarButton: HapticTab,
-        tabBarBackground: TabBarBackground,
-        tabBarStyle: Platform.select({
-          ios: {
-            position: 'absolute',
-          },
-          default: {},
-        }),
-      }}
-    >
-      {isPassenger && (
-        <>
-          <Tabs.Screen
-            name="passenger"
-            options={{
-              title: 'Home',
-              tabBarIcon: ({ color }: { color: string }) => (
-                <IconSymbol size={28} name="house.fill" color={color} />
-              ),
-            }}
-          />
-          <Tabs.Screen
-            name="explore"
-            options={{
-              title: 'Explore',
-              tabBarIcon: ({ color }: { color: string }) => (
-                <IconSymbol size={28} name="paperplane.fill" color={color} />
-              ),
-            }}
-          />
-        </>
-      )}
-
-      {isDriver && (
-        <>
-          <Tabs.Screen
-            name="driver"
-            options={{
-              title: 'Home',
-              tabBarIcon: ({ color }: { color: string }) => (
-                <IconSymbol size={28} name="car.fill" color={color} />
-              ),
-            }}
-          />
-          <Tabs.Screen
-            name="requests"
-            options={{
-              title: 'Requests',
-              tabBarIcon: ({ color }: { color: string }) => (
-                <IconSymbol size={28} name="bell.fill" color={color} />
-              ),
-            }}
-          />
-        </>
-      )}
-    </Tabs>
+    <Provider store={store}>
+      <PaperProvider>
+        <Stack screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="index" />
+          <Stack.Screen name="login" />
+          <Stack.Screen name="register" />
+          <Stack.Screen name="(tabs)" />
+          <Stack.Screen name="booking" />
+          <Stack.Screen name="payment" />
+          <Stack.Screen name="search" />
+          <Stack.Screen name="history" />
+        </Stack>
+      </PaperProvider>
+    </Provider>
   );
 }

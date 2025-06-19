@@ -1,6 +1,7 @@
-// src/services/offlineService.ts - Offline Support Implementation
+// src/services/offlineService.ts - Fixed with React import
+import React from 'react'; // ← ADDED: Missing React import
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import NetInfo from '@react-native-netinfo/netinfo';
+import NetInfo from '@react-native-community/netinfo';
 import { syncOfflineData, getOfflineData } from './api';
 import { notificationService } from './notifications';
 

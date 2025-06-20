@@ -3,7 +3,7 @@ const { Op } = require('sequelize');
 const { validateDestination } = require('../middlewares/validate.middleware');
 
 const destinationController = {
-  // Create a new destination
+  //////////////////////////////////////////////// Create a new destination ///////:////////////////////////////////////////////
   createDestination: async (req, res) => {
     try {
       const { error } = validateDestination(req.body);
@@ -28,7 +28,7 @@ const destinationController = {
         });
       }
 
-      // Check if both stations exist
+      ///////////////////////////////////////////// Check if both stations exist///////////////////////////////////////////
       const [startStation, endStation] = await Promise.all([
         Station.findByPk(startId),
         Station.findByPk(endId)
@@ -41,7 +41,7 @@ const destinationController = {
         });
       }
 
-      // Create destination
+      /////////////////////////////////// Create destination /////////////////////////////////////
       const destination = await Destination.create({
         startId,
         endId,
@@ -59,7 +59,7 @@ const destinationController = {
     }
   },
 
-  // Get all destinations with filtering, search, sorting
+  ///////////////////////////////////////// Get all destinations with filtering, search, sorting   /////////////////////////////////////
   getAllDestinations: async (req, res) => {
     try {
       const page = parseInt(req.query.page) || 1;
@@ -100,7 +100,7 @@ const destinationController = {
     }
   },
 
-  // Get destination by ID
+  /////////////////////////////////// Get destination by ID /////////////////////////////////
   getDestinationById: async (req, res) => {
     try {
       const destination = await Destination.findByPk(req.params.id, {
@@ -121,7 +121,7 @@ const destinationController = {
     }
   },
 
-  // ✅ Get all trips linked to a specific destination (routeId)
+  /////////////////////////////////// Get all trips linked to a specific destination (routeId) /////////////////////////////////
   getTripsByDestinationId: async (req, res) => {
     try {
       const { id } = req.params;

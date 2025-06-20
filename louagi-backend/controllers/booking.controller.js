@@ -1,82 +1,48 @@
+// booking.controller.js (FULL UPDATED VERSION)
+
 const { Booking, Trip, Passenger, Destination, Schedule, Driver, User, DriverQueue } = require('../models');
 const { Op } = require('sequelize');
 const { validateBooking, validateBookingUpdate, validateBulkBookingUpdate } = require('../middlewares/validate.middleware');
 const { sequelize } = require('../models');
 const { v4: uuidv4 } = require('uuid');
 
-/**
- * ✅ ENHANCED: Reindex queue positions after driver removal
- */
+// ✅ KEEP: reindexQueuePositions unchanged
 async function reindexQueuePositions(stationId, scheduleId, destinationId, transaction) {
   if (!stationId || !scheduleId || !destinationId) {
     console.log('⚠️ Missing queue identifiers, skipping reindex');
     return;
   }
-
-  // Get all waiting drivers for this route, ordered by position
   const waitingDrivers = await DriverQueue.findAll({
-    where: {
-      stationId,
-      scheduleId,
-      destinationId,
-      status: 'waiting'
-    },
+    where: { stationId, scheduleId, destinationId, status: 'waiting' },
     order: [['position', 'ASC']],
     transaction
   });
-
-  // Reindex positions (1, 2, 3, ...)
   for (let i = 0; i < waitingDrivers.length; i++) {
     const newPosition = i + 1;
     if (waitingDrivers[i].position !== newPosition) {
-      await waitingDrivers[i].update({ 
-        position: newPosition 
-      }, { transaction });
+      await waitingDrivers[i].update({ position: newPosition }, { transaction });
     }
   }
-
   console.log(`✅ Reindexed ${waitingDrivers.length} queue positions`);
 }
 
 const bookingController = {
-  /**
-   * ✅ FIXED: Create booking + auto-start when full (Fixed lock issue and booking reference)
-   */
+  // ✅ FULLY UPDATED createBooking method
   createBooking: async (req, res) => {
     try {
       const { error } = validateBooking(req.body);
-      if (error) {
-        return res.status(400).json({
-          success: false,
-          message: error.details[0].message
-        });
-      }
+      if (error) return res.status(400).json({ success: false, message: error.details[0].message });
 
       const { tripId, seats = 1, specialRequests } = req.body;
       const userId = req.user.id;
 
-      // Get passenger profile
       const passenger = await Passenger.findOne({ where: { user_id: userId } });
-      if (!passenger) {
-        return res.status(404).json({
-          success: false,
-          message: 'Passenger profile not found'
-        });
-      }
+      if (!passenger) return res.status(404).json({ success: false, message: 'Passenger profile not found' });
 
-      // Use transaction to ensure data consistency
       const result = await sequelize.transaction(async (t) => {
-        // ✅ FIX: Get trip WITHOUT includes first, then lock it
-        const trip = await Trip.findByPk(tripId, {
-          lock: true,
-          transaction: t
-        });
+        const trip = await Trip.findByPk(tripId, { lock: true, transaction: t });
+        if (!trip) throw new Error('Trip not found');
 
-        if (!trip) {
-          throw new Error('Trip not found');
-        }
-
-        // ✅ FIX: Get related data separately (no lock needed for reads)
         const [route, schedule, driver, queueEntry] = await Promise.all([
           Destination.findByPk(trip.routeId, { transaction: t }),
           Schedule.findByPk(trip.scheduleId, { transaction: t }),
@@ -84,45 +50,23 @@ const bookingController = {
           trip.queueId ? DriverQueue.findByPk(trip.queueId, { transaction: t }) : null
         ]);
 
-        // Check trip status
-        if (trip.status !== 'scheduled') {
-          throw new Error('Trip is not available for booking');
-        }
+        if (trip.status !== 'scheduled') throw new Error('Trip is not available for booking');
+        if (trip.departureTime && new Date(trip.departureTime) <= new Date()) throw new Error('Cannot book trips that have already departed');
+        if (trip.availableSeats < seats) throw new Error(`Only ${trip.availableSeats} seats available`);
 
-        // Check if trip is in the future
-        if (new Date(trip.departureTime) <= new Date()) {
-          throw new Error('Cannot book trips that have already departed');
-        }
-
-        // Check seat availability
-        if (trip.availableSeats < seats) {
-          throw new Error(`Only ${trip.availableSeats} seats available`);
-        }
-
-        // Check for duplicate booking (same passenger, same trip)
         const existingBooking = await Booking.findOne({
-          where: {
-            tripId,
-            passengerId: passenger.id,
-            status: { [Op.notIn]: ['cancelled'] }
-          },
+          where: { tripId, passengerId: passenger.id, status: { [Op.notIn]: ['cancelled'] } },
           transaction: t
         });
+        if (existingBooking) throw new Error('You already have a booking for this trip');
 
-        if (existingBooking) {
-          throw new Error('You already have a booking for this trip');
-        }
-
-        // Calculate total amount
         const pricePerSeat = parseFloat(trip.currentPrice);
         const totalAmount = pricePerSeat * seats;
 
-        // ✅ FIX: Generate booking reference manually
         const prefix = 'LG';
         const randomDigits = Math.floor(1000000 + Math.random() * 9000000).toString();
         const bookingReference = `${prefix}-${randomDigits}`;
 
-        // ✅ FIX: Create booking with explicit booking reference
         const booking = await Booking.create({
           tripId,
           passengerId: passenger.id,
@@ -131,51 +75,38 @@ const bookingController = {
           specialRequests,
           status: 'pending',
           paymentStatus: 'pending',
-          bookingReference // ✅ CRITICAL: Explicitly set the booking reference
+          bookingReference
         }, { transaction: t });
 
-        // Update trip available seats
         const newAvailableSeats = trip.availableSeats - seats;
-        await trip.update({
-          availableSeats: newAvailableSeats
-        }, { transaction: t });
+        await trip.update({ availableSeats: newAvailableSeats }, { transaction: t });
 
-        // ✅ ENHANCED: Auto-start trip if fully booked
         let wasAutoStarted = false;
         let autoConfirmedBookings = 0;
-        
+
         if (newAvailableSeats === 0) {
           console.log(`🚗 Trip ${tripId} is now FULL! Auto-starting...`);
-          
-          // Update trip status to in_progress
+          const actualDepartureTime = new Date();
+          const actualArrivalTime = new Date(actualDepartureTime.getTime() + (route.estimatedDuration * 60 * 1000));
+
           await trip.update({
             status: 'in_progress',
-            actualDepartureTime: new Date()
+            actualDepartureTime,
+            actualArrivalTime,
+            notes: (trip.notes || '') + ` - Auto-started at ${actualDepartureTime.toLocaleTimeString()} (fully booked)`
           }, { transaction: t });
 
-          // Remove driver from queue and reindex positions
           if (queueEntry) {
             const { stationId, scheduleId, destinationId } = queueEntry;
-            
-            // Remove queue entry
             await queueEntry.destroy({ transaction: t });
-            
-            // Reindex remaining queue positions
-            await reindexQueuePositions(stationId, scheduleId, destinationId, t);
-            
-            console.log(`✅ Driver removed from queue, positions reindexed`);
+            const { updateQueueTripTimes } = require('../utils/queue.utils');
+            await updateQueueTripTimes(stationId, scheduleId, destinationId, t);
+            console.log(`✅ Driver removed from queue, remaining positions and times updated`);
           }
 
-          // Auto-confirm all pending bookings for this trip
           const updateResult = await Booking.update(
-            { 
-              status: 'confirmed',
-              paymentStatus: 'completed' // Assuming payment is processed
-            },
-            { 
-              where: { tripId, status: 'pending' },
-              transaction: t 
-            }
+            { status: 'confirmed', paymentStatus: 'completed' },
+            { where: { tripId, status: 'pending' }, transaction: t }
           );
 
           autoConfirmedBookings = updateResult[0] || 0;
@@ -183,45 +114,53 @@ const bookingController = {
           console.log(`✅ Trip ${tripId} auto-started with full capacity, ${autoConfirmedBookings} bookings confirmed`);
         }
 
-        return { 
-          booking, 
-          trip: {
-            ...trip.toJSON(),
-            route,
-            schedule,
-            driver,
-            queueEntry
-          },
-          wasAutoStarted, 
-          autoConfirmedBookings 
+        return {
+          booking,
+          trip: { ...trip.toJSON(), route, schedule, driver, queueEntry },
+          wasAutoStarted,
+          autoConfirmedBookings
         };
       });
 
-      // ✅ FIX: Fetch complete booking data with separate query
       const completeBooking = await Booking.findByPk(result.booking.id, {
         include: [
-          {
-            model: Trip,
-            as: 'trip',
-            include: [
-              { model: Destination, as: 'route' },
-              { model: Schedule, as: 'schedule' },
-              { model: Driver, as: 'driver' }
-            ]
-          },
-          {
-            model: Passenger,
-            as: 'passenger',
-            include: [{ model: User, as: 'user', attributes: ['username', 'email', 'phone'] }]
-          }
+          { model: Trip, as: 'trip', include: [
+            { model: Destination, as: 'route' },
+            { model: Schedule, as: 'schedule' },
+            { model: Driver, as: 'driver' }
+          ] },
+          { model: Passenger, as: 'passenger', include: [
+            { model: User, as: 'user', attributes: ['username', 'email', 'phone'] }
+          ] }
         ]
       });
+
+      let timingInfo = null;
+      if (completeBooking.trip.departureTime) {
+        const { formatTripTime, calculateDuration } = require('../utils/time.utils');
+        const departureFormatted = formatTripTime(completeBooking.trip.departureTime);
+        const arrivalFormatted = formatTripTime(completeBooking.trip.estimatedArrivalTime);
+        const duration = calculateDuration(
+          completeBooking.trip.departureTime,
+          completeBooking.trip.estimatedArrivalTime
+        );
+
+        timingInfo = {
+          departureTime: completeBooking.trip.departureTime,
+          estimatedArrivalTime: completeBooking.trip.estimatedArrivalTime,
+          formattedDeparture: departureFormatted.full,
+          formattedArrival: arrivalFormatted.full,
+          duration: duration.readable,
+          minutesUntilDeparture: Math.max(0, Math.round((completeBooking.trip.departureTime - new Date()) / (1000 * 60)))
+        };
+      }
 
       return res.status(201).json({
         success: true,
         booking: completeBooking,
-        message: result.wasAutoStarted 
-          ? `Booking created and trip auto-started! ${result.autoConfirmedBookings} bookings confirmed.` 
+        timing: timingInfo,
+        message: result.wasAutoStarted
+          ? `Booking created and trip auto-started! ${result.autoConfirmedBookings} bookings confirmed.`
           : 'Booking created successfully',
         tripAutoStarted: result.wasAutoStarted,
         autoConfirmedBookings: result.autoConfirmedBookings || 0
@@ -229,16 +168,9 @@ const bookingController = {
 
     } catch (error) {
       console.error('Create booking error:', error);
-      return res.status(400).json({
-        success: false,
-        message: error.message || 'Failed to create booking'
-      });
+      return res.status(400).json({ success: false, message: error.message || 'Failed to create booking' });
     }
   },
-
-  /**
-   * ✅ ENHANCED: Get all bookings with filtering and pagination
-   */
   getAllBookings: async (req, res) => {
     try {
       const page = parseInt(req.query.page) || 1;
@@ -253,7 +185,7 @@ const bookingController = {
       if (tripId) whereClause.tripId = tripId;
       if (passengerId) whereClause.passengerId = passengerId;
 
-      // ✅ NEW: Date range filtering
+      // Date range filtering
       if (startDate || endDate) {
         whereClause.createdAt = {};
         if (startDate) whereClause.createdAt[Op.gte] = new Date(startDate);
@@ -290,7 +222,7 @@ const bookingController = {
         order: [[sortBy || 'createdAt', order === 'asc' ? 'ASC' : 'DESC']]
       });
 
-      // ✅ NEW: Calculate summary statistics
+      // Calculate summary statistics
       const summary = {
         totalBookings: count,
         totalPages: Math.ceil(count / limit),
@@ -319,7 +251,7 @@ const bookingController = {
       });
     }
   },
-
+  
   /**
    * Get booking by ID
    */

@@ -12,6 +12,68 @@ const QUEUE_CONFIG = {
 };
 
 /**
+ * ✅ NEW: Update queue trip times when queue changes
+ */
+async function updateQueueTripTimes(stationId, scheduleId, destinationId, transaction) {
+  console.log(`🔄 Updating queue trip times for station: ${stationId}, destination: ${destinationId}`);
+  
+  // Get all waiting/assigned drivers in order
+  const queueEntries = await DriverQueue.findAll({
+    where: {
+      stationId,
+      scheduleId,
+      destinationId,
+      status: { [Op.in]: ['waiting', 'assigned'] }
+    },
+    include: [
+      { model: Trip, as: 'trip' },
+      { model: Schedule, as: 'schedule' },
+      { model: Destination, as: 'destination' }
+    ],
+    order: [['position', 'ASC']],
+    transaction
+  });
+
+  if (!queueEntries.length) {
+    console.log('⚠️ No queue entries found to update');
+    return;
+  }
+
+  const { calculateTripTimes } = require('./time.utils');
+
+  // Reindex positions and recalculate times
+  for (let i = 0; i < queueEntries.length; i++) {
+    const newPosition = i + 1;
+    const entry = queueEntries[i];
+    
+    // Update queue position if changed
+    if (entry.position !== newPosition) {
+      await entry.update({ position: newPosition }, { transaction });
+      console.log(`📊 Updated queue position: Driver ${entry.driverId} -> position ${newPosition}`);
+    }
+    
+    // Recalculate trip times if trip exists
+    if (entry.trip && entry.schedule && entry.destination) {
+      const timeCalculation = calculateTripTimes(
+        entry.schedule,
+        newPosition,
+        entry.destination
+      );
+      
+      await entry.trip.update({
+        departureTime: timeCalculation.departureTime,
+        estimatedArrivalTime: timeCalculation.estimatedArrivalTime,
+        notes: `Queue position: ${newPosition}, Updated departure: ${timeCalculation.departureTime.toLocaleTimeString()}`
+      }, { transaction });
+      
+      console.log(`⏰ Updated trip times: Trip ${entry.trip.id} -> departure ${timeCalculation.departureTime.toLocaleTimeString()}`);
+    }
+  }
+  
+  console.log(`✅ Updated ${queueEntries.length} queue entries and trip times`);
+}
+
+/**
  * ✅ ENHANCED: Get next available queue position
  */
 async function getNextQueuePosition(stationId, scheduleId, destinationId) {
@@ -222,12 +284,10 @@ async function autoCreateTripFromQueue(stationId, scheduleId, destinationId) {
         throw new Error('No eligible drivers found');
       }
 
-      // ✅ CREATE TRIP
-      const now = new Date();
-      const departureTime = new Date(now.getTime() + 5 * 60 * 1000); // 5 mins from now
-      const estimatedArrivalTime = new Date(
-        departureTime.getTime() + (destination.estimatedDuration * 60 * 1000)
-      );
+      // ✅ CREATE TRIP WITH TIME CALCULATION
+      const schedule = await Schedule.findByPk(scheduleId, { transaction: t });
+      const { calculateTripTimes } = require('./time.utils');
+      const timeCalculation = calculateTripTimes(schedule, selectedQueueEntry.position, destination);
 
       const basePrice = parseFloat(destination.basePrice);
       const currentPrice = parseFloat((basePrice * 1.2).toFixed(2));
@@ -238,8 +298,8 @@ async function autoCreateTripFromQueue(stationId, scheduleId, destinationId) {
         scheduleId,
         driverId: selectedDriver.id,
         queueId: selectedQueueEntry.id,
-        departureTime,
-        estimatedArrivalTime,
+        departureTime: timeCalculation.departureTime,
+        estimatedArrivalTime: timeCalculation.estimatedArrivalTime,
         basePrice,
         currentPrice,
         capacity: selectedDriver.vehicle_capacity || 4,
@@ -253,8 +313,8 @@ async function autoCreateTripFromQueue(stationId, scheduleId, destinationId) {
         status: 'assigned' 
       }, { transaction: t });
 
-      // ✅ REINDEX REMAINING QUEUE POSITIONS
-      await reindexQueuePositions(stationId, scheduleId, destinationId, t);
+      // ✅ REINDEX REMAINING QUEUE POSITIONS AND UPDATE TIMES
+      await updateQueueTripTimes(stationId, scheduleId, destinationId, t);
 
       return { trip, driver: selectedDriver };
     });
@@ -275,30 +335,11 @@ async function autoCreateTripFromQueue(stationId, scheduleId, destinationId) {
 }
 
 /**
- * ✅ HELPER: Reindex queue positions after driver removal
+ * ✅ HELPER: Reindex queue positions after driver removal (UPDATED to use updateQueueTripTimes)
  */
 async function reindexQueuePositions(stationId, scheduleId, destinationId, transaction) {
-  const waitingDrivers = await DriverQueue.findAll({
-    where: {
-      stationId,
-      scheduleId,
-      destinationId,
-      status: 'waiting'
-    },
-    order: [['position', 'ASC']],
-    transaction
-  });
-
-  for (let i = 0; i < waitingDrivers.length; i++) {
-    const newPosition = i + 1;
-    if (waitingDrivers[i].position !== newPosition) {
-      await waitingDrivers[i].update({ 
-        position: newPosition 
-      }, { transaction });
-    }
-  }
-
-  console.log(`✅ Reindexed ${waitingDrivers.length} queue positions`);
+  // Use the more comprehensive updateQueueTripTimes function
+  await updateQueueTripTimes(stationId, scheduleId, destinationId, transaction);
 }
 
 /**
@@ -395,6 +436,10 @@ function isWithinScheduleTime(schedule) {
 }
 
 module.exports = {
+  // ✅ NEW: Time-based queue management
+  updateQueueTripTimes,
+  
+  // Existing functions
   getNextQueuePosition,
   autoCreateTripFromQueue,
   processAllQueuesForAutoTrips,

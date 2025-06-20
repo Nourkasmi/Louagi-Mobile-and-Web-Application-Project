@@ -5,7 +5,7 @@ const { sequelize } = require('../models');
 
 const driverController = {
   /**
-   * ✅ UPDATED: Driver declares availability → Position 1 → Capacity-Based Trip Creation
+   * ✅ UPDATED: Driver declares availability → Calculate times based on queue position
    */
   declareAvailability: async (req, res) => {
     try {
@@ -87,39 +87,45 @@ const driverController = {
         });
       }
 
-      // ✅ REMOVED: Time-based validation - capacity system works anytime
-      // No more schedule time checks - trips can be created anytime during the day
-
-      // ✅ MAIN LOGIC: Add to queue as Position 1 + Create Capacity-Based Trip
+      // ✅ MAIN LOGIC: Create trip with calculated times
       const result = await sequelize.transaction(async (t) => {
         
-        // 1️⃣ MOVE EXISTING DRIVERS DOWN (position++)
-        await DriverQueue.increment('position', {
+        // 1️⃣ GET CURRENT QUEUE COUNT (to determine position)
+        const currentQueueCount = await DriverQueue.count({
           where: {
             stationId,
             scheduleId,
             destinationId,
-            status: 'waiting'
+            status: { [Op.in]: ['waiting', 'assigned'] }
           },
           transaction: t
         });
+        
+        const newPosition = currentQueueCount + 1;
 
-        // 2️⃣ ADD NEW DRIVER AS POSITION 1
+        // 2️⃣ CALCULATE TRIP TIMES BASED ON QUEUE POSITION
+        const { calculateTripTimes } = require('../utils/time.utils');
+        const timeCalculation = calculateTripTimes(
+          schedule, 
+          newPosition, 
+          destination
+        );
+
+        // 3️⃣ CREATE QUEUE ENTRY
         const queueEntry = await DriverQueue.create({
           id: uuidv4(),
           driverId,
           stationId,
           scheduleId,
           destinationId,
-          position: 1,           // 🥇 ALWAYS POSITION 1
-          status: 'assigned',    // 🎯 IMMEDIATELY ASSIGNED
+          position: newPosition,
+          status: 'assigned',
           joinedAt: new Date()
         }, { transaction: t });
 
-        // 3️⃣ CREATE CAPACITY-BASED TRIP FOR THIS DRIVER
-        // ✅ UPDATED: No fixed departure time - will be set when trip starts
+        // 4️⃣ CREATE TRIP WITH CALCULATED TIMES
         const basePrice = parseFloat(destination.basePrice);
-        const currentPrice = parseFloat((basePrice * 1.2).toFixed(2)); // 20% markup
+        const currentPrice = parseFloat((basePrice * 1.2).toFixed(2));
 
         const trip = await Trip.create({
           id: uuidv4(),
@@ -127,20 +133,25 @@ const driverController = {
           scheduleId,
           driverId,
           queueId: queueEntry.id,
-          departureTime: null,              // ✅ No fixed departure time
-          estimatedArrivalTime: null,       // ✅ Will be calculated when trip starts
+          departureTime: timeCalculation.departureTime,           // ✅ CALCULATED TIME
+          estimatedArrivalTime: timeCalculation.estimatedArrivalTime, // ✅ CALCULATED TIME
           basePrice,
           currentPrice,
           capacity: driver.vehicle_capacity || 4,
           availableSeats: driver.vehicle_capacity || 4,
           status: 'scheduled',
-          notes: 'Waiting for passengers - will start when full'
+          notes: `Queue position: ${newPosition}, Scheduled departure: ${timeCalculation.departureTime.toLocaleTimeString()}`
         }, { transaction: t });
 
-        return { trip, queueEntry };
+        return { 
+          trip, 
+          queueEntry, 
+          timeCalculation,
+          position: newPosition
+        };
       });
 
-      // ✅ FETCH COMPLETE TRIP DATA
+      // 5️⃣ FETCH COMPLETE TRIP DATA
       const completeTrip = await Trip.findByPk(result.trip.id, {
         include: [
           { model: Destination, as: 'route' },
@@ -150,17 +161,36 @@ const driverController = {
         ]
       });
 
+      // 6️⃣ FORMAT RESPONSE WITH TIMING INFO
+      const { formatTripTime, calculateDuration } = require('../utils/time.utils');
+      const departureFormatted = formatTripTime(result.timeCalculation.departureTime);
+      const arrivalFormatted = formatTripTime(result.timeCalculation.estimatedArrivalTime);
+      const duration = calculateDuration(
+        result.timeCalculation.departureTime, 
+        result.timeCalculation.estimatedArrivalTime
+      );
+
       return res.status(201).json({
         success: true,
-        message: 'Trip created! Waiting for passengers to fill all seats.',
+        message: 'Trip created with scheduled departure time',
         trip: completeTrip,
-        queuePosition: 1,
-        status: 'assigned',
+        timing: {
+          queuePosition: result.position,
+          departureTime: result.timeCalculation.departureTime,
+          estimatedArrivalTime: result.timeCalculation.estimatedArrivalTime,
+          formattedDeparture: departureFormatted.full,
+          formattedArrival: arrivalFormatted.full,
+          duration: duration.readable,
+          queueDelayMinutes: result.timeCalculation.queueDelayMinutes,
+          totalDelayFromNow: result.timeCalculation.totalDelayFromNow,
+          scheduleStatus: result.timeCalculation.scheduleStatus,
+          isScheduleActive: result.timeCalculation.isScheduleActive
+        },
         waitingForPassengers: true,
         availableSeats: completeTrip.availableSeats,
         totalCapacity: completeTrip.capacity,
-        systemType: 'capacity-based',
-        note: 'Trip will start automatically when all seats are booked'
+        systemType: 'time-based',
+        note: 'Trip will depart at scheduled time or when driver declares full'
       });
 
     } catch (error) {
@@ -216,10 +246,11 @@ const driverController = {
         ]
       });
 
-      // ✅ ENHANCED: Capacity-based status determination
+      // ✅ ENHANCED: Status determination with timing info
       let availabilityStatus = 'available';
       let statusMessage = 'Available to declare availability';
       let capacityInfo = null;
+      let timingInfo = null;
 
       if (activeTrip) {
         if (activeTrip.status === 'scheduled') {
@@ -231,6 +262,21 @@ const driverController = {
             bookedSeats: activeTrip.capacity - activeTrip.availableSeats,
             percentageFull: Math.round(((activeTrip.capacity - activeTrip.availableSeats) / activeTrip.capacity) * 100)
           };
+          
+          // Add timing info for scheduled trips
+          if (activeTrip.departureTime) {
+            const { formatTripTime } = require('../utils/time.utils');
+            const departureFormatted = formatTripTime(activeTrip.departureTime);
+            const arrivalFormatted = formatTripTime(activeTrip.estimatedArrivalTime);
+            
+            timingInfo = {
+              departureTime: activeTrip.departureTime,
+              estimatedArrivalTime: activeTrip.estimatedArrivalTime,
+              formattedDeparture: departureFormatted.full,
+              formattedArrival: arrivalFormatted.full,
+              minutesUntilDeparture: Math.max(0, Math.round((activeTrip.departureTime - new Date()) / (1000 * 60)))
+            };
+          }
         } else if (activeTrip.status === 'in_progress') {
           availabilityStatus = 'on_trip';
           statusMessage = `Currently on trip (in progress)`;
@@ -249,8 +295,10 @@ const driverController = {
           activeTrip: activeTrip || null,
           queueEntry: queueEntry || null,
           capacityInfo,
+          timingInfo,
           canDeclareAvailability: availabilityStatus === 'available',
-          systemType: 'capacity-based'
+          canDeclareFull: availabilityStatus === 'waiting_passengers',
+          systemType: 'time-based'
         }
       });
 
@@ -307,6 +355,11 @@ const driverController = {
       const availableSeats = activeTrip.capacity - totalBookedSeats;
       const percentageFull = Math.round((totalBookedSeats / activeTrip.capacity) * 100);
 
+      // Add timing info
+      const { formatTripTime } = require('../utils/time.utils');
+      const departureFormatted = formatTripTime(activeTrip.departureTime);
+      const minutesUntilDeparture = Math.max(0, Math.round((activeTrip.departureTime - new Date()) / (1000 * 60)));
+
       return res.status(200).json({
         success: true,
         trip: {
@@ -318,8 +371,12 @@ const driverController = {
           percentageFull: percentageFull,
           bookingsCount: activeTrip.bookings?.length || 0,
           status: activeTrip.status,
+          departureTime: activeTrip.departureTime,
+          formattedDeparture: departureFormatted.full,
+          minutesUntilDeparture,
+          canDeclareFull: true,
           willStartWhenFull: true,
-          estimatedStartTime: availableSeats === 0 ? 'Starting now!' : 'When all seats are booked'
+          estimatedStartTime: availableSeats === 0 ? 'Starting now!' : departureFormatted.full
         }
       });
 
@@ -408,7 +465,111 @@ const driverController = {
       });
     }
   },
+  /**
+ * ✅ NEW: Driver declares car is full (manual trip start)
+ */
+declareFull: async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const driver = await Driver.findOne({ where: { user_id: userId } });
+    
+    if (!driver) {
+      return res.status(404).json({
+        success: false,
+        message: 'Driver profile not found'
+      });
+    }
 
+    // Find driver's current scheduled trip
+    const trip = await Trip.findOne({
+      where: {
+        driverId: driver.id,
+        status: 'scheduled'
+      },
+      include: [
+        { model: Destination, as: 'route' },
+        { model: DriverQueue, as: 'queueEntry' },
+        {
+          model: require('../models').Booking,
+          as: 'bookings',
+          where: { status: { [Op.notIn]: ['cancelled'] } },
+          required: false
+        }
+      ]
+    });
+
+    if (!trip) {
+      return res.status(404).json({
+        success: false,
+        message: 'No scheduled trip found'
+      });
+    }
+
+    // ✅ START TRIP IMMEDIATELY (manual trigger)
+    const result = await sequelize.transaction(async (t) => {
+      const now = new Date();
+      const estimatedArrivalTime = new Date(
+        now.getTime() + (trip.route.estimatedDuration * 60 * 1000)
+      );
+
+      // Update trip to start
+      await trip.update({
+        status: 'in_progress',
+        actualDepartureTime: now,
+        actualArrivalTime: estimatedArrivalTime, // Use actualArrivalTime instead of updating estimatedArrivalTime
+        notes: (trip.notes || '') + ` - Started manually at ${now.toLocaleTimeString()} (driver declared full)`
+      }, { transaction: t });
+
+      // Remove from queue and update remaining queue times
+      if (trip.queueEntry) {
+        const { stationId, scheduleId, destinationId } = trip.queueEntry;
+        
+        // Remove this driver's queue entry
+        await trip.queueEntry.destroy({ transaction: t });
+        
+        // Update remaining drivers' queue positions and trip times
+        const { updateQueueTripTimes } = require('../utils/queue.utils');
+        await updateQueueTripTimes(stationId, scheduleId, destinationId, t);
+        
+        console.log(`✅ Driver removed from queue, remaining positions updated`);
+      }
+
+      return trip;
+    });
+
+    // Get booking count for response
+    const bookingCount = trip.bookings?.length || 0;
+    const bookedSeats = trip.bookings?.reduce((sum, booking) => sum + booking.seats, 0) || 0;
+
+    return res.status(200).json({
+      success: true,
+      message: 'Trip started successfully',
+      trip: {
+        id: result.id,
+        status: result.status,
+        actualDepartureTime: result.actualDepartureTime,
+        actualArrivalTime: result.actualArrivalTime,
+        scheduledDepartureTime: result.departureTime, // Keep original for comparison
+        route: trip.route?.description
+      },
+      passengers: {
+        totalBookings: bookingCount,
+        bookedSeats,
+        availableSeats: trip.capacity - bookedSeats,
+        capacity: trip.capacity
+      },
+      trigger: 'manual_full',
+      departureType: 'early_manual'
+    });
+
+  } catch (error) {
+    console.error('Declare full error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to start trip'
+    });
+  }
+},
   /**
    * Get driver profile
    */

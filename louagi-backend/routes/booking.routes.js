@@ -75,14 +75,41 @@ router.get('/stats',
  */
 router.get('/:id', 
   validateUUID('id'),
-  authMiddleware.isOwnerOrAdmin(async (req) => {
-    // Custom logic to check if user owns the booking
-    const { Booking, Passenger } = require('../models');
-    const booking = await Booking.findByPk(req.params.id, {
-      include: [{ model: Passenger, as: 'passenger' }]
-    });
-    return booking?.passenger?.user_id;
-  }),
+  authMiddleware.authenticate,
+  async (req, res, next) => {
+    // Custom ownership check for bookings
+    if (req.user.role === 'admin') {
+      return next(); // Admin can access any booking
+    }
+    
+    try {
+      const { Booking, Passenger } = require('../models');
+      const booking = await Booking.findByPk(req.params.id, {
+        include: [{ model: Passenger, as: 'passenger' }]
+      });
+      
+      if (!booking) {
+        return res.status(404).json({
+          success: false,
+          message: 'Booking not found'
+        });
+      }
+      
+      if (booking.passenger.user_id !== req.user.id) {
+        return res.status(403).json({
+          success: false,
+          message: 'Permission denied'
+        });
+      }
+      
+      next();
+    } catch (error) {
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to verify booking ownership'
+      });
+    }
+  },
   bookingController.getBookingById
 );
 

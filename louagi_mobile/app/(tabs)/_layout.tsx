@@ -1,4 +1,4 @@
-// app/(tabs)/_layout.tsx - Role-based Navigation
+// app/(tabs)/_layout.tsx - FIXED Role-based Navigation
 import React from 'react';
 import { Tabs } from 'expo-router';
 import { Platform } from 'react-native';
@@ -136,39 +136,36 @@ export default function TabLayout() {
         </>
       )}
 
-      {/* ===== HIDDEN TABS (for unused routes) ===== */}
+      {/* ===== CONDITIONAL HIDDEN TABS ===== */}
+      {/* Hide routes that don't match current user role */}
       
-      {/* Hide original passenger routes if not passenger */}
-      <Tabs.Screen
-        name="passenger"
-        options={{
-          href: null, // This hides the tab completely
-        }}
-      />
+      {!isPassenger && (
+        <>
+          <Tabs.Screen name="passenger" options={{ href: null }} />
+          <Tabs.Screen name="passenger-bookings" options={{ href: null }} />
+          <Tabs.Screen name="passenger-profile" options={{ href: null }} />
+        </>
+      )}
       
-      {/* Hide original driver routes if not driver */}
-      <Tabs.Screen
-        name="driver"
-        options={{
-          href: null,
-        }}
-      />
+      {!isDriver && (
+        <>
+          <Tabs.Screen name="driver" options={{ href: null }} />
+          <Tabs.Screen name="driver-trips" options={{ href: null }} />
+          <Tabs.Screen name="driver-profile" options={{ href: null }} />
+        </>
+      )}
       
-      {/* Hide original profile if we have role-specific profiles */}
-      <Tabs.Screen
-        name="profile"
-        options={{
-          href: null,
-        }}
-      />
-      
-      {/* Hide trips if not driver */}
-      <Tabs.Screen
-        name="trips"
-        options={{
-          href: null,
-        }}
-      />
+      {!isAdmin && (
+        <>
+          <Tabs.Screen name="admin" options={{ href: null }} />
+          <Tabs.Screen name="admin-management" options={{ href: null }} />
+          <Tabs.Screen name="admin-profile" options={{ href: null }} />
+        </>
+      )}
+
+      {/* Hide legacy routes for all users */}
+      <Tabs.Screen name="profile" options={{ href: null }} />
+      <Tabs.Screen name="trips" options={{ href: null }} />
     </Tabs>
   );
 }

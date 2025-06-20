@@ -23,7 +23,7 @@ const DashboardPage = () => (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
       <div className="card p-6">
         <h3 className="text-lg font-semibold text-gray-900">Total Users</h3>
-        <p className="text-3xl font-bold text-primary-600 mt-2">1,234</p>
+        <p className="text-3xl font-bold mt-2" style={{ color: '#2563eb' }}>1,234</p>
       </div>
       <div className="card p-6">
         <h3 className="text-lg font-semibold text-gray-900">Active Trips</h3>
@@ -63,6 +63,8 @@ const DashboardPage = () => (
 const ProtectedRoute = ({ children }) => {
   const { isAuthenticated, loading } = useAuth();
 
+  console.log('ProtectedRoute - isAuthenticated:', isAuthenticated, 'loading:', loading);
+
   if (loading) {
     return <FullPageLoading />;
   }
@@ -77,6 +79,8 @@ const ProtectedRoute = ({ children }) => {
 // App routes component
 const AppRoutes = () => {
   const { isAuthenticated, loading } = useAuth();
+
+  console.log('AppRoutes - isAuthenticated:', isAuthenticated, 'loading:', loading);
 
   if (loading) {
     return <FullPageLoading />;

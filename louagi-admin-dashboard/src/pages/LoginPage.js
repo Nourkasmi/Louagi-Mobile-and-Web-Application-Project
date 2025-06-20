@@ -4,7 +4,7 @@ import { Eye, EyeOff, LogIn, AlertCircle } from 'lucide-react';
 
 const LoginPage = () => {
     const [email, setEmail] = useState('admin@louagi.com');
-    const [password, setPassword] = useState('');
+    const [password, setPassword] = useState('admin123');
     const [showPassword, setShowPassword] = useState(false);
     const [error, setError] = useState('');
     const [isLoading, setIsLoading] = useState(false);
@@ -12,7 +12,9 @@ const LoginPage = () => {
     const { login } = useAuth();
 
     const handleSubmit = async (e) => {
-        e.preventDefault();
+        e.preventDefault(); // ✅ CRITICAL: Prevent default form submission
+
+        // Clear any previous errors
         setError('');
         setIsLoading(true);
 
@@ -23,14 +25,25 @@ const LoginPage = () => {
             return;
         }
 
+        // Email validation
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email)) {
+            setError('Please enter a valid email address');
+            setIsLoading(false);
+            return;
+        }
+
         try {
+            console.log('Attempting login with:', { email }); // Don't log password
             const result = await login(email, password);
 
             if (!result.success) {
                 setError(result.message);
             }
             // If successful, user will be redirected by App component
+            // No need to manually redirect here
         } catch (error) {
+            console.error('Login submission error:', error);
             setError('An unexpected error occurred. Please try again.');
         } finally {
             setIsLoading(false);
@@ -38,11 +51,15 @@ const LoginPage = () => {
     };
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-primary-50 to-primary-100 flex items-center justify-center px-4 sm:px-6 lg:px-8">
+        <div className="min-h-screen bg-gradient-to-br flex items-center justify-center px-4 sm:px-6 lg:px-8" style={{
+            background: 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)'
+        }}>
             <div className="max-w-md w-full space-y-8">
                 {/* Header */}
                 <div className="text-center">
-                    <div className="mx-auto h-16 w-16 bg-primary-600 rounded-full flex items-center justify-center">
+                    <div className="mx-auto h-16 w-16 rounded-full flex items-center justify-center" style={{
+                        backgroundColor: '#2563eb'
+                    }}>
                         <LogIn className="h-8 w-8 text-white" />
                     </div>
                     <h2 className="mt-6 text-3xl font-bold text-gray-900">
@@ -55,7 +72,7 @@ const LoginPage = () => {
 
                 {/* Login Form */}
                 <div className="card p-8">
-                    <form className="space-y-6" onSubmit={handleSubmit}>
+                    <form className="space-y-6" onSubmit={handleSubmit} noValidate>
                         {/* Error Message */}
                         {error && (
                             <div className="bg-red-50 border border-red-200 rounded-lg p-3 flex items-center space-x-2">
@@ -106,6 +123,7 @@ const LoginPage = () => {
                                     className="absolute inset-y-0 right-0 pr-3 flex items-center"
                                     onClick={() => setShowPassword(!showPassword)}
                                     disabled={isLoading}
+                                    tabIndex={-1}
                                 >
                                     {showPassword ? (
                                         <EyeOff className="h-4 w-4 text-gray-400" />

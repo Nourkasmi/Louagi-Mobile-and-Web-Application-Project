@@ -19,27 +19,35 @@ export const AuthProvider = ({ children }) => {
     // Check if user is logged in on app start
     useEffect(() => {
         const initializeAuth = async () => {
-            const token = localStorage.getItem('token');
+            try {
+                const token = localStorage.getItem('token');
 
-            if (token) {
-                try {
-                    // Verify token with backend
-                    const response = await authAPI.getCurrentUser();
-                    if (response.data.success && response.data.user.role === 'admin') {
-                        setUser(response.data.user);
-                        setIsAuthenticated(true);
-                    } else {
-                        // User is not admin, remove token
+                if (token) {
+                    try {
+                        // Verify token with backend
+                        const response = await authAPI.getCurrentUser();
+                        if (response.data.success && response.data.user.role === 'admin') {
+                            setUser(response.data.user);
+                            setIsAuthenticated(true);
+                        } else {
+                            // User is not admin, remove token
+                            localStorage.removeItem('token');
+                            setUser(null);
+                            setIsAuthenticated(false);
+                        }
+                    } catch (error) {
+                        // Token is invalid, remove it
                         localStorage.removeItem('token');
+                        setUser(null);
+                        setIsAuthenticated(false);
+                        console.error('Token verification failed:', error);
                     }
-                } catch (error) {
-                    // Token is invalid, remove it
-                    localStorage.removeItem('token');
-                    console.error('Token verification failed:', error);
                 }
+            } catch (error) {
+                console.error('Auth initialization error:', error);
+            } finally {
+                setLoading(false);
             }
-
-            setLoading(false);
         };
 
         initializeAuth();
@@ -71,7 +79,7 @@ export const AuthProvider = ({ children }) => {
             console.error('Login error:', error);
             return {
                 success: false,
-                message: error.message || 'Login failed. Please try again.'
+                message: error.response?.data?.message || error.message || 'Login failed. Please try again.'
             };
         } finally {
             setLoading(false);
@@ -80,15 +88,20 @@ export const AuthProvider = ({ children }) => {
 
     const logout = async () => {
         try {
+            setLoading(true);
             // Call logout API (optional, for token invalidation)
-            await authAPI.logout();
-        } catch (error) {
-            console.error('Logout API error:', error);
+            try {
+                await authAPI.logout();
+            } catch (error) {
+                console.error('Logout API error:', error);
+                // Continue with local logout even if API call fails
+            }
         } finally {
             // Clear local storage and state regardless of API call result
             localStorage.removeItem('token');
             setUser(null);
             setIsAuthenticated(false);
+            setLoading(false);
         }
     };
 

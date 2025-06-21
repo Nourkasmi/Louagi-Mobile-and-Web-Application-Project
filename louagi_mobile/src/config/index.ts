@@ -1,7 +1,7 @@
-// src/config/index.ts - Updated with Your New Ngrok URL
+// src/config/index.ts - FIXED Configuration
 const Config = {
-  // 🌐 Your Backend URL - UPDATED TO MATCH YOUR CURRENT NGROK
-  API_BASE_URL: 'https://b268-165-50-8-74.ngrok-free.app/api', // ← UPDATED!
+  // 🌐 Your Backend URL - Updated from the error logs
+  API_BASE_URL: 'https://baef-165-50-8-74.ngrok-free.app /api', // ← From your screenshot
   
   // 💳 Stripe Test Key
   STRIPE_PUBLISHABLE_KEY: 'pk_test_51RVuo6ALVnc4tntayhIZmjEVw4bxb3xhp2ZlJLIzhy5bUP7FU1UWa1cIXOOhUyBq1dGq1SwCyzh6Uw13FSkY0q4200n6PzGxgt',

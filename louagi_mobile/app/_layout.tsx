@@ -1,4 +1,4 @@
-// app/_layout.tsx - UPDATED Root Layout without notifications
+// app/_layout.tsx - UPDATED Root Layout with Clean Route Groups
 import React, { useEffect } from 'react';
 import { Stack } from 'expo-router';
 import { Provider } from 'react-redux';
@@ -11,7 +11,10 @@ export default function RootLayout() {
     // Initialize services when app starts
     const initializeServices = async () => {
       try {
-        // Initialize offline service only
+        // Initialize notifications
+        await notificationService.initialize();
+        
+        // Initialize offline service
         await offlineService.initialize();
         
         console.log('App services initialized successfully');
@@ -24,6 +27,7 @@ export default function RootLayout() {
 
     // Cleanup services when app unmounts
     return () => {
+      notificationService.cleanup();
       offlineService.cleanup();
     };
   }, []);
@@ -37,13 +41,13 @@ export default function RootLayout() {
           <Stack.Screen name="login" />
           <Stack.Screen name="register" />
           
-          {/* Clean Route Groups */}
+          {/* ✅ NEW: Clean Route Groups */}
           <Stack.Screen name="(passenger)" />
           <Stack.Screen name="(driver)" />
           
-          {/* Legacy screens that need to be moved */}
-          <Stack.Screen name="booking" />
-          <Stack.Screen name="payment" />
+          {/* Legacy screens - keeping for compatibility during transition */}
+          <Stack.Screen name="booking" options={{ href: null }} />
+          <Stack.Screen name="payment" options={{ href: null }} />
         </Stack>
       </PaperProvider>
     </Provider>

@@ -1,4 +1,4 @@
-// app/_layout.tsx - CORRECTED Root Layout
+// app/_layout.tsx - UPDATED Root Layout with new route groups
 import React, { useEffect } from 'react';
 import { Stack } from 'expo-router';
 import { Provider } from 'react-redux';
@@ -37,14 +37,18 @@ export default function RootLayout() {
     <Provider store={store}>
       <PaperProvider>
         <Stack screenOptions={{ headerShown: false }}>
+          {/* Authentication Screens */}
           <Stack.Screen name="index" />
           <Stack.Screen name="login" />
           <Stack.Screen name="register" />
-          <Stack.Screen name="(tabs)" />
+          
+          {/* NEW: Clean Route Groups */}
+          <Stack.Screen name="(passenger)" />
+          <Stack.Screen name="(driver)" />
+          
+          {/* Legacy screens that need to be moved */}
           <Stack.Screen name="booking" />
           <Stack.Screen name="payment" />
-          <Stack.Screen name="search" />
-          <Stack.Screen name="history" />
         </Stack>
       </PaperProvider>
     </Provider>

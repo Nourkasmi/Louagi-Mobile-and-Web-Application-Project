@@ -164,7 +164,7 @@ export default function PassengerBookingsScreen() {
   // Navigate to booking details
   const viewBookingDetails = (booking: Booking) => {
     router.push({
-      pathname: '/(tabs)/passenger-bookings/[id]',
+      pathname: '/(passenger)/bookings/[id]',
       params: { 
         id: booking.id,
         bookingData: JSON.stringify(booking)
@@ -261,7 +261,7 @@ export default function PassengerBookingsScreen() {
       <View style={styles.header}>
         <Text style={styles.title}>My Bookings</Text>
         <TouchableOpacity
-          onPress={() => router.push('/(tabs)/passenger')}
+          onPress={() => router.push('/(passenger)/home')}
           style={styles.backButton}
         >
           <Text style={styles.backButtonText}>← Back</Text>
@@ -355,7 +355,7 @@ export default function PassengerBookingsScreen() {
             </Text>
             <TouchableOpacity
               style={styles.exploreButton}
-              onPress={() => router.push('/(tabs)/passenger')}
+              onPress={() => router.push('/(passenger)/home')}
             >
               <Text style={styles.exploreButtonText}>Explore Trips</Text>
             </TouchableOpacity>

@@ -1,4 +1,4 @@
-// app/(tabs)/passenger-profile/index.tsx - Passenger Profile Screen
+// app/(passenger)/profile/index.tsx - FIXED Passenger Profile Screen
 import React, { useEffect, useState, useCallback } from 'react';
 import {
   View,
@@ -177,7 +177,7 @@ export default function PassengerProfileScreen() {
 
         <TouchableOpacity
           style={styles.viewMoreButton}
-          onPress={() => router.push('/(tabs)/passenger-bookings')}
+          onPress={() => router.push('/(passenger)/bookings')}
         >
           <Text style={styles.viewMoreText}>View All Bookings →</Text>
         </TouchableOpacity>
@@ -197,7 +197,7 @@ export default function PassengerProfileScreen() {
           <Text style={styles.emptySubtext}>Start your journey today!</Text>
           <TouchableOpacity
             style={styles.exploreButton}
-            onPress={() => router.push('/(tabs)/passenger')}
+            onPress={() => router.push('/(passenger)/home')}
           >
             <Text style={styles.exploreButtonText}>Explore Trips</Text>
           </TouchableOpacity>
@@ -236,7 +236,7 @@ export default function PassengerProfileScreen() {
           
           <TouchableOpacity
             style={styles.viewAllButton}
-            onPress={() => router.push('/(tabs)/passenger-bookings')}
+            onPress={() => router.push('/(passenger)/bookings')}
           >
             <Text style={styles.viewAllText}>View All Bookings →</Text>
           </TouchableOpacity>
@@ -294,7 +294,7 @@ export default function PassengerProfileScreen() {
       <View style={styles.actionButtons}>
         <TouchableOpacity
           style={styles.actionButton}
-          onPress={() => router.push('/(tabs)/passenger')}
+          onPress={() => router.push('/(passenger)/home')}
         >
           <Text style={styles.actionIcon}>🔍</Text>
           <Text style={styles.actionText}>Search Trips</Text>
@@ -302,7 +302,7 @@ export default function PassengerProfileScreen() {
         
         <TouchableOpacity
           style={styles.actionButton}
-          onPress={() => router.push('/(tabs)/passenger-bookings')}
+          onPress={() => router.push('/(passenger)/bookings')}
         >
           <Text style={styles.actionIcon}>📋</Text>
           <Text style={styles.actionText}>My Bookings</Text>

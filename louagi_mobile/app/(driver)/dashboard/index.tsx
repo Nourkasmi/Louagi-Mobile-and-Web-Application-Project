@@ -431,7 +431,7 @@ export default function DriverDashboard() {
     <View style={styles.statsContainer}>
       <TouchableOpacity 
         style={styles.statCard}
-        onPress={() => router.push('/(tabs)/driver/earnings')}
+        onPress={() => router.push('/(driver)/earnings')}
       >
         <Text style={styles.statNumber}>
           ${earnings?.totalEarnings?.toFixed(2) || '0.00'}
@@ -441,7 +441,7 @@ export default function DriverDashboard() {
       
       <TouchableOpacity 
         style={styles.statCard}
-        onPress={() => router.push('/(tabs)/driver/trips')}
+        onPress={() => router.push('/(driver)/trips')}
       >
         <Text style={styles.statNumber}>{earnings?.totalTrips || 0}</Text>
         <Text style={styles.statLabel}>Trips Today</Text>
@@ -587,14 +587,14 @@ export default function DriverDashboard() {
       <View style={styles.quickActions}>
         <TouchableOpacity 
           style={styles.quickActionButton}
-          onPress={() => router.push('/(tabs)/driver/trips')}
+          onPress={() => router.push('/(driver)/trips')}
         >
           <Text style={styles.quickActionText}>📋 Trip History</Text>
         </TouchableOpacity>
         
         <TouchableOpacity 
           style={styles.quickActionButton}
-          onPress={() => router.push('/(tabs)/driver/earnings')}
+          onPress={() => router.push('/(driver)/earnings')}
         >
           <Text style={styles.quickActionText}>💰 Earnings</Text>
         </TouchableOpacity>

@@ -1,10 +1,9 @@
-// app/_layout.tsx - UPDATED Root Layout with new route groups
+// app/_layout.tsx - UPDATED Root Layout without notifications
 import React, { useEffect } from 'react';
 import { Stack } from 'expo-router';
 import { Provider } from 'react-redux';
 import { PaperProvider } from 'react-native-paper';
 import store from '../src/store/store';
-import { notificationService } from '../src/services/notifications';
 import { offlineService } from '../src/services/offlineService';
 
 export default function RootLayout() {
@@ -12,10 +11,7 @@ export default function RootLayout() {
     // Initialize services when app starts
     const initializeServices = async () => {
       try {
-        // Initialize notifications
-        await notificationService.initialize();
-        
-        // Initialize offline service
+        // Initialize offline service only
         await offlineService.initialize();
         
         console.log('App services initialized successfully');
@@ -28,7 +24,6 @@ export default function RootLayout() {
 
     // Cleanup services when app unmounts
     return () => {
-      notificationService.cleanup();
       offlineService.cleanup();
     };
   }, []);
@@ -42,7 +37,7 @@ export default function RootLayout() {
           <Stack.Screen name="login" />
           <Stack.Screen name="register" />
           
-          {/* NEW: Clean Route Groups */}
+          {/* Clean Route Groups */}
           <Stack.Screen name="(passenger)" />
           <Stack.Screen name="(driver)" />
           

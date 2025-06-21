@@ -24,7 +24,7 @@ requestLogger(app);
 app.use(helmet());
 app.use(compression());
 
-// ✅ FIXED CORS BLOCK
+// ✅ FIXED CORS CONFIGURATION
 const allowedOrigins = [
   'http://localhost:8081',
   'http://localhost:8080',
@@ -37,18 +37,20 @@ app.use((req, res, next) => {
 
   const isAllowed = 
     allowedOrigins.includes(origin) ||
-    (origin && origin.endsWith('.exp.direct')) ||
-    (origin && origin.endsWith('.ngrok-free.app'));
+    (origin && origin.includes('.exp.direct')) ||
+    (origin && origin.includes('.ngrok-free.app'));
 
   if (isAllowed && origin) {
     res.setHeader('Access-Control-Allow-Origin', origin);
     res.setHeader('Access-Control-Allow-Credentials', 'true');
   }
 
-  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
+  // ✅ ADD NGROK HEADERS
+  res.setHeader('ngrok-skip-browser-warning', 'true');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS,PATCH');
   res.setHeader(
-    'Access-Control-Allow-Headers',
-    req.headers['access-control-request-headers'] || 'Content-Type, Authorization'
+    'Access-Control-Allow-Headers', 
+    'Content-Type, Authorization, ngrok-skip-browser-warning, X-Requested-With'
   );
 
   if (req.method === 'OPTIONS') {
@@ -65,8 +67,16 @@ app.use('/api/payments/webhook', express.raw({ type: 'application/json' }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-const apiPrefix = `/api/${config.server.apiVersion}`;
+// ✅ ADD MISSING SYNC ROUTE FOR OFFLINE DATA
+app.get('/api/sync/offline-data', (req, res) => {
+  res.json({
+    success: true,
+    message: 'Offline data sync not implemented yet',
+    data: {}
+  });
+});
 
+// Mount routes
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/trips', tripRoutes);
@@ -76,7 +86,7 @@ app.use('/api/stations', stationRoutes);
 app.use('/api/schedules', scheduleRoutes);
 app.use('/api/destinations', destinationRoutes);
 app.use('/api/drivers', driverRoutes);
-app.use('/queues', queueRoutes);
+app.use('/api/queues', queueRoutes);
 
 app.get('/health', (req, res) => {
   res.status(200).json({

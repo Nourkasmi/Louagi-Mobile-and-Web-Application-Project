@@ -1,9 +1,8 @@
-// src/services/offlineService.ts - Fixed with React import
-import React from 'react'; // ← ADDED: Missing React import
+// src/services/offlineService.ts - Updated without notifications
+import React from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import NetInfo from '@react-native-community/netinfo';
 import { syncOfflineData, getOfflineData } from './api';
-import { notificationService } from './notifications';
 
 export interface OfflineAction {
   id: string;
@@ -101,13 +100,6 @@ class OfflineService {
   private async handleBackOnline(): Promise<void> {
     try {
       console.log('Back online - syncing pending actions');
-      
-      // Show notification
-      await notificationService.sendLocalNotification({
-        type: 'trip_update',
-        title: 'Back Online! 📶',
-        body: 'Syncing your data...',
-      });
 
       // Sync pending actions
       await this.syncPendingActions();
@@ -127,13 +119,6 @@ class OfflineService {
   private async handleGoingOffline(): Promise<void> {
     try {
       console.log('Going offline - preparing offline mode');
-      
-      // Show notification
-      await notificationService.sendLocalNotification({
-        type: 'trip_update',
-        title: 'Offline Mode 📱',
-        body: 'Limited functionality available offline',
-      });
 
       // Cache essential data if we have connection briefly
       if (this.pendingActions.length === 0) {
@@ -283,13 +268,7 @@ class OfflineService {
       data: bookingData,
     });
 
-    // Show offline notification
-    await notificationService.sendLocalNotification({
-      type: 'booking_confirmed',
-      title: 'Booking Queued 📋',
-      body: 'Your booking will be processed when connection is restored.',
-    });
-
+    console.log('Booking queued for sync when online');
     return actionId;
   }
 
@@ -302,13 +281,7 @@ class OfflineService {
       data: { bookingId, reason },
     });
 
-    // Show offline notification
-    await notificationService.sendLocalNotification({
-      type: 'cancellation',
-      title: 'Cancellation Queued ❌',
-      body: 'Your cancellation will be processed when connection is restored.',
-    });
-
+    console.log('Cancellation queued for sync when online');
     return actionId;
   }
 
@@ -384,13 +357,9 @@ class OfflineService {
   /**
    * Force sync (manual trigger)
    */
-  async forcSync(): Promise<boolean> {
+  async forceSync(): Promise<boolean> {
     if (!this.isOnline) {
-      await notificationService.sendLocalNotification({
-        type: 'trip_update',
-        title: 'No Internet Connection',
-        body: 'Please check your internet connection and try again.',
-      });
+      console.log('No internet connection - cannot sync');
       return false;
     }
 

@@ -3,8 +3,9 @@ import { useAuth } from '../context/AuthContext';
 import { Eye, EyeOff, LogIn, AlertCircle } from 'lucide-react';
 
 const LoginPage = () => {
-    const [email, setEmail] = useState('admin@louagi.com');
-    const [password, setPassword] = useState('admin123');
+    // ✅ REAL AUTH: Empty state - no hardcoded values
+    const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
     const [error, setError] = useState('');
     const [isLoading, setIsLoading] = useState(false);
@@ -12,20 +13,18 @@ const LoginPage = () => {
     const { login } = useAuth();
 
     const handleSubmit = async (e) => {
-        e.preventDefault(); // ✅ CRITICAL: Prevent default form submission
+        e.preventDefault();
 
-        // Clear any previous errors
         setError('');
         setIsLoading(true);
 
-        // Basic validation
+        // Validation
         if (!email || !password) {
-            setError('Please fill in all fields');
+            setError('Email and password are required');
             setIsLoading(false);
             return;
         }
 
-        // Email validation
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         if (!emailRegex.test(email)) {
             setError('Please enter a valid email address');
@@ -33,58 +32,63 @@ const LoginPage = () => {
             return;
         }
 
+        if (password.length < 8) {
+            setError('Password must be at least 8 characters');
+            setIsLoading(false);
+            return;
+        }
+
         try {
-            console.log('Attempting login with:', { email }); // Don't log password
+            console.log('Authenticating:', { email, timestamp: new Date().toISOString() });
+
             const result = await login(email, password);
 
             if (!result.success) {
-                setError(result.message);
+                setError(result.message || 'Authentication failed');
             }
-            // If successful, user will be redirected by App component
-            // No need to manually redirect here
+            // Success: AuthContext will handle redirect
         } catch (error) {
-            console.error('Login submission error:', error);
-            setError('An unexpected error occurred. Please try again.');
+            console.error('Authentication error:', error);
+            setError('Authentication failed. Please check your credentials.');
         } finally {
             setIsLoading(false);
         }
     };
 
     return (
-        <div className="min-h-screen bg-gradient-to-br flex items-center justify-center px-4 sm:px-6 lg:px-8" style={{
-            background: 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)'
-        }}>
+        <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4 sm:px-6 lg:px-8">
             <div className="max-w-md w-full space-y-8">
                 {/* Header */}
                 <div className="text-center">
-                    <div className="mx-auto h-16 w-16 rounded-full flex items-center justify-center" style={{
-                        backgroundColor: '#2563eb'
-                    }}>
+                    <div className="mx-auto h-16 w-16 bg-blue-600 rounded-full flex items-center justify-center">
                         <LogIn className="h-8 w-8 text-white" />
                     </div>
                     <h2 className="mt-6 text-3xl font-bold text-gray-900">
-                        Louagi Admin
+                        Louagi Admin Portal
                     </h2>
                     <p className="mt-2 text-sm text-gray-600">
-                        Sign in to access the admin dashboard
+                        Admin access required
                     </p>
                 </div>
 
                 {/* Login Form */}
                 <div className="card p-8">
                     <form className="space-y-6" onSubmit={handleSubmit} noValidate>
-                        {/* Error Message */}
+                        {/* Error Display */}
                         {error && (
-                            <div className="bg-red-50 border border-red-200 rounded-lg p-3 flex items-center space-x-2">
-                                <AlertCircle className="h-5 w-5 text-red-500 flex-shrink-0" />
-                                <span className="text-sm text-red-700">{error}</span>
+                            <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-start space-x-3">
+                                <AlertCircle className="h-5 w-5 text-red-500 flex-shrink-0 mt-0.5" />
+                                <div>
+                                    <h3 className="text-sm font-medium text-red-800">Authentication Error</h3>
+                                    <p className="text-sm text-red-700 mt-1">{error}</p>
+                                </div>
                             </div>
                         )}
 
                         {/* Email Field */}
                         <div>
                             <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
-                                Email Address
+                                Admin Email
                             </label>
                             <input
                                 id="email"
@@ -93,10 +97,11 @@ const LoginPage = () => {
                                 autoComplete="email"
                                 required
                                 className="input-field"
-                                placeholder="Enter your email"
+                                placeholder="admin@company.com"
                                 value={email}
-                                onChange={(e) => setEmail(e.target.value)}
+                                onChange={(e) => setEmail(e.target.value.trim())}
                                 disabled={isLoading}
+                                autoFocus
                             />
                         </div>
 
@@ -134,10 +139,17 @@ const LoginPage = () => {
                             </div>
                         </div>
 
+                        {/* Security Notice */}
+                        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+                            <p className="text-xs text-yellow-800">
+                                🔒 This is a secure admin portal. Only authorized personnel with admin privileges can access this system.
+                            </p>
+                        </div>
+
                         {/* Submit Button */}
                         <button
                             type="submit"
-                            disabled={isLoading}
+                            disabled={isLoading || !email || !password}
                             className="w-full btn-primary flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             {isLoading ? (
@@ -157,7 +169,7 @@ const LoginPage = () => {
                                             d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                                         ></path>
                                     </svg>
-                                    <span>Signing in...</span>
+                                    <span>Authenticating...</span>
                                 </>
                             ) : (
                                 <>
@@ -167,19 +179,15 @@ const LoginPage = () => {
                             )}
                         </button>
                     </form>
-
-                    {/* Demo Credentials */}
-                    <div className="mt-6 p-4 bg-blue-50 rounded-lg">
-                        <p className="text-xs text-blue-600 font-medium mb-2">Demo Credentials:</p>
-                        <p className="text-xs text-blue-600">Email: admin@louagi.com</p>
-                        <p className="text-xs text-blue-600">Password: admin123</p>
-                    </div>
                 </div>
 
                 {/* Footer */}
                 <div className="text-center">
                     <p className="text-xs text-gray-500">
-                        © 2024 Louagi Transportation. All rights reserved.
+                        Louagi Transportation Management System
+                    </p>
+                    <p className="text-xs text-gray-400 mt-1">
+                        Unauthorized access is prohibited
                     </p>
                 </div>
             </div>

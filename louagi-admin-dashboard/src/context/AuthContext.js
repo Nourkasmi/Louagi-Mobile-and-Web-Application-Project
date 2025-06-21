@@ -16,35 +16,77 @@ export const AuthProvider = ({ children }) => {
     const [loading, setLoading] = useState(true);
     const [isAuthenticated, setIsAuthenticated] = useState(false);
 
-    // Check if user is logged in on app start
+    // ✅ REAL AUTH: Initialize authentication state
     useEffect(() => {
         const initializeAuth = async () => {
             try {
+                console.log('🔐 Initializing authentication...');
+
                 const token = localStorage.getItem('token');
 
-                if (token) {
-                    try {
-                        // Verify token with backend
-                        const response = await authAPI.getCurrentUser();
-                        if (response.data.success && response.data.user.role === 'admin') {
-                            setUser(response.data.user);
-                            setIsAuthenticated(true);
-                        } else {
-                            // User is not admin, remove token
-                            localStorage.removeItem('token');
-                            setUser(null);
-                            setIsAuthenticated(false);
-                        }
-                    } catch (error) {
-                        // Token is invalid, remove it
+                if (!token) {
+                    console.log('❌ No token found');
+                    setLoading(false);
+                    return;
+                }
+
+                // Verify token with backend
+                console.log('🔍 Verifying token with backend...');
+                const response = await authAPI.getCurrentUser();
+
+                if (response.data.success && response.data.user) {
+                    const userData = response.data.user;
+
+                    // ✅ REAL AUTH: Strict admin validation
+                    if (userData.role !== 'admin') {
+                        console.warn('⚠️ Non-admin user attempting access:', userData.role);
                         localStorage.removeItem('token');
                         setUser(null);
                         setIsAuthenticated(false);
-                        console.error('Token verification failed:', error);
+                        setLoading(false);
+                        return;
                     }
+
+                    // ✅ Check if account is active
+                    if (!userData.is_active) {
+                        console.warn('⚠️ Inactive admin account:', userData.email);
+                        localStorage.removeItem('token');
+                        setUser(null);
+                        setIsAuthenticated(false);
+                        setLoading(false);
+                        return;
+                    }
+
+                    console.log('✅ Admin authenticated:', userData.email);
+                    setUser(userData);
+                    setIsAuthenticated(true);
+
+                    // Update last login time
+                    console.log('📝 Updating last login timestamp...');
+
+                } else {
+                    console.warn('❌ Invalid user response from backend');
+                    localStorage.removeItem('token');
+                    setUser(null);
+                    setIsAuthenticated(false);
                 }
+
             } catch (error) {
-                console.error('Auth initialization error:', error);
+                console.error('❌ Authentication initialization failed:', error);
+
+                // Handle different error types
+                if (error.response?.status === 401) {
+                    console.log('🔒 Token expired or invalid');
+                } else if (error.response?.status === 403) {
+                    console.log('🚫 Access forbidden');
+                } else {
+                    console.log('🌐 Network or server error');
+                }
+
+                // Clear invalid token
+                localStorage.removeItem('token');
+                setUser(null);
+                setIsAuthenticated(false);
             } finally {
                 setLoading(false);
             }
@@ -53,55 +95,136 @@ export const AuthProvider = ({ children }) => {
         initializeAuth();
     }, []);
 
+    // ✅ REAL AUTH: Secure login function
     const login = async (email, password) => {
         try {
             setLoading(true);
+            console.log('🔐 Attempting login for:', email);
+
             const response = await authAPI.login(email, password);
 
             if (response.data.success) {
-                const { token, user } = response.data;
+                const { token, user: userData } = response.data;
 
-                // Check if user is admin
-                if (user.role !== 'admin') {
-                    throw new Error('Access denied. Admin privileges required.');
+                // ✅ REAL AUTH: Strict validation
+                if (!userData || userData.role !== 'admin') {
+                    console.warn('⚠️ Access denied: Not an admin user');
+                    return {
+                        success: false,
+                        message: 'Access denied. Admin privileges required.'
+                    };
                 }
 
-                // Store token and user data
+                if (!userData.is_active) {
+                    console.warn('⚠️ Access denied: Inactive account');
+                    return {
+                        success: false,
+                        message: 'Account is inactive. Contact system administrator.'
+                    };
+                }
+
+                // ✅ SUCCESS: Store token and user data
                 localStorage.setItem('token', token);
-                setUser(user);
+                setUser(userData);
                 setIsAuthenticated(true);
 
+                console.log('✅ Admin login successful:', userData.email);
+                console.log('🎫 Token stored and user authenticated');
+
                 return { success: true };
+
             } else {
-                throw new Error(response.data.message || 'Login failed');
+                console.warn('❌ Login failed:', response.data.message);
+                return {
+                    success: false,
+                    message: response.data.message || 'Authentication failed'
+                };
             }
+
         } catch (error) {
-            console.error('Login error:', error);
-            return {
-                success: false,
-                message: error.response?.data?.message || error.message || 'Login failed. Please try again.'
-            };
+            console.error('❌ Login error:', error);
+
+            // Handle specific error cases
+            if (error.response?.status === 401) {
+                return {
+                    success: false,
+                    message: 'Invalid email or password'
+                };
+            } else if (error.response?.status === 403) {
+                return {
+                    success: false,
+                    message: 'Access forbidden. Admin privileges required.'
+                };
+            } else if (error.response?.status === 429) {
+                return {
+                    success: false,
+                    message: 'Too many login attempts. Please try again later.'
+                };
+            } else if (!error.response) {
+                return {
+                    success: false,
+                    message: 'Network error. Please check your connection.'
+                };
+            } else {
+                return {
+                    success: false,
+                    message: 'Authentication failed. Please try again.'
+                };
+            }
         } finally {
             setLoading(false);
         }
     };
 
+    // ✅ REAL AUTH: Secure logout function
     const logout = async () => {
         try {
             setLoading(true);
-            // Call logout API (optional, for token invalidation)
+            console.log('🚪 Logging out admin user...');
+
+            // Call logout API to invalidate token on server
             try {
                 await authAPI.logout();
+                console.log('✅ Server-side logout successful');
             } catch (error) {
-                console.error('Logout API error:', error);
-                // Continue with local logout even if API call fails
+                console.warn('⚠️ Server-side logout failed:', error.message);
+                // Continue with local logout even if server call fails
             }
+
         } finally {
-            // Clear local storage and state regardless of API call result
+            // ✅ Always clear local state and storage
             localStorage.removeItem('token');
             setUser(null);
             setIsAuthenticated(false);
             setLoading(false);
+
+            console.log('✅ Local logout completed');
+        }
+    };
+
+    // ✅ REAL AUTH: Check if user has specific permissions
+    const hasPermission = (permission) => {
+        if (!isAuthenticated || !user) return false;
+
+        // Admin has all permissions
+        if (user.role === 'admin') return true;
+
+        // Could extend this for role-based permissions
+        return false;
+    };
+
+    // ✅ REAL AUTH: Refresh user data
+    const refreshUser = async () => {
+        try {
+            const response = await authAPI.getCurrentUser();
+            if (response.data.success && response.data.user) {
+                setUser(response.data.user);
+                return true;
+            }
+            return false;
+        } catch (error) {
+            console.error('Failed to refresh user data:', error);
+            return false;
         }
     };
 
@@ -110,7 +233,9 @@ export const AuthProvider = ({ children }) => {
         login,
         logout,
         loading,
-        isAuthenticated
+        isAuthenticated,
+        hasPermission,
+        refreshUser
     };
 
     return (

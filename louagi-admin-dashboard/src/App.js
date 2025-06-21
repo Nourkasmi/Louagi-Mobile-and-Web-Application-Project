@@ -1,125 +1,117 @@
-import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { AuthProvider, useAuth } from './context/AuthContext';
-import Layout from './components/layout/Layout';
-import LoginPage from './pages/LoginPage';
-import LoadingSpinner from './components/common/LoadingSpinner';
+const express = require('express');
+const cors = require('cors');
+const helmet = require('helmet');
+const compression = require('compression');
+const { requestLogger, logger } = require('./utils/logger');
+const config = require('./config/config');
 
-// Full page loading component
-const FullPageLoading = () => (
-  <div className="min-h-screen flex items-center justify-center">
-    <LoadingSpinner size="large" text="Loading Louagi Admin..." />
-  </div>
-);
+// Routes
+const authRoutes = require('./routes/auth.routes');
+const userRoutes = require('./routes/user.routes');
+const tripRoutes = require('./routes/trip.routes');
+const bookingRoutes = require('./routes/booking.routes');
+const paymentRoutes = require('./routes/payment.routes');
+const stationRoutes = require('./routes/station.routes');
+const scheduleRoutes = require('./routes/schedule.routes');
+const destinationRoutes = require('./routes/destination.routes');
+const driverRoutes = require('./routes/driver.routes');
+const queueRoutes = require('./routes/queue.routes');
 
-// Temporary dashboard component - we'll replace this in the next step
-const DashboardPage = () => (
-  <div className="space-y-6">
-    <div>
-      <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-      <p className="text-gray-600">Welcome to Louagi Admin Dashboard</p>
-    </div>
+const app = express();
+requestLogger(app);
 
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-      <div className="card p-6">
-        <h3 className="text-lg font-semibold text-gray-900">Total Users</h3>
-        <p className="text-3xl font-bold mt-2" style={{ color: '#2563eb' }}>1,234</p>
-      </div>
-      <div className="card p-6">
-        <h3 className="text-lg font-semibold text-gray-900">Active Trips</h3>
-        <p className="text-3xl font-bold text-green-600 mt-2">56</p>
-      </div>
-      <div className="card p-6">
-        <h3 className="text-lg font-semibold text-gray-900">Total Bookings</h3>
-        <p className="text-3xl font-bold text-blue-600 mt-2">8,967</p>
-      </div>
-      <div className="card p-6">
-        <h3 className="text-lg font-semibold text-gray-900">Revenue</h3>
-        <p className="text-3xl font-bold text-purple-600 mt-2">$45,678</p>
-      </div>
-    </div>
+// Security + Compression
+app.use(helmet());
+app.use(compression());
 
-    <div className="card p-6">
-      <h3 className="text-lg font-semibold text-gray-900 mb-4">Recent Activity</h3>
-      <div className="space-y-3">
-        <div className="flex items-center justify-between py-2 border-b border-gray-100">
-          <span className="text-gray-600">New user registered</span>
-          <span className="text-sm text-gray-400">2 minutes ago</span>
-        </div>
-        <div className="flex items-center justify-between py-2 border-b border-gray-100">
-          <span className="text-gray-600">Trip completed</span>
-          <span className="text-sm text-gray-400">5 minutes ago</span>
-        </div>
-        <div className="flex items-center justify-between py-2 border-b border-gray-100">
-          <span className="text-gray-600">Payment processed</span>
-          <span className="text-sm text-gray-400">10 minutes ago</span>
-        </div>
-      </div>
-    </div>
-  </div>
-);
+// ✅ FIXED CORS - Simple and working configuration
+app.use(cors({
+  origin: [
+    'http://localhost:3000',    // React development server
+    'http://localhost:8081',    // Expo/React Native
+    'http://localhost:8080',    // Alternative React port
+    'http://localhost:19006'    // Expo web
+  ],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: [
+    'Origin',
+    'X-Requested-With',
+    'Content-Type',
+    'Accept',
+    'Authorization',
+    'Cache-Control',
+    'Pragma'
+  ]
+}));
 
-// Protected route component
-const ProtectedRoute = ({ children }) => {
-  const { isAuthenticated, loading } = useAuth();
+// ✅ Additional CORS headers for preflight requests
+app.options('*', (req, res) => {
+  res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
+  res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS,PATCH');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, Cache-Control, Pragma');
+  res.header('Access-Control-Allow-Credentials', 'true');
+  res.sendStatus(204);
+});
 
-  console.log('ProtectedRoute - isAuthenticated:', isAuthenticated, 'loading:', loading);
+// Stripe webhook (before body parser)
+app.use('/api/payments/webhook', express.raw({ type: 'application/json' }));
 
-  if (loading) {
-    return <FullPageLoading />;
+// Body parsers
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+const apiPrefix = `/api/${config.server.apiVersion}`;
+
+app.use('/api/auth', authRoutes);
+app.use('/api/users', userRoutes);
+app.use('/api/trips', tripRoutes);
+app.use('/api/bookings', bookingRoutes);
+app.use('/api/payments', paymentRoutes);
+app.use('/api/stations', stationRoutes);
+app.use('/api/schedules', scheduleRoutes);
+app.use('/api/destinations', destinationRoutes);
+app.use('/api/drivers', driverRoutes);
+app.use('/api/queues', queueRoutes);
+
+app.get('/health', (req, res) => {
+  res.status(200).json({
+    status: 'UP',
+    timestamp: new Date(),
+    environment: config.server.env,
+    cors: 'enabled',
+    services: {
+      database: 'UP',
+      stripe: config.payment.stripeSecretKey ? 'CONFIGURED' : 'NOT_CONFIGURED'
+    }
+  });
+});
+
+app.use((req, res, next) => {
+  const error = new Error('Not Found');
+  error.status = 404;
+  next(error);
+});
+
+app.use((err, req, res, next) => {
+  const status = err.status || 500;
+  const message = err.message || 'Internal Server Error';
+
+  logger.error(`${status} - ${message} - ${req.originalUrl} - ${req.method} - ${req.ip}`);
+
+  const response = {
+    error: {
+      message,
+      status,
+      timestamp: new Date().toISOString()
+    }
+  };
+
+  if (config.server.env === 'development' && err.stack) {
+    response.error.stack = err.stack;
   }
 
-  if (!isAuthenticated) {
-    return <Navigate to="/login" replace />;
-  }
+  res.status(status).json(response);
+});
 
-  return <Layout>{children}</Layout>;
-};
-
-// App routes component
-const AppRoutes = () => {
-  const { isAuthenticated, loading } = useAuth();
-
-  console.log('AppRoutes - isAuthenticated:', isAuthenticated, 'loading:', loading);
-
-  if (loading) {
-    return <FullPageLoading />;
-  }
-
-  return (
-    <Routes>
-      <Route
-        path="/login"
-        element={isAuthenticated ? <Navigate to="/" replace /> : <LoginPage />}
-      />
-      <Route
-        path="/"
-        element={
-          <ProtectedRoute>
-            <DashboardPage />
-          </ProtectedRoute>
-        }
-      />
-      {/* Add more routes here as we build them */}
-      <Route
-        path="*"
-        element={<Navigate to="/" replace />}
-      />
-    </Routes>
-  );
-};
-
-// Main App component
-function App() {
-  return (
-    <AuthProvider>
-      <Router>
-        <div className="App">
-          <AppRoutes />
-        </div>
-      </Router>
-    </AuthProvider>
-  );
-}
-
-export default App;
+module.exports = app;

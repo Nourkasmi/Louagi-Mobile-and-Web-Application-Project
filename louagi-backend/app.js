@@ -26,6 +26,7 @@ app.use(compression());
 
 // ✅ FIXED CORS BLOCK
 const allowedOrigins = [
+  'http://localhost:3000',     // ✅ React Admin Dashboard
   'http://localhost:8081',
   'http://localhost:8080',
   'http://localhost:19006',
@@ -35,7 +36,7 @@ const allowedOrigins = [
 app.use((req, res, next) => {
   const origin = req.headers.origin;
 
-  const isAllowed = 
+  const isAllowed =
     allowedOrigins.includes(origin) ||
     (origin && origin.endsWith('.exp.direct')) ||
     (origin && origin.endsWith('.ngrok-free.app'));

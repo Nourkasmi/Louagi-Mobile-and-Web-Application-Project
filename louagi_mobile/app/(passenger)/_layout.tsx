@@ -1,4 +1,4 @@
-// app/(passenger)/_layout.tsx - Clean Passenger-Only Tabs
+// app/(passenger)/_layout.tsx - FIXED Passenger Layout
 import React from 'react';
 import { Tabs } from 'expo-router';
 import { Platform } from 'react-native';
@@ -28,7 +28,7 @@ export default function PassengerLayout() {
       }}
     >
       <Tabs.Screen
-        name="home"
+        name="home/index"
         options={{
           title: 'Find Trips',
           tabBarIcon: ({ color }: { color: string }) => (
@@ -38,7 +38,7 @@ export default function PassengerLayout() {
       />
       
       <Tabs.Screen
-        name="search"
+        name="search/index"
         options={{
           title: 'Search',
           tabBarIcon: ({ color }: { color: string }) => (
@@ -48,7 +48,7 @@ export default function PassengerLayout() {
       />
       
       <Tabs.Screen
-        name="bookings"
+        name="bookings/index"
         options={{
           title: 'My Bookings',
           tabBarIcon: ({ color }: { color: string }) => (
@@ -58,7 +58,7 @@ export default function PassengerLayout() {
       />
       
       <Tabs.Screen
-        name="profile"
+        name="profile/index"
         options={{
           title: 'Profile',
           tabBarIcon: ({ color }: { color: string }) => (

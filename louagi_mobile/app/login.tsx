@@ -31,7 +31,20 @@ const LoginScreen: React.FC = () => {
         })
       );
 
-      router.replace('/(tabs)');
+      // Route based on user role
+      switch (res.user.role) {
+        case 'passenger':
+          router.replace('/(passenger)/home');
+          break;
+        case 'driver':
+          router.replace('/(driver)/dashboard');
+          break;
+        case 'admin':
+          router.replace('/(driver)/dashboard'); // Fallback for now
+          break;
+        default:
+          router.replace('/(passenger)/home');
+      }
     } catch (error) {
       console.error('Login error:', error);
       alert('Server error or invalid credentials');

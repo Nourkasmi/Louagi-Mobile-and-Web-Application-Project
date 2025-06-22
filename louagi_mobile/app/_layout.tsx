@@ -11,9 +11,6 @@ export default function RootLayout() {
     // Initialize services when app starts
     const initializeServices = async () => {
       try {
-        // Initialize notifications
-        await notificationService.initialize();
-        
         // Initialize offline service
         await offlineService.initialize();
         
@@ -27,7 +24,6 @@ export default function RootLayout() {
 
     // Cleanup services when app unmounts
     return () => {
-      notificationService.cleanup();
       offlineService.cleanup();
     };
   }, []);
@@ -44,10 +40,6 @@ export default function RootLayout() {
           {/* ✅ NEW: Clean Route Groups */}
           <Stack.Screen name="(passenger)" />
           <Stack.Screen name="(driver)" />
-          
-          {/* Legacy screens - keeping for compatibility during transition */}
-          <Stack.Screen name="booking" options={{ href: null }} />
-          <Stack.Screen name="payment" options={{ href: null }} />
         </Stack>
       </PaperProvider>
     </Provider>

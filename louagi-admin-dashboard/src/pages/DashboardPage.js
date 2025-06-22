@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { usersAPI, tripsAPI, bookingsAPI } from '../services/api';
+import { dashboardAPI } from '../services/api';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import PageHeader from '../components/common/PageHeader';
 import StatCard from '../components/common/StatCard';
-import toast from 'react-hot-toast';
+import { Users, Car, CreditCard, FileText } from 'lucide-react';
 
 const DashboardPage = () => {
     const [stats, setStats] = useState({
@@ -21,23 +21,18 @@ const DashboardPage = () => {
     const fetchDashboardStats = async () => {
         try {
             setLoading(true);
+            console.log('📊 Fetching dashboard statistics...');
 
-            // Fetch data from multiple endpoints in parallel
-            const [usersRes, tripsRes, bookingsRes] = await Promise.all([
-                usersAPI.getAll({ limit: 1 }),
-                tripsAPI.getAll({ status: 'scheduled,in_progress', limit: 1 }),
-                bookingsAPI.getStats()
-            ]);
+            const response = await dashboardAPI.getStats();
 
-            setStats({
-                totalUsers: usersRes.data.total || 0,
-                activeTrips: tripsRes.data.total || 0,
-                totalRevenue: bookingsRes.data.stats?.totalRevenue || 0,
-                todayBookings: bookingsRes.data.stats?.todayBookings || 0
-            });
+            if (response.success) {
+                setStats(response.data);
+                console.log('✅ Dashboard stats loaded:', response.data);
+            } else {
+                console.warn('⚠️ Failed to load dashboard stats, using default values');
+            }
         } catch (error) {
-            console.error('Dashboard error:', error);
-            toast.error('Failed to load dashboard data');
+            console.error('❌ Dashboard error:', error);
         } finally {
             setLoading(false);
         }
@@ -55,7 +50,7 @@ const DashboardPage = () => {
                 action={
                     <button
                         onClick={fetchDashboardStats}
-                        className="btn-secondary text-sm"
+                        className="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg text-sm hover:bg-gray-200 transition-colors"
                     >
                         Refresh
                     </button>
@@ -67,34 +62,34 @@ const DashboardPage = () => {
                 <StatCard
                     title="Total Users"
                     value={stats.totalUsers.toLocaleString()}
-                    icon={() => <span>👥</span>}
+                    icon={Users}
                     color="blue"
                 />
 
                 <StatCard
                     title="Active Trips"
                     value={stats.activeTrips}
-                    icon={() => <span>🚗</span>}
+                    icon={Car}
                     color="green"
                 />
 
                 <StatCard
                     title="Total Revenue"
-                    value={`$${stats.totalRevenue.toFixed(2)}`}
-                    icon={() => <span>💰</span>}
+                    value={`${stats.totalRevenue.toFixed(2)}`}
+                    icon={CreditCard}
                     color="purple"
                 />
 
                 <StatCard
                     title="Today's Bookings"
                     value={stats.todayBookings}
-                    icon={() => <span>📅</span>}
+                    icon={FileText}
                     color="orange"
                 />
             </div>
 
             {/* System Status */}
-            <div className="card p-6">
+            <div className="bg-white rounded-lg shadow border p-6">
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">System Status</h3>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div className="text-center p-4 bg-green-50 rounded-lg">
@@ -113,22 +108,22 @@ const DashboardPage = () => {
             </div>
 
             {/* Quick Actions */}
-            <div className="card p-6">
+            <div className="bg-white rounded-lg shadow border p-6">
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                    <button className="btn-primary text-center p-4">
+                    <button className="bg-blue-600 text-white p-4 rounded-lg text-center hover:bg-blue-700 transition-colors">
                         <div className="text-lg mb-2">👤</div>
                         <div>Manage Users</div>
                     </button>
-                    <button className="btn-primary text-center p-4">
+                    <button className="bg-blue-600 text-white p-4 rounded-lg text-center hover:bg-blue-700 transition-colors">
                         <div className="text-lg mb-2">🚗</div>
                         <div>View Trips</div>
                     </button>
-                    <button className="btn-primary text-center p-4">
+                    <button className="bg-blue-600 text-white p-4 rounded-lg text-center hover:bg-blue-700 transition-colors">
                         <div className="text-lg mb-2">📋</div>
                         <div>Check Bookings</div>
                     </button>
-                    <button className="btn-primary text-center p-4">
+                    <button className="bg-blue-600 text-white p-4 rounded-lg text-center hover:bg-blue-700 transition-colors">
                         <div className="text-lg mb-2">⚙️</div>
                         <div>Settings</div>
                     </button>

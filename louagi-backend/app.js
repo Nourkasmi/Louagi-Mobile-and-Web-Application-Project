@@ -50,7 +50,7 @@ app.use((req, res, next) => {
   res.setHeader('ngrok-skip-browser-warning', 'true');
   res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS,PATCH');
   res.setHeader(
-    'Access-Control-Allow-Headers', 
+    'Access-Control-Allow-Headers',
     'Content-Type, Authorization, ngrok-skip-browser-warning, X-Requested-With'
   );
 

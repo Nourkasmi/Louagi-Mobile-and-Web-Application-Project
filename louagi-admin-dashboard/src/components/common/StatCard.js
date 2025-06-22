@@ -9,7 +9,7 @@ const StatCard = ({
     color = 'primary'
 }) => {
     const colorClasses = {
-        primary: 'text-primary-600',
+        primary: 'text-blue-600',
         green: 'text-green-600',
         blue: 'text-blue-600',
         purple: 'text-purple-600',
@@ -24,7 +24,7 @@ const StatCard = ({
     };
 
     return (
-        <div className="card p-6">
+        <div className="bg-white rounded-lg shadow border p-6">
             <div className="flex items-center justify-between">
                 <div>
                     <p className="text-sm font-medium text-gray-600 mb-1">
@@ -42,7 +42,7 @@ const StatCard = ({
                     )}
                 </div>
                 {Icon && (
-                    <div className={`p-3 rounded-full bg-gray-50`}>
+                    <div className="p-3 rounded-full bg-gray-50">
                         <Icon className={`h-6 w-6 ${colorClasses[color]}`} />
                     </div>
                 )}

@@ -7,15 +7,21 @@ import LoadingSpinner from './components/common/LoadingSpinner';
 // Import pages
 import DashboardPage from './pages/DashboardPage';
 import UsersPage from './pages/UsersPage';
-import DriversPage from './pages/DriversPage';
-import TripsPage from './pages/TripsPage';
-import BookingsPage from './pages/BookingsPage';
-import StationsPage from './pages/StationsPage';
-import DestinationsPage from './pages/DestinationsPage';
-import SchedulesPage from './pages/SchedulesPage';
-import QueuePage from './pages/QueuePage';
-import PaymentsPage from './pages/PaymentsPage';
-import SettingsPage from './pages/SettingsPage';
+
+// Generic Page Component for unimplemented pages
+const GenericPage = ({ title, subtitle }) => {
+  return (
+    <div className="space-y-6">
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-gray-900">{title}</h1>
+        {subtitle && <p className="mt-1 text-sm text-gray-600">{subtitle}</p>}
+      </div>
+      <div className="bg-white rounded-lg shadow border p-6">
+        <p className="text-gray-600">{title} interface coming soon...</p>
+      </div>
+    </div>
+  );
+};
 
 // Simple Router Component
 const Router = () => {
@@ -44,23 +50,21 @@ const Router = () => {
       case 'users':
         return <UsersPage />;
       case 'drivers':
-        return <DriversPage />;
+        return <GenericPage title="Drivers Management" subtitle="Manage drivers and vehicles" />;
       case 'trips':
-        return <TripsPage />;
+        return <GenericPage title="Trips Management" subtitle="Manage all trips" />;
       case 'bookings':
-        return <BookingsPage />;
+        return <GenericPage title="Bookings Management" subtitle="Manage passenger bookings" />;
       case 'stations':
-        return <StationsPage />;
-      case 'destinations':
-        return <DestinationsPage />;
+        return <GenericPage title="Stations Management" subtitle="Manage transportation stations" />;
       case 'schedules':
-        return <SchedulesPage />;
+        return <GenericPage title="Schedules Management" subtitle="Manage trip schedules" />;
       case 'queue':
-        return <QueuePage />;
+        return <GenericPage title="Queue Management" subtitle="Manage driver queues" />;
       case 'payments':
-        return <PaymentsPage />;
+        return <GenericPage title="Payments Management" subtitle="Manage payments and transactions" />;
       case 'settings':
-        return <SettingsPage />;
+        return <GenericPage title="Settings" subtitle="System configuration" />;
       default:
         return <DashboardPage />;
     }
@@ -78,8 +82,6 @@ function App() {
     <AuthProvider>
       <div className="App">
         <Router />
-
-        {/* Toast container will be added via react-hot-toast */}
       </div>
     </AuthProvider>
   );

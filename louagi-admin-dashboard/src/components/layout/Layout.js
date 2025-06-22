@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import Sidebar from './Sidebar';
 import Header from './Header';
 
-const Layout = ({ children }) => {
+const Layout = ({ children, currentRoute, setCurrentRoute }) => {
     const [sidebarOpen, setSidebarOpen] = useState(false);
 
     const toggleSidebar = () => {
@@ -16,7 +16,12 @@ const Layout = ({ children }) => {
     return (
         <div className="flex h-screen bg-gray-50">
             {/* Sidebar */}
-            <Sidebar isOpen={sidebarOpen} onClose={closeSidebar} />
+            <Sidebar
+                isOpen={sidebarOpen}
+                onClose={closeSidebar}
+                currentRoute={currentRoute}
+                setCurrentRoute={setCurrentRoute}
+            />
 
             {/* Main content */}
             <div className="flex-1 flex flex-col overflow-hidden lg:ml-0">

@@ -1,5 +1,4 @@
 import React from 'react';
-import { Link, useLocation } from 'react-router-dom';
 import {
     BarChart3,
     Users,
@@ -13,77 +12,64 @@ import {
     FileText
 } from 'lucide-react';
 
-const Sidebar = ({ isOpen, onClose }) => {
-    const location = useLocation();
-
+const Sidebar = ({ isOpen, onClose, currentRoute, setCurrentRoute }) => {
     const navigation = [
         {
             name: 'Dashboard',
-            href: '/',
-            icon: BarChart3,
-            current: location.pathname === '/'
+            route: 'dashboard',
+            icon: BarChart3
         },
         {
             name: 'Users',
-            href: '/users',
-            icon: Users,
-            current: location.pathname.startsWith('/users')
+            route: 'users',
+            icon: Users
         },
         {
             name: 'Drivers',
-            href: '/drivers',
-            icon: Car,
-            current: location.pathname.startsWith('/drivers')
+            route: 'drivers',
+            icon: Car
         },
         {
             name: 'Trips',
-            href: '/trips',
-            icon: Route,
-            current: location.pathname.startsWith('/trips')
+            route: 'trips',
+            icon: Route
         },
         {
             name: 'Bookings',
-            href: '/bookings',
-            icon: FileText,
-            current: location.pathname.startsWith('/bookings')
+            route: 'bookings',
+            icon: FileText
         },
         {
             name: 'Stations',
-            href: '/stations',
-            icon: MapPin,
-            current: location.pathname.startsWith('/stations')
-        },
-        {
-            name: 'Destinations',
-            href: '/destinations',
-            icon: Route,
-            current: location.pathname.startsWith('/destinations')
+            route: 'stations',
+            icon: MapPin
         },
         {
             name: 'Schedules',
-            href: '/schedules',
-            icon: Calendar,
-            current: location.pathname.startsWith('/schedules')
+            route: 'schedules',
+            icon: Calendar
         },
         {
             name: 'Queue',
-            href: '/queue',
-            icon: Clock,
-            current: location.pathname.startsWith('/queue')
+            route: 'queue',
+            icon: Clock
         },
         {
             name: 'Payments',
-            href: '/payments',
-            icon: CreditCard,
-            current: location.pathname.startsWith('/payments')
+            route: 'payments',
+            icon: CreditCard
         },
         {
             name: 'Settings',
-            href: '/settings',
-            icon: Settings,
-            current: location.pathname.startsWith('/settings')
+            route: 'settings',
+            icon: Settings
         }
     ];
+
+    const handleNavClick = (route) => {
+        setCurrentRoute(route);
+        onClose();
+    };
 
     return (
         <>
@@ -99,14 +85,14 @@ const Sidebar = ({ isOpen, onClose }) => {
 
             {/* Sidebar */}
             <div className={`
-        fixed inset-y-0 left-0 z-50 w-64 bg-white shadow-lg transform transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-0
-        ${isOpen ? 'translate-x-0' : '-translate-x-full'}
-      `}>
+                fixed inset-y-0 left-0 z-50 w-64 bg-white shadow-lg transform transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-0
+                ${isOpen ? 'translate-x-0' : '-translate-x-full'}
+            `}>
                 {/* Logo */}
-                <div className="flex items-center justify-center h-16 px-4 bg-primary-600">
+                <div className="flex items-center justify-center h-16 px-4 bg-blue-600">
                     <div className="flex items-center space-x-3">
                         <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center">
-                            <Car className="w-5 h-5 text-primary-600" />
+                            <Car className="w-5 h-5 text-blue-600" />
                         </div>
                         <span className="text-xl font-bold text-white">Louagi</span>
                     </div>
@@ -117,25 +103,25 @@ const Sidebar = ({ isOpen, onClose }) => {
                     <ul className="space-y-2">
                         {navigation.map((item) => {
                             const Icon = item.icon;
+                            const isActive = currentRoute === item.route;
                             return (
                                 <li key={item.name}>
-                                    <Link
-                                        to={item.href}
-                                        onClick={onClose}
+                                    <button
+                                        onClick={() => handleNavClick(item.route)}
                                         className={`
-                      flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-colors duration-200
-                      ${item.current
-                                                ? 'bg-primary-50 text-primary-700 border-r-2 border-primary-600'
+                                            w-full flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-colors duration-200
+                                            ${isActive
+                                                ? 'bg-blue-50 text-blue-700 border-r-2 border-blue-600'
                                                 : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                                             }
-                    `}
+                                        `}
                                     >
                                         <Icon className={`
-                      mr-3 h-5 w-5 
-                      ${item.current ? 'text-primary-600' : 'text-gray-400'}
-                    `} />
+                                            mr-3 h-5 w-5 
+                                            ${isActive ? 'text-blue-600' : 'text-gray-400'}
+                                        `} />
                                         {item.name}
-                                    </Link>
+                                    </button>
                                 </li>
                             );
                         })}

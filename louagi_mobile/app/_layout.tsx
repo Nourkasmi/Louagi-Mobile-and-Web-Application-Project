@@ -1,10 +1,9 @@
-// app/_layout.tsx - CORRECTED Root Layout
+// app/_layout.tsx - UPDATED Root Layout with Clean Route Groups
 import React, { useEffect } from 'react';
 import { Stack } from 'expo-router';
 import { Provider } from 'react-redux';
 import { PaperProvider } from 'react-native-paper';
 import store from '../src/store/store';
-import { notificationService } from '../src/services/notifications';
 import { offlineService } from '../src/services/offlineService';
 
 export default function RootLayout() {
@@ -12,9 +11,6 @@ export default function RootLayout() {
     // Initialize services when app starts
     const initializeServices = async () => {
       try {
-        // Initialize notifications
-        await notificationService.initialize();
-        
         // Initialize offline service
         await offlineService.initialize();
         
@@ -28,7 +24,6 @@ export default function RootLayout() {
 
     // Cleanup services when app unmounts
     return () => {
-      notificationService.cleanup();
       offlineService.cleanup();
     };
   }, []);
@@ -37,14 +32,14 @@ export default function RootLayout() {
     <Provider store={store}>
       <PaperProvider>
         <Stack screenOptions={{ headerShown: false }}>
+          {/* Authentication Screens */}
           <Stack.Screen name="index" />
           <Stack.Screen name="login" />
           <Stack.Screen name="register" />
-          <Stack.Screen name="(tabs)" />
-          <Stack.Screen name="booking" />
-          <Stack.Screen name="payment" />
-          <Stack.Screen name="search" />
-          <Stack.Screen name="history" />
+          
+          {/* ✅ NEW: Clean Route Groups */}
+          <Stack.Screen name="(passenger)" />
+          <Stack.Screen name="(driver)" />
         </Stack>
       </PaperProvider>
     </Provider>

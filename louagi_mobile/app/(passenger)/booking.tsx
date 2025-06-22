@@ -1,4 +1,4 @@
-// app/(tabs)/passenger/booking.tsx - Trip Booking & Seat Selection
+// app/(passenger)/booking.tsx - Fixed Payment Navigation
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -11,7 +11,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { createBooking, createPaymentIntent, type Trip } from '../../../src/services/api';
+import { createBooking, createPaymentIntent, type Trip } from '../../src/services/api';
 
 export default function PassengerBookingScreen() {
   const { tripId, tripData } = useLocalSearchParams<{
@@ -93,9 +93,9 @@ export default function PassengerBookingScreen() {
         return;
       }
 
-      // Step 3: Navigate to payment screen with client secret
+      // Step 3: Navigate to payment screen with client secret - FIXED PATH
       router.push({
-        pathname: '/(tabs)/passenger/payment',
+        pathname: '/(passenger)/payment',
         params: {
           bookingId: booking.id,
           clientSecret: paymentResponse.clientSecret || paymentResponse.data?.clientSecret,

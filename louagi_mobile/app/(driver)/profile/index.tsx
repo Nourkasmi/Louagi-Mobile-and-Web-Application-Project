@@ -1,4 +1,4 @@
-// app/(tabs)/driver/profile.tsx - Driver Profile Screen
+// app/(driver)/profile/index.tsx - FIXED Driver Profile Screen
 import React, { useEffect, useState, useCallback } from 'react';
 import {
   View,
@@ -216,7 +216,7 @@ export default function DriverProfileScreen() {
 
         <TouchableOpacity
           style={styles.viewMoreButton}
-          onPress={() => router.push('/(tabs)/driver/earnings')}
+          onPress={() => router.push('/(driver)/earnings')}
         >
           <Text style={styles.viewMoreText}>View Detailed Earnings →</Text>
         </TouchableOpacity>
@@ -258,7 +258,7 @@ export default function DriverProfileScreen() {
 
         <TouchableOpacity
           style={styles.viewMoreButton}
-          onPress={() => router.push('/(tabs)/driver/trips')}
+          onPress={() => router.push('/(driver)/trips')}
         >
           <Text style={styles.viewMoreText}>View Trip History →</Text>
         </TouchableOpacity>
@@ -274,7 +274,7 @@ export default function DriverProfileScreen() {
       <View style={styles.actionButtons}>
         <TouchableOpacity
           style={styles.actionButton}
-          onPress={() => router.push('/(tabs)/driver')}
+          onPress={() => router.push('/(driver)/dashboard')}
         >
           <Text style={styles.actionIcon}>🏠</Text>
           <Text style={styles.actionText}>Dashboard</Text>
@@ -282,7 +282,7 @@ export default function DriverProfileScreen() {
         
         <TouchableOpacity
           style={styles.actionButton}
-          onPress={() => router.push('/(tabs)/driver/trips')}
+          onPress={() => router.push('/(driver)/trips')}
         >
           <Text style={styles.actionIcon}>📋</Text>
           <Text style={styles.actionText}>My Trips</Text>
@@ -290,7 +290,7 @@ export default function DriverProfileScreen() {
         
         <TouchableOpacity
           style={styles.actionButton}
-          onPress={() => router.push('/(tabs)/driver/earnings')}
+          onPress={() => router.push('/(driver)/earnings')}
         >
           <Text style={styles.actionIcon}>💰</Text>
           <Text style={styles.actionText}>Earnings</Text>

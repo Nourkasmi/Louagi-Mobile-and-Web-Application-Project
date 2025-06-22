@@ -1,7 +1,7 @@
-// src/config/index.ts - Updated with Debug Info
+// src/config/index.ts - FIXED Configuration
 const Config = {
-  // 🌐 Your Backend URL - UPDATE THIS TO YOUR CURRENT NGROK URL
-  API_BASE_URL: 'https://9d99-165-50-8-74.ngrok-free.app/api', // ← UPDATE THIS!
+  // 🌐 Your Backend URL - Updated from the error logs
+  API_BASE_URL: 'https://a3ff-165-50-8-74.ngrok-free.app/api', // ← From your screenshot
   
   // 💳 Stripe Test Key
   STRIPE_PUBLISHABLE_KEY: 'pk_test_51RVuo6ALVnc4tntayhIZmjEVw4bxb3xhp2ZlJLIzhy5bUP7FU1UWa1cIXOOhUyBq1dGq1SwCyzh6Uw13FSkY0q4200n6PzGxgt',
@@ -31,6 +31,7 @@ if (Config.DEBUG) {
   console.log('🔧 Louagi Config Loaded:');
   console.log('📡 API URL:', Config.API_BASE_URL);
   console.log('💳 Stripe Key:', Config.STRIPE_PUBLISHABLE_KEY ? 'Loaded' : 'Missing');
+  console.log('🚀 Backend Status: Ready for requests');
 }
 
 export default Config;

@@ -165,7 +165,7 @@ export default function PassengerSearchScreen() {
   // Navigate to booking screen
   const selectTrip = (trip: Trip) => {
     router.push({
-      pathname: '/(tabs)/passenger/booking',
+      pathname: '/(passenger)/booking',
       params: { 
         tripId: trip.id,
         tripData: JSON.stringify(trip)

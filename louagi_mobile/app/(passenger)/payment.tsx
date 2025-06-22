@@ -1,4 +1,4 @@
-// app/(tabs)/passenger/payment.tsx - Payment Processing & Confirmation
+// app/(passenger)/payment.tsx - Payment Processing & Confirmation - FIXED NAVIGATION
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -14,7 +14,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { 
   getBookingById, 
   type Booking 
-} from '../../../src/services/api';
+} from '../../src/services/api';
 
 export default function PassengerPaymentScreen() {
   const {
@@ -72,7 +72,7 @@ export default function PassengerPaymentScreen() {
         [
           {
             text: 'View My Bookings',
-            onPress: () => router.replace('/(tabs)/passenger-bookings'),
+            onPress: () => router.replace('/(passenger)/bookings'), // ← FIXED: Updated path
           },
         ]
       );

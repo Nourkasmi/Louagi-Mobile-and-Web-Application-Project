@@ -1,4 +1,4 @@
-// app/(tabs)/passenger/index.tsx - Passenger Home (Station Selection)
+// app/(passenger)/home/index.tsx - FIXED import paths
 import React, { useEffect, useState } from 'react';
 import { 
   View, 
@@ -50,10 +50,10 @@ export default function PassengerHomeScreen() {
     fetchStations();
   }, []);
 
-  // Navigate to search screen
+  // Navigate to search screen - FIXED PATH
   const handleStationSelect = (station: Station) => {
     router.push({
-      pathname: '/(tabs)/passenger/search',
+      pathname: '/(passenger)/search',
       params: { 
         stationId: station.id, 
         stationName: station.name 

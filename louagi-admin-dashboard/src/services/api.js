@@ -90,7 +90,7 @@ export const dashboardAPI = {
             // Make parallel requests to get dashboard stats
             const [usersRes, tripsRes, bookingsRes] = await Promise.all([
                 usersAPI.getAll({ limit: 1 }),
-                tripsAPI.getAll({ status: 'scheduled,in_progress', limit: 1 }),
+                tripsAPI.getAll({ limit: 1 }),
                 bookingsAPI.getStats()
             ]);
 

@@ -48,7 +48,7 @@ export const AuthProvider = ({ children }) => {
                 }
 
                 // Check if account is active
-                if (!userData.is_active) {
+                if (!userData.isActive) {
                     console.warn('⚠️ Inactive admin account:', userData.email);
                     localStorage.removeItem('louagi_token');
                     setUser(null);
@@ -96,7 +96,7 @@ export const AuthProvider = ({ children }) => {
                     };
                 }
 
-                if (!userData.is_active) {
+                if (!userData.isActive) {
                     console.warn('⚠️ Access denied: Inactive account');
                     return {
                         success: false,

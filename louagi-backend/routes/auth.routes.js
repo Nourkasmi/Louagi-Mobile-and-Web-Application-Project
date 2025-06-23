@@ -15,4 +15,6 @@ router.post('/logout', authController.logout);
 // Protected routes
 router.get('/me', authMiddleware.authenticate, authController.getCurrentUser);
 
+router.put('/me', authMiddleware.authenticate, authController.updateCurrentUser);
+
 module.exports = router;

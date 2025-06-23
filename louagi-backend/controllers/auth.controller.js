@@ -3,6 +3,7 @@ const { User, Passenger, Driver } = require('../models');
 const jwtService = require('../services/jwt.service');
 const { validateRegistration, validateLogin } = require('../middlewares/validate.middleware');
 const { sequelize } = require('../models');
+const { Op } = require('sequelize'); // <-- Add this line
 
 const authController = {
   /**
@@ -81,18 +82,14 @@ const authController = {
     } catch (error) {
       console.error('Registration error:', error);
 
-      // Handle Sequelize unique constraint errors
       if (error.name === 'SequelizeUniqueConstraintError') {
         const field = error.errors[0].path;
         const value = error.errors[0].value;
-        
         return res.status(400).json({
           success: false,
           message: `${field} '${value}' is already taken`
         });
       }
-
-      // Handle validation errors
       if (error.name === 'SequelizeValidationError') {
         return res.status(400).json({
           success: false,
@@ -103,7 +100,6 @@ const authController = {
           }))
         });
       }
-
       return res.status(500).json({
         success: false,
         message: 'Failed to register user'
@@ -125,8 +121,6 @@ const authController = {
       }
 
       const { email, password } = req.body;
-
-      // Get user including password field
       const user = await User.scope('withPassword').findOne({ where: { email } });
 
       if (!user || !user.password) {
@@ -179,17 +173,14 @@ const authController = {
   getCurrentUser: async (req, res) => {
     try {
       const user = req.user;
-
       if (!user) {
         return res.status(401).json({
           success: false,
           message: 'User not authenticated'
         });
       }
-
       const userData = user.toJSON ? user.toJSON() : user;
       delete userData.password;
-
       return res.status(200).json({
         success: true,
         user: userData
@@ -199,6 +190,53 @@ const authController = {
       return res.status(500).json({
         success: false,
         message: 'Failed to get current user'
+      });
+    }
+  },
+
+  /**
+   * Update current user's profile (NEW)
+   */
+  updateCurrentUser: async (req, res) => {
+    try {
+      const userId = req.user.id;
+      const { username, email, phone } = req.body;
+
+      // If email is changing, check for conflicts
+      if (email) {
+        const existing = await User.findOne({
+          where: { email, id: { [Op.ne]: userId } }
+        });
+        if (existing) {
+          return res.status(400).json({
+            success: false,
+            message: 'Email already in use by another user'
+          });
+        }
+      }
+
+      // Update fields
+      const user = await User.findByPk(userId);
+      if (!user) {
+        return res.status(404).json({ success: false, message: 'User not found' });
+      }
+      if (username) user.username = username;
+      if (email) user.email = email;
+      if (phone) user.phone = phone;
+      await user.save();
+
+      const updatedUser = user.toJSON();
+      delete updatedUser.password;
+
+      return res.status(200).json({
+        success: true,
+        user: updatedUser
+      });
+    } catch (error) {
+      console.error('Update current user error:', error);
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to update profile'
       });
     }
   }

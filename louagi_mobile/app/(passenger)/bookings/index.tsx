@@ -1,5 +1,4 @@
-// app/(tabs)/passenger-bookings/index.tsx - My Bookings Screen
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -17,7 +16,7 @@ type FilterType = 'all' | 'pending' | 'confirmed' | 'completed' | 'cancelled';
 
 export default function PassengerBookingsScreen() {
   const router = useRouter();
-  
+
   // State management
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
@@ -26,33 +25,36 @@ export default function PassengerBookingsScreen() {
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
 
-  // Fetch bookings
-  const fetchBookings = useCallback(async (isRefresh = false) => {
+  // DEBUG: log whenever state changes
+  useEffect(() => {
+  }, [bookings, loading, refreshing, activeFilter, page, hasMore]);
+
+  // Fetch bookings (logs included)
+  const fetchBookings = async (pageNumber = 1, isRefresh = false) => {
     try {
       if (isRefresh) {
         setRefreshing(true);
-        setPage(1);
       } else {
         setLoading(true);
       }
 
       const response = await getMyBookings({
         status: activeFilter === 'all' ? undefined : activeFilter,
-        page: isRefresh ? 1 : page,
+        page: pageNumber,
         limit: 10,
       });
 
       if (response.success && response.data) {
         const newBookings = response.data.bookings || [];
-        
-        if (isRefresh || page === 1) {
+        if (pageNumber === 1) {
           setBookings(newBookings);
         } else {
-          setBookings(prev => [...prev, ...newBookings]);
+          setBookings(prev => {
+            const updated = [...prev, ...newBookings];
+            return updated;
+          });
         }
-        
         setHasMore(newBookings.length === 10);
-        if (!isRefresh) setPage(prev => prev + 1);
       } else {
         Alert.alert('Error', 'Failed to load bookings');
       }
@@ -63,18 +65,35 @@ export default function PassengerBookingsScreen() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [activeFilter, page]);
+  };
 
-  // Initial load
+  // Effect: On filter change, reset everything and fetch first page
   useEffect(() => {
-    fetchBookings(true);
+    setPage(1);
+    setBookings([]);
+    fetchBookings(1, true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeFilter]);
+
+  // Pagination: load more bookings
+  const handleLoadMore = () => {
+  if (!loading && hasMore && bookings.length > 0) {
+    const nextPage = page + 1;
+    setPage(nextPage);
+    fetchBookings(nextPage);
+  }
+};
+
+
+  // Pull to refresh
+  const handleRefresh = () => {
+    setPage(1);
+    fetchBookings(1, true);
+  };
 
   // Handle filter change
   const handleFilterChange = (filter: FilterType) => {
     setActiveFilter(filter);
-    setPage(1);
-    setBookings([]);
   };
 
   // Handle cancel booking
@@ -90,10 +109,9 @@ export default function PassengerBookingsScreen() {
           onPress: async () => {
             try {
               const response = await cancelBooking(booking.id, 'Cancelled by passenger');
-              
               if (response.success) {
                 Alert.alert('Success', 'Booking cancelled successfully');
-                fetchBookings(true);
+                handleRefresh(); // Use pull-to-refresh logic to reload from page 1
               } else {
                 Alert.alert('Error', response.message || 'Failed to cancel booking');
               }
@@ -153,19 +171,17 @@ export default function PassengerBookingsScreen() {
     if (booking.status !== 'pending' && booking.status !== 'confirmed') {
       return false;
     }
-    
     const departureTime = new Date(booking.trip.departureTime);
     const now = new Date();
     const hoursUntilDeparture = (departureTime.getTime() - now.getTime()) / (1000 * 60 * 60);
-    
-    return hoursUntilDeparture > 1; // Can cancel if more than 1 hour before departure
+    return hoursUntilDeparture > 1;
   };
 
   // Navigate to booking details
   const viewBookingDetails = (booking: Booking) => {
     router.push({
       pathname: '/(passenger)/bookings/[id]',
-      params: { 
+      params: {
         id: booking.id,
         bookingData: JSON.stringify(booking)
       }
@@ -255,6 +271,7 @@ export default function PassengerBookingsScreen() {
     );
   }
 
+
   return (
     <View style={styles.container}>
       {/* Header */}
@@ -327,15 +344,11 @@ export default function PassengerBookingsScreen() {
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
-            onRefresh={() => fetchBookings(true)}
+            onRefresh={handleRefresh}
             colors={['#0066cc']}
           />
         }
-        onEndReached={() => {
-          if (hasMore && !loading) {
-            fetchBookings();
-          }
-        }}
+        onEndReached={handleLoadMore}
         onEndReachedThreshold={0.1}
         ListFooterComponent={
           loading && bookings.length > 0 ? (
@@ -348,7 +361,7 @@ export default function PassengerBookingsScreen() {
           <View style={styles.emptyState}>
             <Text style={styles.emptyText}>No bookings found</Text>
             <Text style={styles.emptySubtext}>
-              {activeFilter === 'all' 
+              {activeFilter === 'all'
                 ? 'You haven\'t made any bookings yet'
                 : `No ${activeFilter} bookings found`
               }
@@ -367,6 +380,7 @@ export default function PassengerBookingsScreen() {
     </View>
   );
 }
+// ...styles remain unchanged
 
 const styles = StyleSheet.create({
   container: {

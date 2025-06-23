@@ -1,4 +1,3 @@
-// app/(passenger)/home/index.tsx - FIXED import paths
 import React, { useEffect, useState } from 'react';
 import { 
   View, 
@@ -11,6 +10,8 @@ import {
   RefreshControl 
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useDispatch } from 'react-redux';
+import { logout } from '../../../src/store/authSlice'; // Make sure the path is correct
 import { getStations, type Station } from '../../../src/services/api';
 
 export default function PassengerHomeScreen() {
@@ -19,6 +20,7 @@ export default function PassengerHomeScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
+  const dispatch = useDispatch();
 
   // Fetch stations
   const fetchStations = async (isRefresh = false) => {
@@ -31,9 +33,12 @@ export default function PassengerHomeScreen() {
       setError(null);
       
       const response = await getStations({ limit: 50 });
-      
-      if (response.success && response.data) {
-        setStations(response.data.stations);
+
+      // --- DEBUG LOGGING ---
+      console.log("API RAW RESPONSE:", response);
+
+      if (response.success && (response.data?.stations || response.stations)) {
+        setStations(response.data?.stations || response.stations);
       } else {
         setError('Failed to load stations');
       }
@@ -50,7 +55,7 @@ export default function PassengerHomeScreen() {
     fetchStations();
   }, []);
 
-  // Navigate to search screen - FIXED PATH
+  // Navigate to search screen
   const handleStationSelect = (station: Station) => {
     router.push({
       pathname: '/(passenger)/search',
@@ -59,6 +64,12 @@ export default function PassengerHomeScreen() {
         stationName: station.name 
       }
     });
+  };
+
+  // Handle logout
+  const handleLogout = () => {
+    dispatch(logout());
+    router.replace('/login'); // Redirect to login screen and prevent back navigation
   };
 
   // Render station item
@@ -70,7 +81,6 @@ export default function PassengerHomeScreen() {
       <Text style={styles.stationName}>{item.name}</Text>
       <Text style={styles.stationLocation}>{item.city}, {item.state}</Text>
       <Text style={styles.stationAddress}>{item.address}</Text>
-      
       {item.amenities && Object.keys(item.amenities).length > 0 && (
         <View style={styles.amenitiesContainer}>
           <Text style={styles.amenitiesText}>Amenities available</Text>
@@ -79,7 +89,6 @@ export default function PassengerHomeScreen() {
     </TouchableOpacity>
   );
 
-  // Loading state
   if (loading && stations.length === 0) {
     return (
       <View style={styles.centered}>
@@ -89,7 +98,6 @@ export default function PassengerHomeScreen() {
     );
   }
 
-  // Error state
   if (error && stations.length === 0) {
     return (
       <View style={styles.centered}>
@@ -104,9 +112,14 @@ export default function PassengerHomeScreen() {
   return (
     <View style={styles.container}>
       {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.title}>Find Your Trip</Text>
-        <Text style={styles.subtitle}>Select your departure station</Text>
+      <View style={styles.headerRow}>
+        <View>
+          <Text style={styles.title}>Book Your Louage</Text>
+          <Text style={styles.subtitle}>Select your departure station</Text>
+        </View>
+        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+          <Text style={styles.logoutButtonText}>Logout</Text>
+        </TouchableOpacity>
       </View>
 
       {/* Quick Stats */}
@@ -114,14 +127,6 @@ export default function PassengerHomeScreen() {
         <View style={styles.statItem}>
           <Text style={styles.statNumber}>{stations.length}</Text>
           <Text style={styles.statLabel}>Stations</Text>
-        </View>
-        <View style={styles.statItem}>
-          <Text style={styles.statNumber}>🚗</Text>
-          <Text style={styles.statLabel}>Available Now</Text>
-        </View>
-        <View style={styles.statItem}>
-          <Text style={styles.statNumber}>⚡</Text>
-          <Text style={styles.statLabel}>Instant Booking</Text>
         </View>
       </View>
 
@@ -166,7 +171,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 20,
   },
-  header: {
+  headerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     backgroundColor: 'white',
     padding: 20,
     paddingTop: 60,
@@ -182,6 +190,17 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: 16,
     color: '#666',
+  },
+  logoutButton: {
+    backgroundColor: '#dc3545',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 6,
+  },
+  logoutButtonText: {
+    color: 'white',
+    fontWeight: 'bold',
+    fontSize: 14,
   },
   statsContainer: {
     flexDirection: 'row',

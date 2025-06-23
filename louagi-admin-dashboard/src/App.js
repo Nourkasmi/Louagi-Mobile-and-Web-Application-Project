@@ -7,6 +7,7 @@ import LoadingSpinner from './components/common/LoadingSpinner';
 // Import pages
 import DashboardPage from './pages/DashboardPage';
 import UsersPage from './pages/UsersPage';
+import TripsPage from './pages/TripsPage'; // ✅ NEW: Real trips page
 
 // Generic Page Component for unimplemented pages
 const GenericPage = ({ title, subtitle }) => {
@@ -18,6 +19,9 @@ const GenericPage = ({ title, subtitle }) => {
       </div>
       <div className="bg-white rounded-lg shadow border p-6">
         <p className="text-gray-600">{title} interface coming soon...</p>
+        <p className="text-sm text-gray-500 mt-2">
+          This will connect to your backend API endpoints.
+        </p>
       </div>
     </div>
   );
@@ -46,13 +50,13 @@ const Router = () => {
   const renderPage = () => {
     switch (currentRoute) {
       case 'dashboard':
-        return <DashboardPage />;
+        return <DashboardPage />; // ✅ REAL: Connected to backend
       case 'users':
-        return <UsersPage />;
+        return <UsersPage />; // ✅ REAL: Connected to backend
+      case 'trips':
+        return <TripsPage />; // ✅ REAL: Connected to backend
       case 'drivers':
         return <GenericPage title="Drivers Management" subtitle="Manage drivers and vehicles" />;
-      case 'trips':
-        return <GenericPage title="Trips Management" subtitle="Manage all trips" />;
       case 'bookings':
         return <GenericPage title="Bookings Management" subtitle="Manage passenger bookings" />;
       case 'stations':

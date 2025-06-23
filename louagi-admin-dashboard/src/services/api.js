@@ -1,9 +1,11 @@
 import axios from 'axios';
 
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+
 // Create axios instance with base configuration
 const api = axios.create({
-    baseURL: process.env.REACT_APP_API_URL || 'http://localhost:5000/api',
-    timeout: 10000,
+    baseURL: API_BASE_URL,
+    timeout: 15000,
     headers: {
         'Content-Type': 'application/json',
     },
@@ -12,13 +14,15 @@ const api = axios.create({
 // Request interceptor to add auth token
 api.interceptors.request.use(
     (config) => {
-        const token = localStorage.getItem('token');
+        const token = localStorage.getItem('louagi_token');
         if (token) {
             config.headers.Authorization = `Bearer ${token}`;
         }
+        console.log('🚀 API Request:', config.method?.toUpperCase(), config.url);
         return config;
     },
     (error) => {
+        console.error('❌ Request Error:', error);
         return Promise.reject(error);
     }
 );
@@ -26,16 +30,18 @@ api.interceptors.request.use(
 // Response interceptor to handle common errors
 api.interceptors.response.use(
     (response) => {
+        console.log('✅ API Response:', response.status, response.config.url);
         return response;
     },
     (error) => {
+        console.error('❌ API Error:', error.response?.status, error.response?.data?.message || error.message);
+
         // Handle 401 Unauthorized
         if (error.response?.status === 401) {
-            localStorage.removeItem('token');
+            localStorage.removeItem('louagi_token');
             window.location.href = '/login';
         }
 
-        // Handle other errors
         const errorMessage = error.response?.data?.message || error.message || 'An error occurred';
         return Promise.reject({ ...error, message: errorMessage });
     }
@@ -43,7 +49,10 @@ api.interceptors.response.use(
 
 // Auth API calls
 export const authAPI = {
-    login: (email, password) => api.post('/auth/login', { email, password }),
+    login: (email, password) => {
+        console.log('🔐 Attempting login for:', email);
+        return api.post('/auth/login', { email, password });
+    },
     logout: () => api.post('/auth/logout'),
     getCurrentUser: () => api.get('/auth/me'),
 };
@@ -63,7 +72,7 @@ export const tripsAPI = {
     create: (data) => api.post('/trips', data),
     update: (id, data) => api.put(`/trips/${id}`, data),
     delete: (id) => api.delete(`/trips/${id}`),
-    updateStatus: (id, status) => api.put(`/trips/${id}/status`, { status }),
+    updateStatus: (id, data) => api.put(`/trips/${id}/status`, data),
 };
 
 // Bookings API calls
@@ -74,53 +83,39 @@ export const bookingsAPI = {
     getStats: () => api.get('/bookings/stats'),
 };
 
-// Drivers API calls
-export const driversAPI = {
-    getAll: (params) => api.get('/drivers', { params }),
-    getById: (id) => api.get(`/drivers/${id}`),
-    update: (id, data) => api.put(`/drivers/${id}`, data),
-};
+// Dashboard API calls
+export const dashboardAPI = {
+    getStats: async () => {
+        try {
+            // Make parallel requests to get dashboard stats
+            const [usersRes, tripsRes, bookingsRes] = await Promise.all([
+                usersAPI.getAll({ limit: 1 }),
+                tripsAPI.getAll({ limit: 1 }),
+                bookingsAPI.getStats()
+            ]);
 
-// Stations API calls
-export const stationsAPI = {
-    getAll: (params) => api.get('/stations', { params }),
-    getById: (id) => api.get(`/stations/${id}`),
-    create: (data) => api.post('/stations', data),
-    update: (id, data) => api.put(`/stations/${id}`, data),
-    delete: (id) => api.delete(`/stations/${id}`),
-};
-
-// Destinations API calls
-export const destinationsAPI = {
-    getAll: (params) => api.get('/destinations', { params }),
-    getById: (id) => api.get(`/destinations/${id}`),
-    create: (data) => api.post('/destinations', data),
-    update: (id, data) => api.put(`/destinations/${id}`, data),
-    delete: (id) => api.delete(`/destinations/${id}`),
-};
-
-// Schedules API calls
-export const schedulesAPI = {
-    getAll: (params) => api.get('/schedules', { params }),
-    getById: (id) => api.get(`/schedules/${id}`),
-    create: (data) => api.post('/schedules', data),
-    update: (id, data) => api.put(`/schedules/${id}`, data),
-    delete: (id) => api.delete(`/schedules/${id}`),
-};
-
-// Payments API calls
-export const paymentsAPI = {
-    getAll: (params) => api.get('/payments', { params }),
-    getById: (id) => api.get(`/payments/${id}`),
-    getStats: () => api.get('/payments/stats'),
-    createRefund: (id, data) => api.post(`/payments/${id}/refund`, data),
-};
-
-// Queue API calls
-export const queueAPI = {
-    getByStation: (params) => api.get('/queues', { params }),
-    updateEntry: (id, data) => api.patch(`/queues/${id}`, data),
-    getCount: (params) => api.get('/queues/count', { params }),
+            return {
+                success: true,
+                data: {
+                    totalUsers: usersRes.data.total || 0,
+                    activeTrips: tripsRes.data.total || 0,
+                    totalRevenue: bookingsRes.data.stats?.totalRevenue || 0,
+                    todayBookings: bookingsRes.data.stats?.todayBookings || 0
+                }
+            };
+        } catch (error) {
+            console.error('Dashboard stats error:', error);
+            return {
+                success: false,
+                data: {
+                    totalUsers: 0,
+                    activeTrips: 0,
+                    totalRevenue: 0,
+                    todayBookings: 0
+                }
+            };
+        }
+    }
 };
 
 export default api;

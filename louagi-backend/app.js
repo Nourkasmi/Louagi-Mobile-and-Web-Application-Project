@@ -26,6 +26,7 @@ app.use(compression());
 
 // ✅ FIXED CORS CONFIGURATION
 const allowedOrigins = [
+  'http://localhost:3000',     // ✅ React Admin Dashboard
   'http://localhost:8081',
   'http://localhost:8080',
   'http://localhost:19006',
@@ -35,7 +36,7 @@ const allowedOrigins = [
 app.use((req, res, next) => {
   const origin = req.headers.origin;
 
-  const isAllowed = 
+  const isAllowed =
     allowedOrigins.includes(origin) ||
     (origin && origin.includes('.exp.direct')) ||
     (origin && origin.includes('.ngrok-free.app'));
@@ -49,7 +50,7 @@ app.use((req, res, next) => {
   res.setHeader('ngrok-skip-browser-warning', 'true');
   res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS,PATCH');
   res.setHeader(
-    'Access-Control-Allow-Headers', 
+    'Access-Control-Allow-Headers',
     'Content-Type, Authorization, ngrok-skip-browser-warning, X-Requested-With'
   );
 

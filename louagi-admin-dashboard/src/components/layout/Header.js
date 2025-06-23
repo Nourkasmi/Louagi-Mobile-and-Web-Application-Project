@@ -13,10 +13,9 @@ import {
 const Header = ({ onMenuClick }) => {
     const { user, logout } = useAuth();
     const [showProfileMenu, setShowProfileMenu] = useState(false);
-    const [notifications] = useState(3); // Mock notification count
+    const [notifications] = useState(3);
     const profileMenuRef = useRef(null);
 
-    // Close profile menu when clicking outside
     useEffect(() => {
         const handleClickOutside = (event) => {
             if (profileMenuRef.current && !profileMenuRef.current.contains(event.target)) {
@@ -59,7 +58,7 @@ const Header = ({ onMenuClick }) => {
                         <input
                             type="text"
                             placeholder="Search..."
-                            className="pl-10 pr-4 py-2 w-64 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                            className="pl-10 pr-4 py-2 w-64 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                         />
                     </div>
                 </div>
@@ -82,7 +81,7 @@ const Header = ({ onMenuClick }) => {
                             onClick={() => setShowProfileMenu(!showProfileMenu)}
                             className="flex items-center space-x-3 p-2 rounded-lg text-gray-700 hover:bg-gray-100"
                         >
-                            <div className="w-8 h-8 bg-primary-600 rounded-full flex items-center justify-center">
+                            <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center">
                                 <User className="h-4 w-4 text-white" />
                             </div>
                             <div className="hidden md:block text-left">

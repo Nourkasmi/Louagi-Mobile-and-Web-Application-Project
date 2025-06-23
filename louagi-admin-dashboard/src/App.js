@@ -7,7 +7,9 @@ import LoadingSpinner from './components/common/LoadingSpinner';
 // Import pages
 import DashboardPage from './pages/DashboardPage';
 import UsersPage from './pages/UsersPage';
-import TripsPage from './pages/TripsPage'; // ✅ NEW: Real trips page
+import TripsPage from './pages/TripsPage'; // ✅ REAL: Connected to backend
+import DriversPage from './pages/DriversPage'; // ✅ REAL: Connected to backend
+import StationsPage from './pages/StationsPage'; // ✅ NEW: Real stations page
 
 // Generic Page Component for unimplemented pages
 const GenericPage = ({ title, subtitle }) => {
@@ -56,11 +58,11 @@ const Router = () => {
       case 'trips':
         return <TripsPage />; // ✅ REAL: Connected to backend
       case 'drivers':
-        return <GenericPage title="Drivers Management" subtitle="Manage drivers and vehicles" />;
+        return <DriversPage />; // ✅ REAL: Connected to backend
       case 'bookings':
         return <GenericPage title="Bookings Management" subtitle="Manage passenger bookings" />;
       case 'stations':
-        return <GenericPage title="Stations Management" subtitle="Manage transportation stations" />;
+        return <StationsPage />; // ✅ REAL: Connected to backend
       case 'schedules':
         return <GenericPage title="Schedules Management" subtitle="Manage trip schedules" />;
       case 'queue':

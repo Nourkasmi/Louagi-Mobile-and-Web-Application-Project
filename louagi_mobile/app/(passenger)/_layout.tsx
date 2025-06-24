@@ -1,4 +1,5 @@
-// app/(passenger)/_layout.tsx - FIXED Passenger Layout
+// app/(passenger)/_layout.tsx - CLEANED UP Passenger Tab Bar
+
 import React from 'react';
 import { Tabs } from 'expo-router';
 import { Platform } from 'react-native';
@@ -27,49 +28,45 @@ export default function PassengerLayout() {
         }),
       }}
     >
+      {/* HOME TAB */}
       <Tabs.Screen
         name="home/index"
         options={{
-          title: 'Find Trips',
+          title: 'Home',
           tabBarIcon: ({ color }: { color: string }) => (
             <IconSymbol size={28} name="house.fill" color={color} />
           ),
         }}
       />
-      
-      <Tabs.Screen
-        name="search/index"
-        options={{
-          title: 'Search',
-          tabBarIcon: ({ color }: { color: string }) => (
-            <IconSymbol size={28} name="chevron.left.forwardslash.chevron.right" color={color} />
-          ),
-        }}
-      />
-      
+
+      {/* MY BOOKINGS TAB */}
       <Tabs.Screen
         name="bookings/index"
         options={{
           title: 'My Bookings',
           tabBarIcon: ({ color }: { color: string }) => (
-            <IconSymbol size={28} name="bell.fill" color={color} />
+            <IconSymbol size={28} name="calendar" color={color} />
           ),
         }}
       />
-      
+
+      {/* PROFILE TAB */}
       <Tabs.Screen
         name="profile/index"
         options={{
           title: 'Profile',
           tabBarIcon: ({ color }: { color: string }) => (
-            <IconSymbol size={28} name="paperplane.fill" color={color} />
+            <IconSymbol size={28} name="person.crop.circle" color={color} />
           ),
         }}
       />
 
-      {/* Hide non-passenger screens */}
+      {/* Hide screens that shouldn't show as tabs */}
       <Tabs.Screen name="booking" options={{ href: null }} />
       <Tabs.Screen name="payment" options={{ href: null }} />
+      <Tabs.Screen name="bookings/[id]" options={{ href: null }} />
+      <Tabs.Screen name="search/index" options={{ href: null }} />
+      <Tabs.Screen name="profile/edit" options={{ href: null }} />
     </Tabs>
   );
 }

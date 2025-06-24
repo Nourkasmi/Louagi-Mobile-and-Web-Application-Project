@@ -130,9 +130,7 @@ export default function PassengerProfileScreen() {
       
       <TouchableOpacity
         style={styles.editButton}
-        onPress={() => {
-          Alert.alert('Coming Soon', 'Profile editing will be available soon!');
-        }}
+        onPress={() => router.push('/(passenger)/profile/edit')}
       >
         <Text style={styles.editButtonText}>Edit Profile</Text>
       </TouchableOpacity>

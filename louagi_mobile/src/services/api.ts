@@ -1,4 +1,6 @@
 // src/services/api.ts - Complete API service matching your backend
+import store from '../store/store';
+import { logout } from '../store/authSlice';
 import axios, { InternalAxiosRequestConfig } from 'axios';
 import Config from '../config';
 
@@ -225,6 +227,11 @@ export const login = async (email: string, password: string): Promise<ApiRespons
   return res.data;
 };
 
+export const updateUserProfile = async (data: { username?: string; email?: string; phone?: string }) => {
+  const res = await api.put('/auth/me', data);
+  return res.data;
+};
+
 export const register = async (userData: {
   username: string;
   email: string;
@@ -246,10 +253,11 @@ export const getCurrentUser = async (): Promise<ApiResponse<User>> => {
   return res.data;
 };
 
-export const logout = async (): Promise<ApiResponse> => {
+export const apiLogout = async (): Promise<ApiResponse> => {
   const res = await api.post('/auth/logout');
   return res.data;
 };
+
 
 // ==================== STATION ENDPOINTS ====================
 
@@ -580,9 +588,10 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      // Handle unauthorized - redirect to login
+      // Clear token and dispatch Redux logout
       global.authToken = undefined;
-      // You might want to dispatch a logout action here
+      store.dispatch(logout());
+      // (Navigation to login will be handled elsewhere)
     }
     return Promise.reject(error);
   }

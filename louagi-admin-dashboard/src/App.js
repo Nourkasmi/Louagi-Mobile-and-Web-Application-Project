@@ -11,6 +11,7 @@ import TripsPage from './pages/TripsPage'; // ✅ REAL: Connected to backend
 import DriversPage from './pages/DriversPage'; // ✅ REAL: Connected to backend
 import StationsPage from './pages/StationsPage'; // ✅ REAL: Connected to backend
 import BookingsPage from './pages/BookingsPage'; // ✅ NEW: Real bookings page
+import SchedulesPage from './pages/SchedulesPage'; // ✅ NEW: Real schedules page
 
 // Generic Page Component for unimplemented pages
 const GenericPage = ({ title, subtitle }) => {
@@ -65,7 +66,7 @@ const Router = () => {
       case 'stations':
         return <StationsPage />; // ✅ REAL: Connected to backend
       case 'schedules':
-        return <GenericPage title="Schedules Management" subtitle="Manage trip schedules" />;
+        return <SchedulesPage />; // ✅ NEW: Real schedules management
       case 'queue':
         return <GenericPage title="Queue Management" subtitle="Manage driver queues" />;
       case 'payments':

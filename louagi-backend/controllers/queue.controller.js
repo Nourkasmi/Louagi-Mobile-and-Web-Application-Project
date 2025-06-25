@@ -53,7 +53,31 @@ const declareAvailability = async (req, res) => {
   }
 };
 
-// ✅ ADMIN: View queue by station, schedule and destination
+// ✅ NEW: DRIVER LEAVES QUEUE (cancel availability)
+const leaveQueue = async (req, res) => {
+  try {
+    const driverId = req.user.id;
+
+    // Find the driver's current waiting queue entry (status: 'waiting')
+    const entry = await DriverQueue.findOne({ where: { driverId, status: 'waiting' } });
+    if (!entry) return res.status(404).json({ success: false, message: 'You are not in a queue.' });
+
+    const { scheduleId, stationId, destinationId } = entry;
+
+    await entry.destroy();
+
+    // Re-index queue positions for others in the same queue
+    await reindexQueue(scheduleId, stationId, destinationId);
+
+    return res.status(200).json({ success: true, left: true, message: 'You have left the queue.' });
+  } catch (error) {
+    console.error('Leave queue error:', error);
+    return res.status(500).json({ success: false, message: 'Failed to leave queue.' });
+  }
+};
+
+// ... (existing functions below)
+
 const getQueueByStationSchedule = async (req, res) => {
   try {
     const { stationId, scheduleId, destinationId } = req.query;
@@ -96,7 +120,6 @@ const getAllQueuesByStation = async (req, res) => {
   }
 };
 
-
 // ✅ ADMIN: Update queue position or status
 const updateQueueEntry = async (req, res) => {
   try {
@@ -138,7 +161,6 @@ const reindexQueue = async (scheduleId, stationId, destinationId) => {
   }
 };
 
-// ✅ ADMIN: Count how many queues a station has (by destination)
 const countQueuesByStation = async (req, res) => {
   try {
     const { stationId } = req.query;
@@ -182,6 +204,7 @@ const countQueuesByStation = async (req, res) => {
 
 module.exports = {
   declareAvailability,
+  leaveQueue, // <-- export the new method
   getQueueByStationSchedule,
   updateQueueEntry,
   reindexQueue,

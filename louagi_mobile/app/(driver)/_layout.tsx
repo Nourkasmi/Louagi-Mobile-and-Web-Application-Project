@@ -1,4 +1,4 @@
-// app/(driver)/_layout.tsx - Clean Driver-Only Tabs
+// app/(driver)/_layout.tsx
 import React from 'react';
 import { Tabs } from 'expo-router';
 import { Platform } from 'react-native';
@@ -28,40 +28,46 @@ export default function DriverLayout() {
       }}
     >
       <Tabs.Screen
-        name="dashboard"
+        name="dashboard/index"
         options={{
           title: 'Dashboard',
-          tabBarIcon: ({ color }: { color: string }) => (
+          tabBarIcon: ({ color }) => (
             <IconSymbol size={28} name="house.fill" color={color} />
           ),
         }}
       />
-      
       <Tabs.Screen
-        name="trips"
+        name="trips/index"
         options={{
           title: 'My Trips',
-          tabBarIcon: ({ color }: { color: string }) => (
+          tabBarIcon: ({ color }) => (
             <IconSymbol size={28} name="car.fill" color={color} />
           ),
         }}
       />
-      
       <Tabs.Screen
-        name="earnings"
+        name="earnings/index"
         options={{
           title: 'Earnings',
-          tabBarIcon: ({ color }: { color: string }) => (
+          tabBarIcon: ({ color }) => (
             <IconSymbol size={28} name="bell.fill" color={color} />
           ),
         }}
       />
-      
       <Tabs.Screen
-        name="profile"
+        name="declare-availability/index"
+        options={{
+          title: 'Declare Availability',
+          tabBarIcon: ({ color }) => (
+            <IconSymbol size={28} name="person.badge.plus" color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="profile/index"
         options={{
           title: 'Profile',
-          tabBarIcon: ({ color }: { color: string }) => (
+          tabBarIcon: ({ color }) => (
             <IconSymbol size={28} name="paperplane.fill" color={color} />
           ),
         }}

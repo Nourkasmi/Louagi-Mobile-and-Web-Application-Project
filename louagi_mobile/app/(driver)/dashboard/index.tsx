@@ -580,7 +580,13 @@ export default function DriverDashboard() {
         </Text>
       </View>
 
-      {renderStatusCard()}
+      <TouchableOpacity
+        style={styles.declareButton}
+        onPress={() => router.push('/(driver)/declare-availability')}
+      >
+        <Text style={styles.declareButtonText}>Declare Availability</Text>
+      </TouchableOpacity>
+      
       {renderActiveTripCard()}
       {renderEarningsCard()}
       

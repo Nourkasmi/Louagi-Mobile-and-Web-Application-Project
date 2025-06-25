@@ -298,8 +298,8 @@ const UsersPage = () => {
         // Simple toast implementation - you can replace with your preferred toast library
         const toast = document.createElement('div');
         toast.className = `fixed top-4 right-4 p-4 rounded-lg text-white z-50 ${type === 'success' ? 'bg-green-500' :
-                type === 'error' ? 'bg-red-500' :
-                    'bg-blue-500'
+            type === 'error' ? 'bg-red-500' :
+                'bg-blue-500'
             }`;
         toast.textContent = message;
         document.body.appendChild(toast);
@@ -362,8 +362,8 @@ const UsersPage = () => {
                             onClick={() => toggleUserStatus(user.id, user.isActive)}
                             disabled={actionLoading[user.id]}
                             className={`p-2 rounded-lg transition-colors ${user.isActive
-                                    ? 'text-green-600 hover:text-green-700 hover:bg-green-50'
-                                    : 'text-red-600 hover:text-red-700 hover:bg-red-50'
+                                ? 'text-green-600 hover:text-green-700 hover:bg-green-50'
+                                : 'text-red-600 hover:text-red-700 hover:bg-red-50'
                                 }`}
                             title={user.isActive ? 'Deactivate User' : 'Activate User'}
                         >
@@ -498,8 +498,8 @@ const UsersPage = () => {
                         <button
                             onClick={() => toggleUserStatus(user.id, user.isActive)}
                             className={`px-4 py-2 rounded-lg font-medium transition-colors ${user.isActive
-                                    ? 'bg-red-100 text-red-700 hover:bg-red-200'
-                                    : 'bg-green-100 text-green-700 hover:bg-green-200'
+                                ? 'bg-red-100 text-red-700 hover:bg-red-200'
+                                : 'bg-green-100 text-green-700 hover:bg-green-200'
                                 }`}
                         >
                             {user.isActive ? 'Deactivate' : 'Activate'}
@@ -939,8 +939,8 @@ const UsersPage = () => {
                                             key={page}
                                             onClick={() => handlePageChange(page)}
                                             className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${pagination.page === page
-                                                    ? 'bg-blue-600 text-white'
-                                                    : 'text-gray-600 hover:bg-gray-100'
+                                                ? 'bg-blue-600 text-white'
+                                                : 'text-gray-600 hover:bg-gray-100'
                                                 }`}
                                         >
                                             {page}

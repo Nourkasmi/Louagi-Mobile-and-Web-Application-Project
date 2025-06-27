@@ -34,10 +34,22 @@ const scheduleController = {
     }
   },
 
-  // Get all schedules
+  // Get all schedules (optionally filter by stationId)
   getAllSchedules: async (req, res) => {
+    console.log("Incoming stationId filter:", req.query.stationId);
     try {
-      const schedules = await Schedule.findAll({ include: [{ model: Station, as: 'station', attributes: ['name', 'city'] }] });
+      const { stationId } = req.query;
+      const whereClause = {};
+
+      if (stationId) {
+        whereClause.stationId = stationId;
+      }
+
+      const schedules = await Schedule.findAll({
+        where: whereClause,
+        include: [{ model: Station, as: 'station', attributes: ['name', 'city'] }]
+      });
+
       return res.status(200).json({ success: true, schedules });
     } catch (error) {
       console.error('Get all schedules error:', error);
@@ -114,4 +126,3 @@ const scheduleController = {
 };
 
 module.exports = scheduleController;
- 

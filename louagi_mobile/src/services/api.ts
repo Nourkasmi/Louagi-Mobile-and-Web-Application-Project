@@ -397,6 +397,17 @@ export const cancelWaitingTrip = async (): Promise<ApiResponse<{ cancelledTrip: 
   return res.data;
 };
 
+// src/services/api.ts
+
+export async function getSchedules(stationId?: string) {
+  const params: any = {};
+  if (stationId) params.stationId = stationId;
+  // This ensures we NEVER pass stationId=undefined, and only pass it if defined!
+  const res = await api.get('/schedules', { params });
+  return res.data;
+}
+
+
 export const getDriverTrips = async (params?: {
   page?: number;
   limit?: number;

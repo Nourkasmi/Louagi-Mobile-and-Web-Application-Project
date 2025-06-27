@@ -60,45 +60,50 @@ const destinationController = {
   },
 
   ///////////////////////////////////////// Get all destinations with filtering, search, sorting   /////////////////////////////////////
-  getAllDestinations: async (req, res) => {
-    try {
-      const page = parseInt(req.query.page) || 1;
-      const limit = parseInt(req.query.limit) || 10;
-      const offset = (page - 1) * limit;
+getAllDestinations: async (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const offset = (page - 1) * limit;
 
-      const { search, sortBy, order } = req.query;
+    const { search, sortBy, order, startId } = req.query;
 
-      const whereClause = {};
+    const whereClause = {};
 
-      if (search) {
-        whereClause[Op.or] = [
-          { description: { [Op.iLike]: `%${search}%` } }
-        ];
-      }
-
-      const destinations = await Destination.findAndCountAll({
-        where: whereClause,
-        include: [
-          { model: Station, as: 'startStation', attributes: ['id', 'name', 'city'] },
-          { model: Station, as: 'endStation', attributes: ['id', 'name', 'city'] }
-        ],
-        limit,
-        offset,
-        order: [[sortBy || 'createdAt', order === 'asc' ? 'ASC' : 'DESC']]
-      });
-
-      return res.status(200).json({
-        success: true,
-        destinations: destinations.rows,
-        total: destinations.count,
-        totalPages: Math.ceil(destinations.count / limit),
-        currentPage: page
-      });
-    } catch (error) {
-      console.error('Get destinations error:', error);
-      return res.status(500).json({ success: false, message: 'Failed to retrieve destinations' });
+    // Add this line for filtering by startId!
+    if (startId) {
+      whereClause.startId = startId;
     }
-  },
+
+    if (search) {
+      whereClause[Op.or] = [
+        { description: { [Op.iLike]: `%${search}%` } }
+      ];
+    }
+
+    const destinations = await Destination.findAndCountAll({
+      where: whereClause,
+      include: [
+        { model: Station, as: 'startStation', attributes: ['id', 'name', 'city'] },
+        { model: Station, as: 'endStation', attributes: ['id', 'name', 'city'] }
+      ],
+      limit,
+      offset,
+      order: [[sortBy || 'createdAt', order === 'asc' ? 'ASC' : 'DESC']]
+    });
+
+    return res.status(200).json({
+      success: true,
+      destinations: destinations.rows,
+      total: destinations.count,
+      totalPages: Math.ceil(destinations.count / limit),
+      currentPage: page
+    });
+  } catch (error) {
+    console.error('Get destinations error:', error);
+    return res.status(500).json({ success: false, message: 'Failed to retrieve destinations' });
+  }
+},
 
   /////////////////////////////////// Get destination by ID /////////////////////////////////
   getDestinationById: async (req, res) => {

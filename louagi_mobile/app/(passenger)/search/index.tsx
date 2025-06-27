@@ -41,11 +41,22 @@ export default function PassengerSearchScreen() {
         setLoading(true);
         const response = await getDestinations(stationId, { limit: 50 });
         
-        if (response.success && response.data) {
-          setDestinations(response.data.destinations || []);
-        } else {
-          Alert.alert('Error', 'Failed to load destinations');
-        }
+        console.log('getDestinations raw response:', response); // <--- Add this for debugging
+
+let dests = [];
+if (response.success) {
+  // Accept both response.data.destinations and response.destinations
+  if (response.data && response.data.destinations) {
+    dests = response.data.destinations;
+  } else if (response.destinations) {
+    dests = response.destinations;
+  }
+}
+setDestinations(dests);
+
+if (!response.success || dests.length === 0) {
+  Alert.alert('Error', 'Failed to load destinations');
+}
       } catch (error) {
         console.error('Error fetching destinations:', error);
         Alert.alert('Error', 'Failed to load destinations');

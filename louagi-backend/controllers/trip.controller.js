@@ -97,44 +97,47 @@ const tripController = {
 
   // ✅ Get all trips with filters and pagination
   getAllTrips: async (req, res) => {
-    try {
-      const { page = 1, limit = 10, status, driverId, search } = req.query;
-      const offset = (page - 1) * limit;
+  try {
+    const { page = 1, limit = 10, status, driverId, search, destinationId, routeId } = req.query;
+    const offset = (page - 1) * limit;
 
-      const whereClause = {};
+    const whereClause = {};
 
-      if (status) whereClause.status = status;
-      if (driverId && isUUID(driverId)) whereClause.driverId = driverId;
-      if (search) {
-        whereClause[Op.or] = [
-          { notes: { [Op.iLike]: `%${search}%` } }
-        ];
-      }
-
-      const { count, rows } = await Trip.findAndCountAll({
-        where: whereClause,
-        include: [
-          { model: Destination, as: 'route' },
-          { model: Schedule, as: 'schedule' },
-          { model: Driver, as: 'driver' }
-        ],
-        offset,
-        limit: parseInt(limit),
-        order: [['departureTime', 'DESC']]
-      });
-
-      return res.status(200).json({
-        success: true,
-        trips: rows,
-        total: count,
-        totalPages: Math.ceil(count / limit),
-        currentPage: parseInt(page)
-      });
-    } catch (error) {
-      console.error('Get trips error:', error);
-      return res.status(500).json({ success: false, message: 'Failed to fetch trips' });
+    if (status) whereClause.status = status;
+    if (driverId && isUUID(driverId)) whereClause.driverId = driverId;
+    if (destinationId && isUUID(destinationId)) whereClause.routeId = destinationId; // 👈 THIS LINE!
+    if (routeId && isUUID(routeId)) whereClause.routeId = routeId; // (optional, if someone sends routeId instead)
+    if (search) {
+      whereClause[Op.or] = [
+        { notes: { [Op.iLike]: `%${search}%` } }
+      ];
     }
-  },
+
+    const { count, rows } = await Trip.findAndCountAll({
+      where: whereClause,
+      include: [
+        { model: Destination, as: 'route' },
+        { model: Schedule, as: 'schedule' },
+        { model: Driver, as: 'driver' }
+      ],
+      offset,
+      limit: parseInt(limit),
+      order: [['departureTime', 'DESC']]
+    });
+
+    return res.status(200).json({
+      success: true,
+      trips: rows,
+      total: count,
+      totalPages: Math.ceil(count / limit),
+      currentPage: parseInt(page)
+    });
+  } catch (error) {
+    console.error('Get trips error:', error);
+    return res.status(500).json({ success: false, message: 'Failed to fetch trips' });
+  }
+},
+
 
   // ✅ Get trip by ID
   getTripById: async (req, res) => {

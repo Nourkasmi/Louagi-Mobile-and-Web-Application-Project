@@ -266,29 +266,36 @@ const tripController = {
   },
 
   // ✅ Get all trips assigned to the logged-in driver
-  getDriverTrips: async (req, res) => {
-    try {
-      const userId = req.user.id;
-      const driver = await Driver.findOne({ where: { user_id: userId } });
-      if (!driver) {
-        return res.status(404).json({ success: false, message: 'Driver not found' });
-      }
-
-      const trips = await Trip.findAll({
-        where: { driverId: driver.id },
-        include: [
-          { model: Destination, as: 'route' },
-          { model: Schedule, as: 'schedule' }
-        ],
-        order: [['departureTime', 'DESC']]
-      });
-
-      return res.status(200).json({ success: true, trips });
-    } catch (error) {
-      console.error('Error fetching driver trips:', error);
-      return res.status(500).json({ success: false, message: 'Failed to fetch trips' });
+getDriverTrips: async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const driver = await Driver.findOne({ where: { user_id: userId } });
+    if (!driver) {
+      return res.status(404).json({ success: false, message: 'Driver not found' });
     }
-  },
+
+    const trips = await Trip.findAll({
+      where: { driverId: driver.id },
+      include: [
+        {
+          model: Destination,
+          as: 'route',
+          include: [
+            { model: require('../models').Station, as: 'startStation' },
+            { model: require('../models').Station, as: 'endStation' }
+          ]
+        },
+        { model: Schedule, as: 'schedule' }
+      ],
+      order: [['departureTime', 'DESC']]
+    });
+
+    return res.status(200).json({ success: true, trips });
+  } catch (error) {
+    console.error('Error fetching driver trips:', error);
+    return res.status(500).json({ success: false, message: 'Failed to fetch trips' });
+  }
+},
 
   /**
    * ✅ ENHANCED: Mark a trip as completed by the driver

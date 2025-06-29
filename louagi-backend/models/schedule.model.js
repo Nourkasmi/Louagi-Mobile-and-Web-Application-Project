@@ -4,6 +4,12 @@ module.exports = (sequelize, DataTypes) => {
   const Schedule = sequelize.define(
     'Schedule',
     {
+      rolloverProcessed: {
+        type: DataTypes.BOOLEAN,
+        allowNull: false,
+        defaultValue: false,
+        field: 'rollover_processed'
+      },
       id: {
         type: DataTypes.UUID,
         defaultValue: DataTypes.UUIDV4,

@@ -1,5 +1,4 @@
-
-// app/(tabs)/driver/trips.tsx - Driver Trips Screen
+// app/(driver)/trips/index.tsx - Driver Trips Screen (DEFENSIVE VERSION)
 import React, { useEffect, useState, useCallback } from 'react';
 import {
   View,
@@ -12,18 +11,18 @@ import {
   RefreshControl,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { 
-  getDriverTrips, 
-  updateTripStatus, 
+import {
+  getDriverTrips,
+  updateTripStatus,
   completeTrip,
-  type Trip 
+  type Trip,
 } from '../../../src/services/api';
 
 type FilterType = 'all' | 'scheduled' | 'in_progress' | 'completed' | 'cancelled';
 
 export default function DriverTripsScreen() {
   const router = useRouter();
-  
+
   // State management
   const [trips, setTrips] = useState<Trip[]>([]);
   const [loading, setLoading] = useState(true);
@@ -39,18 +38,20 @@ export default function DriverTripsScreen() {
       } else {
         setLoading(true);
       }
-
       const response = await getDriverTrips({
         status: activeFilter === 'all' ? undefined : activeFilter,
         limit: 50,
       });
 
-      if (response.success && response.data) {
-        setTrips(response.data.trips || []);
+      if (response.success && response.data && response.data.trips) {
+        console.log("Trips data:", response.data.trips);
+        setTrips(response.data.trips);
       } else {
+        setTrips([]);
         Alert.alert('Error', 'Failed to load trips');
       }
     } catch (error) {
+      setTrips([]);
       console.error('Error fetching trips:', error);
       Alert.alert('Error', 'Failed to load trips');
     } finally {
@@ -62,6 +63,7 @@ export default function DriverTripsScreen() {
   // Initial load
   useEffect(() => {
     fetchTrips(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeFilter]);
 
   // Handle filter change
@@ -81,14 +83,14 @@ export default function DriverTripsScreen() {
           onPress: async () => {
             try {
               setActionLoading(trip.id);
-              
+
               let response;
               if (newStatus === 'completed') {
                 response = await completeTrip(trip.id);
               } else {
                 response = await updateTripStatus(trip.id, newStatus);
               }
-              
+
               if (response.success) {
                 Alert.alert('Success', `Trip ${newStatus} successfully`);
                 fetchTrips(true);
@@ -100,8 +102,8 @@ export default function DriverTripsScreen() {
             } finally {
               setActionLoading(null);
             }
-          }
-        }
+          },
+        },
       ]
     );
   };
@@ -109,7 +111,6 @@ export default function DriverTripsScreen() {
   // Format date and time
   const formatDateTime = (dateString: string | null) => {
     if (!dateString) return { date: 'Not set', time: '' };
-    
     const date = new Date(dateString);
     return {
       date: date.toLocaleDateString('en-US', {
@@ -155,25 +156,47 @@ export default function DriverTripsScreen() {
     return driverEarnings;
   };
 
-  // Render trip item
+  // Defensive render for trip
   const renderTripItem = ({ item }: { item: Trip }) => {
+    // Check critical fields
+    if (
+      !item ||
+      !item.route ||
+      !item.route.startStation ||
+      !item.route.endStation
+    ) {
+      // Log incomplete data for debugging
+      console.warn('Incomplete trip data:', item);
+      return (
+        <View style={{ padding: 16, margin: 12, backgroundColor: '#ffeaea', borderRadius: 10 }}>
+          <Text style={{ color: '#c00', fontWeight: 'bold' }}>⚠️ Incomplete trip data from backend!</Text>
+          <Text style={{ color: '#888', fontSize: 12 }}>
+            {JSON.stringify(item, null, 2)}
+          </Text>
+        </View>
+      );
+    }
+
     const { date, time } = formatDateTime(item.departureTime);
     const statusColor = getStatusColor(item.status);
     const statusIcon = getStatusIcon(item.status);
     const bookedSeats = item.capacity - item.availableSeats;
     const earnings = calculateTripEarnings(item);
     const isActionLoading = actionLoading === item.id;
+    const route = item.route;
+    const startStation = route.startStation;
+    const endStation = route.endStation;
 
     return (
       <View style={styles.tripCard}>
         <View style={styles.tripHeader}>
           <View style={styles.routeSection}>
-            <Text style={styles.routeText}>{item.route.description}</Text>
+            <Text style={styles.routeText}>{route.description || 'No route info'}</Text>
             <Text style={styles.routeDetails}>
-              {item.route.startStation.name} → {item.route.endStation.name}
+              {startStation.name || 'Unknown'} → {endStation.name || 'Unknown'}
             </Text>
           </View>
-          
+
           <View style={[styles.statusBadge, { backgroundColor: statusColor }]}>
             <Text style={styles.statusText}>{statusIcon} {item.status}</Text>
           </View>
@@ -185,7 +208,7 @@ export default function DriverTripsScreen() {
             <Text style={styles.timeValue}>{time || 'When full'}</Text>
             <Text style={styles.dateValue}>{date}</Text>
           </View>
-          
+
           <View style={styles.capacitySection}>
             <Text style={styles.capacityLabel}>Passengers</Text>
             <Text style={styles.capacityValue}>
@@ -195,7 +218,7 @@ export default function DriverTripsScreen() {
               {Math.round((bookedSeats / item.capacity) * 100)}%
             </Text>
           </View>
-          
+
           <View style={styles.earningsSection}>
             <Text style={styles.earningsLabel}>Earnings</Text>
             <Text style={styles.earningsValue}>
@@ -220,7 +243,7 @@ export default function DriverTripsScreen() {
                     <Text style={styles.actionButtonText}>Start Trip</Text>
                   )}
                 </TouchableOpacity>
-                
+
                 <TouchableOpacity
                   style={[styles.actionButton, styles.cancelButton]}
                   onPress={() => handleStatusUpdate(item, 'cancelled')}
@@ -232,7 +255,7 @@ export default function DriverTripsScreen() {
                 </TouchableOpacity>
               </>
             )}
-            
+
             {item.status === 'in_progress' && (
               <TouchableOpacity
                 style={[styles.actionButton, styles.completeButton]}
@@ -349,14 +372,16 @@ export default function DriverTripsScreen() {
             <TouchableOpacity
               style={[
                 styles.filterButton,
-                activeFilter === item.key && styles.filterButtonActive
+                activeFilter === item.key && styles.filterButtonActive,
               ]}
               onPress={() => handleFilterChange(item.key)}
             >
-              <Text style={[
-                styles.filterButtonText,
-                activeFilter === item.key && styles.filterButtonTextActive
-              ]}>
+              <Text
+                style={[
+                  styles.filterButtonText,
+                  activeFilter === item.key && styles.filterButtonTextActive,
+                ]}
+              >
                 {item.label}
               </Text>
             </TouchableOpacity>
@@ -380,10 +405,9 @@ export default function DriverTripsScreen() {
           <View style={styles.emptyState}>
             <Text style={styles.emptyText}>No trips found</Text>
             <Text style={styles.emptySubtext}>
-              {activeFilter === 'all' 
-                ? 'You haven\'t created any trips yet'
-                : `No ${activeFilter} trips found`
-              }
+              {activeFilter === 'all'
+                ? "You haven't created any trips yet"
+                : `No ${activeFilter} trips found`}
             </Text>
           </View>
         }
@@ -393,6 +417,8 @@ export default function DriverTripsScreen() {
     </View>
   );
 }
+
+// ... keep your existing styles object unchanged ..
 
 const styles = StyleSheet.create({
   container: {

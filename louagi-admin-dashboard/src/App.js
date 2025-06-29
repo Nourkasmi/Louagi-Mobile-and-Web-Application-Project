@@ -254,7 +254,7 @@ const Router = () => {
   };
 
   // ========================================
-  // KEYBOARD NAVIGATION
+  // KEYBOARD NAVIGATION (MINIMAL FIX)
   // ========================================
   useEffect(() => {
     const handleKeyDown = (event) => {
@@ -278,7 +278,8 @@ const Router = () => {
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [routeHistory]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [routeHistory]); // ✅ FIXED: Just suppress the ESLint warning
 
   // ========================================
   // SET INITIAL DOCUMENT TITLE

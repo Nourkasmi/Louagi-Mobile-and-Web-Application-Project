@@ -1,6 +1,7 @@
+import React from 'react';
 import { MapPin } from 'lucide-react';
 
-export const QueueEmptyState = ({ hasFiltersSelected }) => {
+const QueueEmptyState = ({ hasFiltersSelected }) => {
     if (!hasFiltersSelected) {
         return (
             <div className="bg-white rounded-lg shadow border p-8">
@@ -19,3 +20,5 @@ export const QueueEmptyState = ({ hasFiltersSelected }) => {
 
     return null;
 };
+
+export default QueueEmptyState;

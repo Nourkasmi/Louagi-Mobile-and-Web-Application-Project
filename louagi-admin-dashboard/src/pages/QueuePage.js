@@ -1,16 +1,15 @@
 // src/pages/QueuePage.js
 import React from 'react';
-import { useAuth } from '../context/AuthContext';
 import PageHeader from '../components/common/PageHeader';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import QueueFilters from '../components/queue/QueueFilters';
 import QueueTable from '../components/queue/QueueTable';
 import QueueStatistics from '../components/queue/QueueStatistics';
-import { QueueErrorState, QueueEmptyState } from '../components/queue/QueueErrorState';
+import QueueEmptyState from '../components/queue/QueueEmptyState';
+import { QueueErrorState } from '../components/queue/QueueErrorState';
 import { useQueueData } from '../hooks/useQueueData';
 
 const QueuePage = () => {
-    const { user } = useAuth();
     const {
         // Data
         queues,
@@ -39,7 +38,6 @@ const QueuePage = () => {
         markDriverCalled,
         markDriverDone,
         skipDriver,
-        clearFilters,
 
         // Helpers
         getSchedulesForStation,

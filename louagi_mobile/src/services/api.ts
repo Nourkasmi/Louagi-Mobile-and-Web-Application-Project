@@ -417,30 +417,20 @@ export async function getSchedules(stationId?: string) {
 }
 
 
+// src/services/api.ts - CLEANED getDriverTrips function
 export const getDriverTrips = async (params?: {
   page?: number;
   limit?: number;
   status?: string;
 }): Promise<ApiResponse<{ trips: Trip[] }>> => {
   try {
-    console.log('🔄 getDriverTrips called with params:', params);
-    
     const res = await api.get('/drivers/trips', { params });
     
-    console.log('📡 Raw API response:', {
-      status: res.status,
-      dataKeys: Object.keys(res.data || {}),
-      hasSuccess: 'success' in (res.data || {}),
-      hasTrips: 'trips' in (res.data || {}),
-      tripsLength: res.data?.trips?.length || 0,
-    });
-
-    // ✅ FIXED: Handle different response structures from backend
+    // Handle different response structures from backend
     let normalizedResponse: ApiResponse<{ trips: Trip[] }>;
 
     if (res.data?.success !== undefined) {
       // Backend returns { success: true, trips: [...] }
-      console.log('📊 Structure 1: success + trips at root level');
       normalizedResponse = {
         success: res.data.success,
         message: res.data.message,
@@ -450,7 +440,6 @@ export const getDriverTrips = async (params?: {
       };
     } else if (Array.isArray(res.data)) {
       // Backend returns trips array directly
-      console.log('📊 Structure 2: trips array directly');
       normalizedResponse = {
         success: true,
         data: {
@@ -459,7 +448,6 @@ export const getDriverTrips = async (params?: {
       };
     } else if (res.data?.trips) {
       // Backend returns { trips: [...] } without success field
-      console.log('📊 Structure 3: trips nested without success');
       normalizedResponse = {
         success: true,
         data: {
@@ -468,7 +456,6 @@ export const getDriverTrips = async (params?: {
       };
     } else if (res.data?.data?.trips) {
       // Backend returns { data: { trips: [...] } }
-      console.log('📊 Structure 4: nested data.trips');
       normalizedResponse = {
         success: res.data.success || true,
         message: res.data.message,
@@ -477,8 +464,7 @@ export const getDriverTrips = async (params?: {
         }
       };
     } else {
-      // Unexpected structure - log it for debugging
-      console.warn('⚠️ Unexpected API response structure:', res.data);
+      // Unexpected structure
       normalizedResponse = {
         success: false,
         message: 'Unexpected response format',
@@ -488,15 +474,9 @@ export const getDriverTrips = async (params?: {
       };
     }
 
-    console.log('✅ Normalized response:', {
-      success: normalizedResponse.success,
-      tripsCount: normalizedResponse.data?.trips?.length || 0,
-      firstTrip: normalizedResponse.data?.trips?.[0]?.id || 'none'
-    });
-
     return normalizedResponse;
   } catch (error) {
-    console.error('💥 getDriverTrips error:', error);
+    console.error('Failed to fetch driver trips:', error);
     return {
       success: false,
       message: 'Failed to fetch driver trips',

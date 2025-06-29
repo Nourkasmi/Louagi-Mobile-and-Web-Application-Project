@@ -1,4 +1,4 @@
-// app/(tabs)/driver/index.tsx - Driver Dashboard Screen
+// app/(driver)/dashboard/index.tsx - Driver Dashboard with Logout Button
 import React, { useEffect, useState, useCallback } from 'react';
 import {
   View,
@@ -13,6 +13,10 @@ import {
   FlatList,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useDispatch, useSelector } from 'react-redux'; // Add these imports
+import { logout } from '../../../src/store/authSlice'; // Add logout action
+import { RootState } from '../../../src/store/store'; // Add RootState type
+import AsyncStorage from '@react-native-async-storage/async-storage'; // Add AsyncStorage
 import { 
   getDriverStatus, 
   declareAvailability, 
@@ -32,6 +36,8 @@ import {
 
 export default function DriverDashboard() {
   const router = useRouter();
+  const dispatch = useDispatch(); // Add dispatch
+  const { user } = useSelector((state: RootState) => state.auth); // Add user from state
   
   // State management
   const [driverStatus, setDriverStatus] = useState<DriverStatus | null>(null);
@@ -50,6 +56,39 @@ export default function DriverDashboard() {
   const [selectedDestination, setSelectedDestination] = useState<Destination | null>(null);
   const [loadingStations, setLoadingStations] = useState(false);
   const [loadingDestinations, setLoadingDestinations] = useState(false);
+
+  // Handle logout
+  const handleLogout = () => {
+    Alert.alert(
+      'Logout',
+      'Are you sure you want to logout?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Logout',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              // Clear token from AsyncStorage
+              await AsyncStorage.removeItem('louagi_token');
+              // Clear global token
+              global.authToken = undefined;
+              // Dispatch logout action
+              dispatch(logout());
+              // Navigate to login
+              router.replace('/login');
+            } catch (error) {
+              console.error('Error during logout:', error);
+              // Still proceed with logout even if AsyncStorage fails
+              global.authToken = undefined;
+              dispatch(logout());
+              router.replace('/login');
+            }
+          },
+        },
+      ]
+    );
+  };
 
   // Fetch driver data
   const fetchDriverData = useCallback(async (isRefresh = false) => {
@@ -573,11 +612,20 @@ export default function DriverDashboard() {
         />
       }
     >
+      {/* Header with Logout Button */}
       <View style={styles.header}>
-        <Text style={styles.title}>Driver Dashboard</Text>
-        <Text style={styles.subtitle}>
-          Welcome back, {driverStatus?.profile?.user?.username}! 👋
-        </Text>
+        <View style={styles.headerContent}>
+          <Text style={styles.title}>Driver Dashboard</Text>
+          <Text style={styles.subtitle}>
+            Welcome back, {user?.username || driverStatus?.profile?.user?.username}! 👋
+          </Text>
+        </View>
+        <TouchableOpacity
+          style={styles.logoutButton}
+          onPress={handleLogout}
+        >
+          <Text style={styles.logoutButtonText}>Logout</Text>
+        </TouchableOpacity>
       </View>
 
       <TouchableOpacity
@@ -630,6 +678,12 @@ const styles = StyleSheet.create({
     padding: 20,
     paddingTop: 60,
     backgroundColor: 'white',
+    flexDirection: 'row', // Make header horizontal
+    justifyContent: 'space-between', // Space between content and logout button
+    alignItems: 'flex-start', // Align items to top
+  },
+  headerContent: {
+    flex: 1, // Take up remaining space
   },
   title: {
     fontSize: 28,
@@ -640,6 +694,18 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#666',
     marginTop: 4,
+  },
+  logoutButton: {
+    backgroundColor: '#dc3545',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 6,
+    marginTop: 4, // Small top margin to align with title
+  },
+  logoutButtonText: {
+    color: 'white',
+    fontSize: 14,
+    fontWeight: 'bold',
   },
   statusCard: {
     backgroundColor: 'white',
@@ -678,6 +744,8 @@ const styles = StyleSheet.create({
     padding: 14,
     borderRadius: 8,
     alignItems: 'center',
+    marginHorizontal: 16,
+    marginBottom: 16,
   },
   declareButtonText: {
     color: 'white',
@@ -892,7 +960,7 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   selectionItemSubtitle: {
-    fontSize: 14,
+    fontSize: 12,
     color: '#666',
   },
   confirmButton: {

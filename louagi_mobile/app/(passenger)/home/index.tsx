@@ -1,3 +1,4 @@
+// app/(passenger)/home/index.tsx - CLEANED
 import React, { useEffect, useState } from 'react';
 import { 
   View, 
@@ -11,7 +12,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useDispatch } from 'react-redux';
-import { logout } from '../../../src/store/authSlice'; // Make sure the path is correct
+import { logout } from '../../../src/store/authSlice';
 import { getStations, type Station } from '../../../src/services/api';
 
 export default function PassengerHomeScreen() {
@@ -34,11 +35,13 @@ export default function PassengerHomeScreen() {
       
       const response = await getStations({ limit: 50 });
 
-      // --- DEBUG LOGGING ---
-      console.log("API RAW RESPONSE:", response);
-
-      if (response.success && (response.data?.stations || response.stations)) {
-        setStations(response.data?.stations || response.stations);
+      if (response.success) {
+        const stationsData = response.data?.stations || response.stations || [];
+        setStations(stationsData);
+        
+        if (stationsData.length === 0) {
+          setError('No stations available at the moment');
+        }
       } else {
         setError('Failed to load stations');
       }
@@ -68,8 +71,21 @@ export default function PassengerHomeScreen() {
 
   // Handle logout
   const handleLogout = () => {
-    dispatch(logout());
-    router.replace('/login'); // Redirect to login screen and prevent back navigation
+    Alert.alert(
+      'Logout',
+      'Are you sure you want to logout?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Logout',
+          style: 'destructive',
+          onPress: () => {
+            dispatch(logout());
+            router.replace('/login');
+          }
+        }
+      ]
+    );
   };
 
   // Render station item
@@ -83,7 +99,7 @@ export default function PassengerHomeScreen() {
       <Text style={styles.stationAddress}>{item.address}</Text>
       {item.amenities && Object.keys(item.amenities).length > 0 && (
         <View style={styles.amenitiesContainer}>
-          <Text style={styles.amenitiesText}>Amenities available</Text>
+          <Text style={styles.amenitiesText}>✨ Amenities available</Text>
         </View>
       )}
     </TouchableOpacity>
@@ -101,9 +117,10 @@ export default function PassengerHomeScreen() {
   if (error && stations.length === 0) {
     return (
       <View style={styles.centered}>
+        <Text style={styles.errorIcon}>🚌</Text>
         <Text style={styles.errorText}>{error}</Text>
         <TouchableOpacity style={styles.retryButton} onPress={() => fetchStations()}>
-          <Text style={styles.retryButtonText}>Retry</Text>
+          <Text style={styles.retryButtonText}>🔄 Retry</Text>
         </TouchableOpacity>
       </View>
     );
@@ -112,8 +129,8 @@ export default function PassengerHomeScreen() {
   return (
     <View style={styles.container}>
       {/* Header */}
-      <View style={styles.headerRow}>
-        <View>
+      <View style={styles.header}>
+        <View style={styles.headerContent}>
           <Text style={styles.title}>Book Your Louage</Text>
           <Text style={styles.subtitle}>Select your departure station</Text>
         </View>
@@ -126,9 +143,26 @@ export default function PassengerHomeScreen() {
       <View style={styles.statsContainer}>
         <View style={styles.statItem}>
           <Text style={styles.statNumber}>{stations.length}</Text>
-          <Text style={styles.statLabel}>Stations</Text>
+          <Text style={styles.statLabel}>Available Stations</Text>
+        </View>
+        <View style={styles.statItem}>
+          <Text style={styles.statNumber}>🚐</Text>
+          <Text style={styles.statLabel}>Quick & Easy</Text>
+        </View>
+        <View style={styles.statItem}>
+          <Text style={styles.statNumber}>⚡</Text>
+          <Text style={styles.statLabel}>Real-time</Text>
         </View>
       </View>
+
+      {/* Welcome Message */}
+      {stations.length > 0 && (
+        <View style={styles.welcomeCard}>
+          <Text style={styles.welcomeText}>
+            👋 Welcome! Choose your departure station to find available trips.
+          </Text>
+        </View>
+      )}
 
       {/* Stations List */}
       <FlatList
@@ -146,12 +180,16 @@ export default function PassengerHomeScreen() {
         contentContainerStyle={styles.listContainer}
         ListEmptyComponent={
           <View style={styles.emptyState}>
+            <Text style={styles.emptyIcon}>🚌</Text>
             <Text style={styles.emptyText}>No stations available</Text>
+            <Text style={styles.emptySubtext}>
+              Pull to refresh or try again later
+            </Text>
             <TouchableOpacity 
               style={styles.retryButton} 
               onPress={() => fetchStations()}
             >
-              <Text style={styles.retryButtonText}>Refresh</Text>
+              <Text style={styles.retryButtonText}>🔄 Refresh</Text>
             </TouchableOpacity>
           </View>
         }
@@ -171,7 +209,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 20,
   },
-  headerRow: {
+  header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
@@ -180,6 +218,9 @@ const styles = StyleSheet.create({
     paddingTop: 60,
     borderBottomWidth: 1,
     borderBottomColor: '#eee',
+  },
+  headerContent: {
+    flex: 1,
   },
   title: {
     fontSize: 28,
@@ -225,8 +266,22 @@ const styles = StyleSheet.create({
     color: '#666',
     textAlign: 'center',
   },
+  welcomeCard: {
+    backgroundColor: '#e3f2fd',
+    margin: 16,
+    padding: 16,
+    borderRadius: 12,
+    borderLeftWidth: 4,
+    borderLeftColor: '#0066cc',
+  },
+  welcomeText: {
+    fontSize: 14,
+    color: '#0d47a1',
+    fontWeight: '500',
+  },
   listContainer: {
     padding: 16,
+    paddingBottom: 32,
   },
   stationCard: {
     backgroundColor: 'white',
@@ -256,7 +311,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   amenitiesContainer: {
-    backgroundColor: '#e3f2fd',
+    backgroundColor: '#e8f5e8',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 4,
@@ -264,13 +319,17 @@ const styles = StyleSheet.create({
   },
   amenitiesText: {
     fontSize: 10,
-    color: '#0066cc',
+    color: '#2e7d32',
     fontWeight: '500',
   },
   loadingText: {
     marginTop: 12,
     fontSize: 16,
     color: '#666',
+  },
+  errorIcon: {
+    fontSize: 64,
+    marginBottom: 16,
   },
   errorText: {
     fontSize: 16,
@@ -293,10 +352,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 40,
   },
+  emptyIcon: {
+    fontSize: 64,
+    marginBottom: 16,
+  },
   emptyText: {
     fontSize: 18,
     color: '#666',
-    marginBottom: 16,
+    marginBottom: 8,
+    textAlign: 'center',
+    fontWeight: '600',
+  },
+  emptySubtext: {
+    fontSize: 14,
+    color: '#888',
+    marginBottom: 24,
     textAlign: 'center',
   },
 });

@@ -1,4 +1,4 @@
-// app/(driver)/trips/index.tsx - FIXED Driver Trips Screen
+// app/(driver)/trips/index.tsx - CLEANED Driver Trips Screen
 import React, { useEffect, useState, useCallback } from 'react';
 import {
   View,
@@ -39,22 +39,13 @@ export default function DriverTripsScreen() {
         setLoading(true);
       }
 
-      console.log('🔍 Fetching trips with filter:', activeFilter);
-
       const response = await getDriverTrips({
         status: activeFilter === 'all' ? undefined : activeFilter,
         limit: 50,
       });
 
-      console.log('📊 API Response:', {
-        success: response.success,
-        hasData: !!response.data,
-        tripsCount: response.data?.trips?.length || 0,
-        firstTrip: response.data?.trips?.[0] || null
-      });
-
       if (response.success) {
-        // ✅ FIXED: Handle different response structures
+        // Handle different response structures
         let tripsData: Trip[] = [];
         
         if (response.data?.trips) {
@@ -63,23 +54,15 @@ export default function DriverTripsScreen() {
           tripsData = response.trips;
         } else if (Array.isArray(response.data)) {
           tripsData = response.data;
-        } else if (Array.isArray(response)) {
-          tripsData = response;
         }
 
-        console.log('✅ Setting trips data:', tripsData.length, 'trips');
         setTrips(tripsData);
-
-        if (tripsData.length === 0) {
-          console.log('ℹ️ No trips found for filter:', activeFilter);
-        }
       } else {
-        console.error('❌ API returned error:', response.message);
         setTrips([]);
         Alert.alert('Error', response.message || 'Failed to load trips');
       }
     } catch (error) {
-      console.error('💥 Error fetching trips:', error);
+      console.error('Error fetching trips:', error);
       setTrips([]);
       Alert.alert('Error', 'Failed to load trips');
     } finally {
@@ -90,13 +73,11 @@ export default function DriverTripsScreen() {
 
   // Initial load and when filter changes
   useEffect(() => {
-    console.log('🔄 Effect triggered - fetching trips');
     fetchTrips();
   }, [activeFilter, fetchTrips]);
 
   // Handle filter change
   const handleFilterChange = (filter: FilterType) => {
-    console.log('🔽 Filter changed to:', filter);
     setActiveFilter(filter);
   };
 
@@ -155,7 +136,7 @@ export default function DriverTripsScreen() {
     };
   };
 
-  // Get status color
+  // Get status color and icon
   const getStatusColor = (status: Trip['status']) => {
     switch (status) {
       case 'scheduled': return '#ffc107';
@@ -166,7 +147,6 @@ export default function DriverTripsScreen() {
     }
   };
 
-  // Get status icon
   const getStatusIcon = (status: Trip['status']) => {
     switch (status) {
       case 'scheduled': return '⏳';
@@ -185,27 +165,18 @@ export default function DriverTripsScreen() {
     return driverEarnings;
   };
 
-  // ✅ FIXED: Better defensive rendering for trip item
+  // Render trip item with defensive checks
   const renderTripItem = ({ item }: { item: Trip }) => {
-    // ✅ FIXED: Comprehensive validation
-    if (!item) {
-      console.warn('⚠️ Null trip item received');
-      return null;
-    }
-
-    // ✅ FIXED: Handle missing route data
-    if (!item.route) {
-      console.warn('⚠️ Trip missing route data:', item);
+    // Defensive validation
+    if (!item || !item.route) {
       return (
         <View style={styles.errorCard}>
           <Text style={styles.errorText}>⚠️ Trip data incomplete</Text>
-          <Text style={styles.errorSubtext}>Trip ID: {item.id}</Text>
-          <Text style={styles.errorSubtext}>Status: {item.status}</Text>
+          <Text style={styles.errorSubtext}>Trip ID: {item?.id || 'Unknown'}</Text>
         </View>
       );
     }
 
-    // ✅ FIXED: Handle missing station data
     const routeDescription = item.route.description || 'Route information unavailable';
     const startStationName = item.route.startStation?.name || 'Unknown departure';
     const endStationName = item.route.endStation?.name || 'Unknown destination';
@@ -275,7 +246,11 @@ export default function DriverTripsScreen() {
                 </TouchableOpacity>
 
                 <TouchableOpacity
-                  style={[styles.actionButton, styles.cancelButton]}
+                  style={[
+                    styles.actionButton, 
+                    styles.cancelButton,
+                    bookedSeats > 0 && styles.disabledButton
+                  ]}
                   onPress={() => handleStatusUpdate(item, 'cancelled')}
                   disabled={isActionLoading || bookedSeats > 0}
                 >
@@ -342,13 +317,11 @@ export default function DriverTripsScreen() {
       .reduce((sum, trip) => sum + calculateTripEarnings(trip), 0),
   };
 
-  // ✅ FIXED: Better loading state
   if (loading && trips.length === 0) {
     return (
       <View style={styles.centered}>
         <ActivityIndicator size="large" color="#007bff" />
         <Text style={styles.loadingText}>Loading your trips...</Text>
-        <Text style={styles.debugText}>Filter: {activeFilter}</Text>
       </View>
     );
   }
@@ -421,15 +394,6 @@ export default function DriverTripsScreen() {
         />
       </View>
 
-      {/* Debug Info */}
-      {__DEV__ && (
-        <View style={styles.debugContainer}>
-          <Text style={styles.debugText}>
-            🐛 Debug: {trips.length} trips | Filter: {activeFilter} | Loading: {loading.toString()}
-          </Text>
-        </View>
-      )}
-
       {/* Trips List */}
       <FlatList
         data={trips}
@@ -466,6 +430,7 @@ export default function DriverTripsScreen() {
   );
 }
 
+// Styles remain the same - keeping them for completeness
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -480,18 +445,6 @@ const styles = StyleSheet.create({
     marginTop: 12,
     fontSize: 16,
     color: '#666',
-  },
-  debugText: {
-    marginTop: 8,
-    fontSize: 12,
-    color: '#888',
-    textAlign: 'center',
-  },
-  debugContainer: {
-    backgroundColor: '#fff3cd',
-    padding: 8,
-    margin: 16,
-    borderRadius: 4,
   },
   header: {
     flexDirection: 'row',
@@ -715,6 +668,9 @@ const styles = StyleSheet.create({
   },
   completeButton: {
     backgroundColor: '#007bff',
+  },
+  disabledButton: {
+    backgroundColor: '#6c757d',
   },
   actionButtonText: {
     color: 'white',

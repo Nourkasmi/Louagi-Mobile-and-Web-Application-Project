@@ -1,4 +1,4 @@
-// app/(tabs)/passenger/search.tsx - Destination & Trip Selection
+// app/(passenger)/search/index.tsx - CLEANED COMPLETE VERSION
 import React, { useEffect, useState, useCallback } from 'react';
 import { 
   View, 
@@ -41,22 +41,20 @@ export default function PassengerSearchScreen() {
         setLoading(true);
         const response = await getDestinations(stationId, { limit: 50 });
         
-        console.log('getDestinations raw response:', response); // <--- Add this for debugging
+        let dests = [];
+        if (response.success) {
+          if (response.data?.destinations) {
+            dests = response.data.destinations;
+          } else if (response.destinations) {
+            dests = response.destinations;
+          }
+        }
+        
+        setDestinations(dests);
 
-let dests = [];
-if (response.success) {
-  // Accept both response.data.destinations and response.destinations
-  if (response.data && response.data.destinations) {
-    dests = response.data.destinations;
-  } else if (response.destinations) {
-    dests = response.destinations;
-  }
-}
-setDestinations(dests);
-
-if (!response.success || dests.length === 0) {
-  Alert.alert('Error', 'Failed to load destinations');
-}
+        if (!response.success || dests.length === 0) {
+          Alert.alert('Info', 'No destinations available for this station');
+        }
       } catch (error) {
         console.error('Error fetching destinations:', error);
         Alert.alert('Error', 'Failed to load destinations');
@@ -339,6 +337,15 @@ if (!response.success || dests.length === 0) {
             renderItem={renderDestinationItem}
             showsVerticalScrollIndicator={false}
             contentContainerStyle={styles.listContainer}
+            ListEmptyComponent={
+              <View style={styles.emptyState}>
+                <Text style={styles.emptyIcon}>🎯</Text>
+                <Text style={styles.emptyText}>No destinations available</Text>
+                <Text style={styles.emptySubtext}>
+                  No routes are configured from this station yet.
+                </Text>
+              </View>
+            }
           />
         </>
       ) : (

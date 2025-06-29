@@ -24,6 +24,15 @@ api.interceptors.request.use(
     if (token && config.headers) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+    
+    // Debug logging in development
+    if (__DEV__) {
+      console.log(`🔄 API Request: ${config.method?.toUpperCase()} ${config.url}`, {
+        params: config.params,
+        hasAuth: !!token
+      });
+    }
+    
     return config;
   },
   (error) => Promise.reject(error)
@@ -413,8 +422,89 @@ export const getDriverTrips = async (params?: {
   limit?: number;
   status?: string;
 }): Promise<ApiResponse<{ trips: Trip[] }>> => {
-  const res = await api.get('/drivers/trips', { params });
-  return res.data;
+  try {
+    console.log('🔄 getDriverTrips called with params:', params);
+    
+    const res = await api.get('/drivers/trips', { params });
+    
+    console.log('📡 Raw API response:', {
+      status: res.status,
+      dataKeys: Object.keys(res.data || {}),
+      hasSuccess: 'success' in (res.data || {}),
+      hasTrips: 'trips' in (res.data || {}),
+      tripsLength: res.data?.trips?.length || 0,
+    });
+
+    // ✅ FIXED: Handle different response structures from backend
+    let normalizedResponse: ApiResponse<{ trips: Trip[] }>;
+
+    if (res.data?.success !== undefined) {
+      // Backend returns { success: true, trips: [...] }
+      console.log('📊 Structure 1: success + trips at root level');
+      normalizedResponse = {
+        success: res.data.success,
+        message: res.data.message,
+        data: {
+          trips: res.data.trips || []
+        }
+      };
+    } else if (Array.isArray(res.data)) {
+      // Backend returns trips array directly
+      console.log('📊 Structure 2: trips array directly');
+      normalizedResponse = {
+        success: true,
+        data: {
+          trips: res.data
+        }
+      };
+    } else if (res.data?.trips) {
+      // Backend returns { trips: [...] } without success field
+      console.log('📊 Structure 3: trips nested without success');
+      normalizedResponse = {
+        success: true,
+        data: {
+          trips: res.data.trips
+        }
+      };
+    } else if (res.data?.data?.trips) {
+      // Backend returns { data: { trips: [...] } }
+      console.log('📊 Structure 4: nested data.trips');
+      normalizedResponse = {
+        success: res.data.success || true,
+        message: res.data.message,
+        data: {
+          trips: res.data.data.trips
+        }
+      };
+    } else {
+      // Unexpected structure - log it for debugging
+      console.warn('⚠️ Unexpected API response structure:', res.data);
+      normalizedResponse = {
+        success: false,
+        message: 'Unexpected response format',
+        data: {
+          trips: []
+        }
+      };
+    }
+
+    console.log('✅ Normalized response:', {
+      success: normalizedResponse.success,
+      tripsCount: normalizedResponse.data?.trips?.length || 0,
+      firstTrip: normalizedResponse.data?.trips?.[0]?.id || 'none'
+    });
+
+    return normalizedResponse;
+  } catch (error) {
+    console.error('💥 getDriverTrips error:', error);
+    return {
+      success: false,
+      message: 'Failed to fetch driver trips',
+      data: {
+        trips: []
+      }
+    };
+  }
 };
 
 export const completeTrip = async (tripId: string): Promise<ApiResponse<Trip>> => {
@@ -596,13 +686,28 @@ export const processStripePayment = async (paymentIntentId: string, paymentMetho
 // ==================== ERROR HANDLING ====================
 
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    // Log successful responses in development
+    if (__DEV__) {
+      console.log(`✅ API Success: ${response.config.method?.toUpperCase()} ${response.config.url}`);
+    }
+    return response;
+  },
   (error) => {
+    // Enhanced error logging
+    if (__DEV__) {
+      console.error('❌ API Error:', {
+        url: error.config?.url,
+        method: error.config?.method,
+        status: error.response?.status,
+        data: error.response?.data
+      });
+    }
+
     if (error.response?.status === 401) {
       // Clear token and dispatch Redux logout
       global.authToken = undefined;
       store.dispatch(logout());
-      // (Navigation to login will be handled elsewhere)
     }
     return Promise.reject(error);
   }

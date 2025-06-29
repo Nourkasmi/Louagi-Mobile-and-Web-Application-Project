@@ -1,4 +1,4 @@
-// app/(driver)/trips/index.tsx - Driver Trips Screen (DEFENSIVE VERSION)
+// app/(driver)/trips/index.tsx - FIXED Driver Trips Screen
 import React, { useEffect, useState, useCallback } from 'react';
 import {
   View,
@@ -38,21 +38,49 @@ export default function DriverTripsScreen() {
       } else {
         setLoading(true);
       }
+
+      console.log('🔍 Fetching trips with filter:', activeFilter);
+
       const response = await getDriverTrips({
         status: activeFilter === 'all' ? undefined : activeFilter,
         limit: 50,
       });
 
-      if (response.success && response.data && response.data.trips) {
-        console.log("Trips data:", response.data.trips);
-        setTrips(response.data.trips);
+      console.log('📊 API Response:', {
+        success: response.success,
+        hasData: !!response.data,
+        tripsCount: response.data?.trips?.length || 0,
+        firstTrip: response.data?.trips?.[0] || null
+      });
+
+      if (response.success) {
+        // ✅ FIXED: Handle different response structures
+        let tripsData: Trip[] = [];
+        
+        if (response.data?.trips) {
+          tripsData = response.data.trips;
+        } else if (response.trips) {
+          tripsData = response.trips;
+        } else if (Array.isArray(response.data)) {
+          tripsData = response.data;
+        } else if (Array.isArray(response)) {
+          tripsData = response;
+        }
+
+        console.log('✅ Setting trips data:', tripsData.length, 'trips');
+        setTrips(tripsData);
+
+        if (tripsData.length === 0) {
+          console.log('ℹ️ No trips found for filter:', activeFilter);
+        }
       } else {
+        console.error('❌ API returned error:', response.message);
         setTrips([]);
-        Alert.alert('Error', 'Failed to load trips');
+        Alert.alert('Error', response.message || 'Failed to load trips');
       }
     } catch (error) {
+      console.error('💥 Error fetching trips:', error);
       setTrips([]);
-      console.error('Error fetching trips:', error);
       Alert.alert('Error', 'Failed to load trips');
     } finally {
       setLoading(false);
@@ -60,14 +88,15 @@ export default function DriverTripsScreen() {
     }
   }, [activeFilter]);
 
-  // Initial load
+  // Initial load and when filter changes
   useEffect(() => {
-    fetchTrips(true);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeFilter]);
+    console.log('🔄 Effect triggered - fetching trips');
+    fetchTrips();
+  }, [activeFilter, fetchTrips]);
 
   // Handle filter change
   const handleFilterChange = (filter: FilterType) => {
+    console.log('🔽 Filter changed to:', filter);
     setActiveFilter(filter);
   };
 
@@ -156,26 +185,30 @@ export default function DriverTripsScreen() {
     return driverEarnings;
   };
 
-  // Defensive render for trip
+  // ✅ FIXED: Better defensive rendering for trip item
   const renderTripItem = ({ item }: { item: Trip }) => {
-    // Check critical fields
-    if (
-      !item ||
-      !item.route ||
-      !item.route.startStation ||
-      !item.route.endStation
-    ) {
-      // Log incomplete data for debugging
-      console.warn('Incomplete trip data:', item);
+    // ✅ FIXED: Comprehensive validation
+    if (!item) {
+      console.warn('⚠️ Null trip item received');
+      return null;
+    }
+
+    // ✅ FIXED: Handle missing route data
+    if (!item.route) {
+      console.warn('⚠️ Trip missing route data:', item);
       return (
-        <View style={{ padding: 16, margin: 12, backgroundColor: '#ffeaea', borderRadius: 10 }}>
-          <Text style={{ color: '#c00', fontWeight: 'bold' }}>⚠️ Incomplete trip data from backend!</Text>
-          <Text style={{ color: '#888', fontSize: 12 }}>
-            {JSON.stringify(item, null, 2)}
-          </Text>
+        <View style={styles.errorCard}>
+          <Text style={styles.errorText}>⚠️ Trip data incomplete</Text>
+          <Text style={styles.errorSubtext}>Trip ID: {item.id}</Text>
+          <Text style={styles.errorSubtext}>Status: {item.status}</Text>
         </View>
       );
     }
+
+    // ✅ FIXED: Handle missing station data
+    const routeDescription = item.route.description || 'Route information unavailable';
+    const startStationName = item.route.startStation?.name || 'Unknown departure';
+    const endStationName = item.route.endStation?.name || 'Unknown destination';
 
     const { date, time } = formatDateTime(item.departureTime);
     const statusColor = getStatusColor(item.status);
@@ -183,17 +216,14 @@ export default function DriverTripsScreen() {
     const bookedSeats = item.capacity - item.availableSeats;
     const earnings = calculateTripEarnings(item);
     const isActionLoading = actionLoading === item.id;
-    const route = item.route;
-    const startStation = route.startStation;
-    const endStation = route.endStation;
 
     return (
       <View style={styles.tripCard}>
         <View style={styles.tripHeader}>
           <View style={styles.routeSection}>
-            <Text style={styles.routeText}>{route.description || 'No route info'}</Text>
+            <Text style={styles.routeText}>{routeDescription}</Text>
             <Text style={styles.routeDetails}>
-              {startStation.name || 'Unknown'} → {endStation.name || 'Unknown'}
+              {startStationName} → {endStationName}
             </Text>
           </View>
 
@@ -293,7 +323,7 @@ export default function DriverTripsScreen() {
   };
 
   // Filter buttons
-  const filters: { key: FilterType; label: string; count?: number }[] = [
+  const filters: { key: FilterType; label: string }[] = [
     { key: 'all', label: 'All' },
     { key: 'scheduled', label: 'Scheduled' },
     { key: 'in_progress', label: 'In Progress' },
@@ -312,11 +342,13 @@ export default function DriverTripsScreen() {
       .reduce((sum, trip) => sum + calculateTripEarnings(trip), 0),
   };
 
+  // ✅ FIXED: Better loading state
   if (loading && trips.length === 0) {
     return (
       <View style={styles.centered}>
         <ActivityIndicator size="large" color="#007bff" />
         <Text style={styles.loadingText}>Loading your trips...</Text>
+        <Text style={styles.debugText}>Filter: {activeFilter}</Text>
       </View>
     );
   }
@@ -389,6 +421,15 @@ export default function DriverTripsScreen() {
         />
       </View>
 
+      {/* Debug Info */}
+      {__DEV__ && (
+        <View style={styles.debugContainer}>
+          <Text style={styles.debugText}>
+            🐛 Debug: {trips.length} trips | Filter: {activeFilter} | Loading: {loading.toString()}
+          </Text>
+        </View>
+      )}
+
       {/* Trips List */}
       <FlatList
         data={trips}
@@ -403,12 +444,19 @@ export default function DriverTripsScreen() {
         }
         ListEmptyComponent={
           <View style={styles.emptyState}>
+            <Text style={styles.emptyIcon}>🚗</Text>
             <Text style={styles.emptyText}>No trips found</Text>
             <Text style={styles.emptySubtext}>
               {activeFilter === 'all'
                 ? "You haven't created any trips yet"
                 : `No ${activeFilter} trips found`}
             </Text>
+            <TouchableOpacity
+              style={styles.refreshButton}
+              onPress={() => fetchTrips(true)}
+            >
+              <Text style={styles.refreshButtonText}>🔄 Refresh</Text>
+            </TouchableOpacity>
           </View>
         }
         contentContainerStyle={trips.length === 0 ? styles.emptyContainer : undefined}
@@ -417,8 +465,6 @@ export default function DriverTripsScreen() {
     </View>
   );
 }
-
-// ... keep your existing styles object unchanged ..
 
 const styles = StyleSheet.create({
   container: {
@@ -434,6 +480,18 @@ const styles = StyleSheet.create({
     marginTop: 12,
     fontSize: 16,
     color: '#666',
+  },
+  debugText: {
+    marginTop: 8,
+    fontSize: 12,
+    color: '#888',
+    textAlign: 'center',
+  },
+  debugContainer: {
+    backgroundColor: '#fff3cd',
+    padding: 8,
+    margin: 16,
+    borderRadius: 4,
   },
   header: {
     flexDirection: 'row',
@@ -529,6 +587,25 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
+  },
+  errorCard: {
+    backgroundColor: '#ffebee',
+    margin: 16,
+    marginBottom: 8,
+    padding: 16,
+    borderRadius: 12,
+    borderLeftWidth: 4,
+    borderLeftColor: '#f44336',
+  },
+  errorText: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#c62828',
+    marginBottom: 4,
+  },
+  errorSubtext: {
+    fontSize: 12,
+    color: '#c62828',
   },
   tripHeader: {
     flexDirection: 'row',
@@ -665,6 +742,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 40,
   },
+  emptyIcon: {
+    fontSize: 64,
+    marginBottom: 16,
+  },
   emptyText: {
     fontSize: 20,
     fontWeight: '600',
@@ -677,5 +758,17 @@ const styles = StyleSheet.create({
     color: '#888',
     textAlign: 'center',
     lineHeight: 22,
+    marginBottom: 24,
+  },
+  refreshButton: {
+    backgroundColor: '#007bff',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  refreshButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });

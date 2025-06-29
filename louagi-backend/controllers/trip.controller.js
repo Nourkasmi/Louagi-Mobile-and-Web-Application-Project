@@ -274,6 +274,8 @@ getDriverTrips: async (req, res) => {
       return res.status(404).json({ success: false, message: 'Driver not found' });
     }
 
+    console.log('[getDriverTrips] Found driver:', driver.id, driver);
+
     const trips = await Trip.findAll({
       where: { driverId: driver.id },
       include: [
@@ -289,6 +291,10 @@ getDriverTrips: async (req, res) => {
       ],
       order: [['departureTime', 'DESC']]
     });
+
+    console.log('[getDriverTrips] trips result (count):', trips.length);
+
+        console.dir(trips, { depth: 7 });
 
     return res.status(200).json({ success: true, trips });
   } catch (error) {

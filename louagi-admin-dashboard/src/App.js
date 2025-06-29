@@ -15,6 +15,7 @@ const DriversPage = lazy(() => import('./pages/DriversPage'));
 const StationsPage = lazy(() => import('./pages/StationsPage'));
 const BookingsPage = lazy(() => import('./pages/BookingsPage'));
 const SchedulesPage = lazy(() => import('./pages/SchedulesPage'));
+const QueuePage = lazy(() => import('./pages/QueuePage')); // ✅ NEW: Real QueuePage
 
 // ========================================
 // ERROR BOUNDARY COMPONENT
@@ -193,18 +194,9 @@ const routes = {
     description: 'Schedule management and planning'
   },
   queue: {
-    component: GenericPage,
+    component: QueuePage, // ✅ UPDATED: Now uses the real connected component
     title: 'Queue Management',
-    description: 'Manage driver queues and positioning',
-    props: {
-      title: 'Queue Management',
-      subtitle: 'Manage driver queues and positioning',
-      icon: () => (
-        <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-        </svg>
-      )
-    }
+    description: 'Manage driver queues and positioning'
   },
   payments: {
     component: GenericPage,
@@ -337,11 +329,11 @@ const Router = () => {
     const Component = routeConfig.component;
     const props = routeConfig.props || {};
 
-    // For lazy-loaded components, wrap in Suspense
+    // ✅ UPDATED: Include QueuePage in lazy-loaded components
     if (Component === DashboardPage || Component === UsersPage ||
       Component === TripsPage || Component === DriversPage ||
       Component === StationsPage || Component === BookingsPage ||
-      Component === SchedulesPage) {
+      Component === SchedulesPage || Component === QueuePage) {
 
       return (
         <Suspense fallback={<PageLoadingFallback pageName={routeConfig.title} />}>

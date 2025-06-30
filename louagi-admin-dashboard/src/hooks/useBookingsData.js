@@ -67,32 +67,83 @@ export const useBookingsData = () => {
 
             console.log('📥 Response status:', response.status);
 
+            // Handle different response statuses
+            if (response.status === 404) {
+                // No bookings endpoint available - show empty state
+                setBookings([]);
+                setPagination({ total: 0, totalPages: 0, currentPage: 1 });
+                setStats({
+                    totalBookings: 0,
+                    confirmedBookings: 0,
+                    pendingBookings: 0,
+                    cancelledBookings: 0,
+                    totalRevenue: 0,
+                    averageBookingValue: 0
+                });
+                console.log('ℹ️ Bookings endpoint not found - showing empty state');
+                return;
+            }
+
+            if (response.status === 401) {
+                throw new Error('Authentication failed. Please login again.');
+            }
+
+            if (response.status === 403) {
+                throw new Error('Access denied. Admin privileges required.');
+            }
+
+            if (!response.ok) {
+                throw new Error(`Server error: ${response.status}`);
+            }
+
             const data = await response.json();
             console.log('📊 Bookings data received:', data);
 
-            if (!response.ok) {
-                // Handle specific backend error messages
-                const errorMessage = data.message || data.error || `HTTP ${response.status}`;
-                throw new Error(errorMessage);
-            }
-
-            // Handle different response structures
+            // Handle successful response
             if (data.success) {
-                setBookings(data.bookings || data.data || []);
-                setPagination({
-                    total: data.summary?.totalBookings || data.total || data.bookings?.length || 0,
-                    totalPages: data.summary?.totalPages || data.totalPages || Math.ceil((data.total || 0) / filters.limit),
-                    currentPage: data.summary?.currentPage || data.page || filters.page
-                });
+                const bookingsArray = data.bookings || data.data || [];
+                setBookings(bookingsArray);
+
+                // Handle pagination
+                if (data.summary) {
+                    setPagination({
+                        total: data.summary.totalBookings || 0,
+                        totalPages: data.summary.totalPages || 1,
+                        currentPage: data.summary.currentPage || 1
+                    });
+                } else {
+                    setPagination({
+                        total: data.total || bookingsArray.length,
+                        totalPages: data.totalPages || Math.ceil((data.total || bookingsArray.length) / filters.limit),
+                        currentPage: data.currentPage || filters.page
+                    });
+                }
+
+                console.log('✅ Bookings loaded successfully:', bookingsArray.length);
             } else {
                 // Backend returned success: false
                 const errorMessage = data.message || data.error || 'Failed to fetch bookings data';
-                throw new Error(errorMessage);
+                console.warn('⚠️ Backend returned success: false:', errorMessage);
+
+                // Still show empty state rather than error
+                setBookings([]);
+                setPagination({ total: 0, totalPages: 0, currentPage: 1 });
             }
 
         } catch (err) {
             console.error('❌ Bookings fetch error:', err);
-            setError(err.message || 'Failed to load bookings');
+
+            // Provide user-friendly error messages
+            if (err.message.includes('Authentication')) {
+                setError('Please login again to view bookings.');
+            } else if (err.message.includes('Access denied')) {
+                setError('You need admin privileges to view all bookings.');
+            } else if (err.message.includes('Failed to fetch') || err.message.includes('Network')) {
+                setError('Unable to connect to server. Please check if the backend is running.');
+            } else {
+                setError('Unable to load bookings at the moment.');
+            }
+
             setBookings([]);
             setPagination({ total: 0, totalPages: 0, currentPage: 1 });
         } finally {
@@ -131,8 +182,8 @@ export const useBookingsData = () => {
                     });
                 } else {
                     console.warn('⚠️ Stats endpoint returned unexpected format:', data);
-                    // Set default stats if endpoint doesn't exist or returns unexpected format
-                    setStats({
+                    // Keep existing stats or set defaults
+                    setStats(prevStats => prevStats.totalBookings > 0 ? prevStats : {
                         totalBookings: 0,
                         confirmedBookings: 0,
                         pendingBookings: 0,
@@ -143,27 +194,11 @@ export const useBookingsData = () => {
                 }
             } else {
                 console.warn('⚠️ Stats endpoint failed:', response.status);
-                // Stats endpoint might not exist - set defaults
-                setStats({
-                    totalBookings: 0,
-                    confirmedBookings: 0,
-                    pendingBookings: 0,
-                    cancelledBookings: 0,
-                    totalRevenue: 0,
-                    averageBookingValue: 0
-                });
+                // Don't overwrite existing stats on failure
             }
         } catch (error) {
             console.warn('⚠️ Could not fetch booking stats:', error.message);
-            // Set default stats if stats endpoint doesn't exist
-            setStats({
-                totalBookings: 0,
-                confirmedBookings: 0,
-                pendingBookings: 0,
-                cancelledBookings: 0,
-                totalRevenue: 0,
-                averageBookingValue: 0
-            });
+            // Keep existing stats on error
         }
     }, [API_BASE_URL]);
 
@@ -208,16 +243,21 @@ export const useBookingsData = () => {
     // Export bookings to CSV
     const exportBookings = () => {
         try {
+            if (bookings.length === 0) {
+                showToast('No bookings available to export', 'info');
+                return;
+            }
+
             const csvContent = [
                 ['Reference', 'Passenger', 'Trip', 'Seats', 'Amount', 'Status', 'Date'].join(','),
                 ...bookings.map(booking => [
-                    booking.bookingReference,
+                    booking.bookingReference || 'N/A',
                     booking.passenger?.user?.username || 'Unknown',
                     booking.trip?.route?.description || 'Unknown',
-                    booking.seats,
-                    booking.amount,
-                    booking.status,
-                    new Date(booking.createdAt).toLocaleDateString()
+                    booking.seats || 0,
+                    booking.amount || 0,
+                    booking.status || 'Unknown',
+                    booking.createdAt ? new Date(booking.createdAt).toLocaleDateString() : 'N/A'
                 ].join(','))
             ].join('\n');
 
@@ -251,7 +291,6 @@ export const useBookingsData = () => {
 
     // Load initial data
     useEffect(() => {
-        // Try to fetch bookings, but don't crash if it fails
         const loadData = async () => {
             try {
                 await fetchBookings();

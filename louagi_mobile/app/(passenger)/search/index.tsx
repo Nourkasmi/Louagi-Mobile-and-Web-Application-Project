@@ -1,4 +1,4 @@
-// app/(passenger)/search/index.tsx - CLEANED COMPLETE VERSION
+// app/(passenger)/search/index.tsx - COMPLETE WORKING VERSION
 import React, { useEffect, useState, useCallback } from 'react';
 import { 
   View, 
@@ -39,6 +39,7 @@ export default function PassengerSearchScreen() {
     const fetchDestinations = async () => {
       try {
         setLoading(true);
+        
         const response = await getDestinations(stationId, { limit: 50 });
         
         let dests = [];
@@ -68,7 +69,7 @@ export default function PassengerSearchScreen() {
     }
   }, [stationId]);
 
-  // Search for trips when destination is selected
+  // THE WORKING TRIP SEARCH FUNCTION - Enhanced with multiple response structure handling
   const searchTrips = useCallback(async (destination: Destination, isRefresh = false) => {
     try {
       if (isRefresh) {
@@ -79,6 +80,7 @@ export default function PassengerSearchScreen() {
       
       setSelectedDestination(destination);
       
+      // API call with destinationId
       const response = await getTrips({
         destinationId: destination.id,
         status: 'scheduled',
@@ -86,29 +88,53 @@ export default function PassengerSearchScreen() {
         limit: 20
       });
       
-      if (response.success && response.data) {
-        const availableTrips = response.data.trips.filter(trip => trip.availableSeats > 0);
+      let tripList = [];
+      
+      // 🔧 CRITICAL FIX: Handle multiple possible response structures
+      if (response.success) {
+        // Try different possible structures based on your working code
+        if (response.data?.trips) {
+          tripList = response.data.trips;
+        } else if (response.trips) {
+          tripList = response.trips;
+        } else if (response.data?.data?.trips) {
+          tripList = response.data.data.trips;
+        } else if (Array.isArray(response.data)) {
+          tripList = response.data;
+        }
+        
+        // Filter for available seats
+        const availableTrips = Array.isArray(tripList) ? 
+          tripList.filter(trip => trip.availableSeats > 0) : [];
+        
         setTrips(availableTrips);
         
-        if (availableTrips.length === 0) {
+        if (availableTrips.length === 0 && tripList.length > 0) {
+          Alert.alert(
+            'Trips Found But Full', 
+            `Found ${tripList.length} trip(s), but all seats are booked. New trips are created when drivers declare availability.`
+          );
+        } else if (availableTrips.length === 0) {
           Alert.alert(
             'No Available Trips', 
             'No trips with available seats found for this route. New trips are created automatically when drivers declare availability.'
           );
         }
       } else {
-        Alert.alert('Error', 'Failed to search trips');
+        Alert.alert('Error', response.message || 'Failed to search trips');
+        setTrips([]);
       }
     } catch (error) {
       console.error('Error searching trips:', error);
       Alert.alert('Error', 'Failed to search trips');
+      setTrips([]);
     } finally {
       setSearchingTrips(false);
       setRefreshing(false);
     }
   }, []);
 
-  // Auto-refresh trips every 30 seconds to show real-time updates
+  // Auto-refresh trips every 30 seconds for real-time updates
   useEffect(() => {
     if (selectedDestination) {
       const interval = setInterval(() => {
@@ -164,7 +190,7 @@ export default function PassengerSearchScreen() {
       };
     } else {
       return { 
-        text: 'Waiting for Passengers', 
+        text: 'Available', 
         color: '#6c757d', 
         urgent: false 
       };
@@ -190,7 +216,7 @@ export default function PassengerSearchScreen() {
     >
       <Text style={styles.destinationName}>{item.description}</Text>
       <Text style={styles.destinationDetails}>
-        To: {item.endStation.name}, {item.endStation.city}
+        To: {item.endStation?.name || 'Unknown'}, {item.endStation?.city || 'Unknown'}
       </Text>
       <View style={styles.destinationMeta}>
         <Text style={styles.price}>From ${item.basePrice}</Text>
@@ -199,7 +225,7 @@ export default function PassengerSearchScreen() {
     </TouchableOpacity>
   );
 
-  // Render trip item
+  // Enhanced trip item rendering
   const renderTripItem = ({ item }: { item: Trip }) => {
     const bookedSeats = item.capacity - item.availableSeats;
     const statusInfo = getTripStatusInfo(item);
@@ -268,15 +294,15 @@ export default function PassengerSearchScreen() {
         <View style={styles.tripDetails}>
           <View style={styles.driverSection}>
             <Text style={styles.driverName}>
-              🚗 {item.driver.user.username}
+              🚗 {item.driver?.user?.username || 'Unknown Driver'}
             </Text>
             <Text style={styles.vehicleInfo}>
-              {item.driver.vehicleType || 'Vehicle'} • ⭐ {item.driver.rating.toFixed(1)}
+              {item.driver?.vehicleType || 'Vehicle'} • ⭐ {item.driver?.rating?.toFixed(1) || '5.0'}
             </Text>
           </View>
           
           <Text style={styles.durationText}>
-            ⏱️ {item.route.estimatedDuration} min trip
+            ⏱️ {item.route?.estimatedDuration || 90} min trip
           </Text>
         </View>
 
@@ -298,14 +324,31 @@ export default function PassengerSearchScreen() {
         </View>
         
         {/* Auto-start indicator */}
-        {item.departureTime === null && (
+        {!item.departureTime && (
           <View style={styles.autoStartIndicator}>
             <Text style={styles.autoStartText}>
-              🚀 Will start automatically when full
+              🚀 Starts automatically when full
             </Text>
           </View>
         )}
       </TouchableOpacity>
+    );
+  };
+
+  // Debug panel for development
+  const renderDebugPanel = () => {
+    if (!__DEV__) return null;
+    
+    return (
+      <View style={styles.debugPanel}>
+        <Text style={styles.debugTitle}>🔍 Debug Info:</Text>
+        <Text style={styles.debugText}>Station ID: {stationId}</Text>
+        <Text style={styles.debugText}>Destinations: {destinations.length}</Text>
+        <Text style={styles.debugText}>Selected: {selectedDestination?.description || 'None'}</Text>
+        <Text style={styles.debugText}>Trips: {trips.length}</Text>
+        <Text style={styles.debugText}>Loading: {loading.toString()}</Text>
+        <Text style={styles.debugText}>Searching: {searchingTrips.toString()}</Text>
+      </View>
     );
   };
 
@@ -327,6 +370,9 @@ export default function PassengerSearchScreen() {
         <Text style={styles.title}>Search Trips</Text>
         <Text style={styles.subtitle}>From: {stationName}</Text>
       </View>
+
+      {/* Debug panel for development */}
+      {renderDebugPanel()}
 
       {!selectedDestination ? (
         <>
@@ -352,7 +398,7 @@ export default function PassengerSearchScreen() {
         <>
           <View style={styles.selectedRoute}>
             <Text style={styles.routeText}>
-              {stationName} → {selectedDestination.endStation.name}
+              {stationName} → {selectedDestination.endStation?.name || 'Unknown'}
             </Text>
             <TouchableOpacity 
               onPress={() => {
@@ -381,6 +427,13 @@ export default function PassengerSearchScreen() {
                   <Text style={styles.refreshButtonText}>🔄 Refresh</Text>
                 </TouchableOpacity>
               </View>
+              
+              {/* Trip count indicator */}
+              {__DEV__ && (
+                <Text style={styles.tripCountText}>
+                  📊 Found {trips.length} trips with available seats
+                </Text>
+              )}
               
               <FlatList
                 data={trips}
@@ -464,6 +517,28 @@ const styles = StyleSheet.create({
     color: '#666',
     marginTop: 4,
   },
+  
+  // Debug panel styles (only visible in development)
+  debugPanel: {
+    backgroundColor: '#fff3cd',
+    padding: 12,
+    margin: 16,
+    borderRadius: 8,
+    borderLeftWidth: 4,
+    borderLeftColor: '#ffc107',
+  },
+  debugTitle: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#856404',
+    marginBottom: 8,
+  },
+  debugText: {
+    fontSize: 12,
+    color: '#856404',
+    marginBottom: 2,
+  },
+  
   sectionTitle: {
     fontSize: 18,
     fontWeight: '600',
@@ -552,6 +627,12 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 12,
     fontWeight: '600',
+  },
+  tripCountText: {
+    fontSize: 12,
+    color: '#666',
+    textAlign: 'center',
+    marginBottom: 8,
   },
   tripsTip: {
     backgroundColor: '#fff3cd',

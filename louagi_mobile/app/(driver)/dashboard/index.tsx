@@ -1,4 +1,4 @@
-// app/(driver)/dashboard/index.tsx - Driver Dashboard with Logout Button
+// app/(driver)/dashboard/index.tsx - CLEANED + FIXED
 import React, { useEffect, useState, useCallback } from 'react';
 import {
   View,
@@ -7,87 +7,52 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   StyleSheet,
-  Alert,
   RefreshControl,
-  Modal,
-  FlatList,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { useDispatch, useSelector } from 'react-redux'; // Add these imports
-import { logout } from '../../../src/store/authSlice'; // Add logout action
-import { RootState } from '../../../src/store/store'; // Add RootState type
-import AsyncStorage from '@react-native-async-storage/async-storage'; // Add AsyncStorage
+import { useDispatch, useSelector } from 'react-redux';
+import { logout } from '../../../src/store/authSlice';
+import { RootState } from '../../../src/store/store';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { 
   getDriverStatus, 
-  declareAvailability, 
-  getTripCapacityStatus,
-  cancelWaitingTrip,
-  updateTripStatus,
-  completeTrip,
-  getStations,
-  getDestinations,
   getDriverEarnings,
   type DriverStatus,
-  type TripCapacityStatus,
-  type Trip,
-  type Station,
-  type Destination
 } from '../../../src/services/api';
 
 export default function DriverDashboard() {
   const router = useRouter();
-  const dispatch = useDispatch(); // Add dispatch
-  const { user } = useSelector((state: RootState) => state.auth); // Add user from state
-  
+  const dispatch = useDispatch();
+  const { user } = useSelector((state: RootState) => state.auth);
+
+  // Check if user is authenticated
+  const isAuthenticated = !!user;
+  useEffect(() => {
+    if (!isAuthenticated) {
+      router.replace('/login');
+    }
+  }, [isAuthenticated]);
+
   // State management
   const [driverStatus, setDriverStatus] = useState<DriverStatus | null>(null);
-  const [capacityStatus, setCapacityStatus] = useState<TripCapacityStatus | null>(null);
-  const [activeTrip, setActiveTrip] = useState<Trip | null>(null);
   const [earnings, setEarnings] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [actionLoading, setActionLoading] = useState(false);
-  
-  // Modal states for availability declaration
-  const [showAvailabilityModal, setShowAvailabilityModal] = useState(false);
-  const [stations, setStations] = useState<Station[]>([]);
-  const [destinations, setDestinations] = useState<Destination[]>([]);
-  const [selectedStation, setSelectedStation] = useState<Station | null>(null);
-  const [selectedDestination, setSelectedDestination] = useState<Destination | null>(null);
-  const [loadingStations, setLoadingStations] = useState(false);
-  const [loadingDestinations, setLoadingDestinations] = useState(false);
 
-  // Handle logout
-  const handleLogout = () => {
-    Alert.alert(
-      'Logout',
-      'Are you sure you want to logout?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Logout',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              // Clear token from AsyncStorage
-              await AsyncStorage.removeItem('louagi_token');
-              // Clear global token
-              global.authToken = undefined;
-              // Dispatch logout action
-              dispatch(logout());
-              // Navigate to login
-              router.replace('/login');
-            } catch (error) {
-              console.error('Error during logout:', error);
-              // Still proceed with logout even if AsyncStorage fails
-              global.authToken = undefined;
-              dispatch(logout());
-              router.replace('/login');
-            }
-          },
-        },
-      ]
-    );
+  // Logout function
+  const handleLogout = async () => {
+    console.log('🔄 Logout button pressed');
+    try {
+      await AsyncStorage.removeItem('louagi_token');
+      global.authToken = undefined;
+      dispatch(logout());
+      router.replace('/login');
+      console.log('✅ Logged out and navigated to login');
+    } catch (error) {
+      console.error('❌ Logout error:', error);
+      dispatch(logout());
+      router.replace('/login');
+    }
   };
 
   // Fetch driver data
@@ -103,17 +68,6 @@ export default function DriverDashboard() {
       const statusResponse = await getDriverStatus();
       if (statusResponse.success && statusResponse.data) {
         setDriverStatus(statusResponse.data);
-        setActiveTrip(statusResponse.data.activeTrip);
-
-        // If driver has active trip waiting for passengers, get capacity status
-        if (statusResponse.data.activeTrip?.status === 'scheduled') {
-          const capacityResponse = await getTripCapacityStatus();
-          if (capacityResponse.success && capacityResponse.data) {
-            setCapacityStatus(capacityResponse.data);
-          }
-        } else {
-          setCapacityStatus(null);
-        }
       }
 
       // Fetch today's earnings
@@ -127,471 +81,17 @@ export default function DriverDashboard() {
 
     } catch (error) {
       console.error('Error fetching driver data:', error);
-      Alert.alert('Error', 'Failed to load driver information');
+      // Alert removed for web compatibility
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
   }, []);
 
-  // Initial load and periodic refresh
+  // Initial load
   useEffect(() => {
     fetchDriverData();
-    
-    // Set up interval to refresh capacity status if waiting for passengers
-    const interval = setInterval(() => {
-      if (activeTrip?.status === 'scheduled') {
-        fetchDriverData(true);
-      }
-    }, 30000); // Refresh every 30 seconds
-
-    return () => clearInterval(interval);
-  }, [fetchDriverData, activeTrip]);
-
-  // Load stations for availability declaration
-  const loadStations = async () => {
-    try {
-      setLoadingStations(true);
-      const response = await getStations({ limit: 50 });
-      if (response.success && response.data) {
-        setStations(response.data.stations);
-      }
-    } catch (error) {
-      Alert.alert('Error', 'Failed to load stations');
-    } finally {
-      setLoadingStations(false);
-    }
-  };
-
-  // Load destinations for selected station
-  const loadDestinations = async (stationId: string) => {
-    try {
-      setLoadingDestinations(true);
-      const response = await getDestinations(stationId, { limit: 50 });
-      if (response.success && response.data) {
-        setDestinations(response.data.destinations);
-      }
-    } catch (error) {
-      Alert.alert('Error', 'Failed to load destinations');
-    } finally {
-      setLoadingDestinations(false);
-    }
-  };
-
-  // Handle station selection
-  const handleStationSelection = (station: Station) => {
-    setSelectedStation(station);
-    setSelectedDestination(null);
-    setDestinations([]);
-    loadDestinations(station.id);
-  };
-
-  // Declare availability action
-  const handleDeclareAvailability = async () => {
-    if (!selectedStation || !selectedDestination) {
-      Alert.alert('Error', 'Please select both station and destination');
-      return;
-    }
-
-    try {
-      setActionLoading(true);
-      
-      // For now, we'll use a mock schedule ID - in production, you'd let user select
-      const mockScheduleId = 'schedule-1'; 
-      
-      const response = await declareAvailability({
-        stationId: selectedStation.id,
-        scheduleId: mockScheduleId,
-        destinationId: selectedDestination.id
-      });
-
-      if (response.success && response.data) {
-        setShowAvailabilityModal(false);
-        Alert.alert(
-          'Success!', 
-          response.data.wasAutoStarted 
-            ? `Trip auto-started with ${response.data.autoConfirmedBookings} passengers!`
-            : `Trip created! Waiting for passengers (${response.data.availableSeats}/${response.data.totalCapacity} seats available)`,
-          [{ text: 'OK', onPress: () => fetchDriverData() }]
-        );
-      } else {
-        Alert.alert('Error', response.message || 'Failed to declare availability');
-      }
-    } catch (error) {
-      console.error('Error declaring availability:', error);
-      Alert.alert('Error', 'Failed to declare availability');
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  // Start trip manually
-  const handleStartTrip = async () => {
-    if (!activeTrip) return;
-
-    Alert.alert(
-      'Start Trip',
-      `Are you sure you want to start this trip? ${capacityStatus ? `Current passengers: ${capacityStatus.bookedSeats}/${capacityStatus.totalCapacity}` : ''}`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Start Trip',
-          onPress: async () => {
-            try {
-              setActionLoading(true);
-              const response = await updateTripStatus(activeTrip.id, 'in_progress');
-              
-              if (response.success) {
-                Alert.alert('Success', 'Trip started successfully!');
-                fetchDriverData();
-              } else {
-                Alert.alert('Error', response.message || 'Failed to start trip');
-              }
-            } catch (error) {
-              Alert.alert('Error', 'Failed to start trip');
-            } finally {
-              setActionLoading(false);
-            }
-          }
-        }
-      ]
-    );
-  };
-
-  // Complete trip
-  const handleCompleteTrip = async () => {
-    if (!activeTrip) return;
-
-    Alert.alert(
-      'Complete Trip',
-      'Mark this trip as completed?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Complete',
-          onPress: async () => {
-            try {
-              setActionLoading(true);
-              const response = await completeTrip(activeTrip.id);
-              
-              if (response.success) {
-                Alert.alert('Success', 'Trip completed successfully! 🎉');
-                fetchDriverData();
-              } else {
-                Alert.alert('Error', response.message || 'Failed to complete trip');
-              }
-            } catch (error) {
-              Alert.alert('Error', 'Failed to complete trip');
-            } finally {
-              setActionLoading(false);
-            }
-          }
-        }
-      ]
-    );
-  };
-
-  // Cancel waiting trip
-  const handleCancelWaitingTrip = async () => {
-    if (!activeTrip || !capacityStatus) return;
-
-    if (capacityStatus.bookedSeats > 0) {
-      Alert.alert('Cannot Cancel', 'You cannot cancel a trip that already has passengers booked.');
-      return;
-    }
-
-    Alert.alert(
-      'Cancel Trip',
-      'Are you sure you want to cancel this waiting trip?',
-      [
-        { text: 'No', style: 'cancel' },
-        {
-          text: 'Yes, Cancel',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              setActionLoading(true);
-              const response = await cancelWaitingTrip();
-              
-              if (response.success) {
-                Alert.alert('Success', 'Trip cancelled successfully');
-                fetchDriverData();
-              } else {
-                Alert.alert('Error', response.message || 'Failed to cancel trip');
-              }
-            } catch (error) {
-              Alert.alert('Error', 'Failed to cancel trip');
-            } finally {
-              setActionLoading(false);
-            }
-          }
-        }
-      ]
-    );
-  };
-
-  // Render status card
-  const renderStatusCard = () => {
-    if (!driverStatus) return null;
-
-    const { availabilityStatus, statusMessage, canDeclareAvailability } = driverStatus;
-    
-    let statusColor = '#28a745'; // green
-    let statusIcon = '✅';
-    
-    if (availabilityStatus === 'waiting_passengers') {
-      statusColor = '#ffc107'; // yellow
-      statusIcon = '⏳';
-    } else if (availabilityStatus === 'on_trip') {
-      statusColor = '#007bff'; // blue
-      statusIcon = '🚗';
-    } else if (availabilityStatus === 'in_queue') {
-      statusColor = '#6c757d'; // gray
-      statusIcon = '🔄';
-    }
-
-    return (
-      <View style={styles.statusCard}>
-        <View style={styles.statusHeader}>
-          <View style={[styles.statusIndicator, { backgroundColor: statusColor }]} />
-          <Text style={styles.statusTitle}>Driver Status {statusIcon}</Text>
-        </View>
-        <Text style={styles.statusMessage}>{statusMessage}</Text>
-        
-        {canDeclareAvailability && (
-          <TouchableOpacity
-            style={styles.declareButton}
-            onPress={() => {
-              setShowAvailabilityModal(true);
-              loadStations();
-            }}
-            disabled={actionLoading}
-          >
-            <Text style={styles.declareButtonText}>
-              {actionLoading ? 'Processing...' : 'Declare Availability'}
-            </Text>
-          </TouchableOpacity>
-        )}
-      </View>
-    );
-  };
-
-  // Render active trip card
-  const renderActiveTripCard = () => {
-    if (!activeTrip) return null;
-
-    return (
-      <View style={styles.tripCard}>
-        <Text style={styles.tripCardTitle}>
-          Active Trip {activeTrip.status === 'scheduled' ? '⏳' : activeTrip.status === 'in_progress' ? '🚗' : '✅'}
-        </Text>
-        
-        <View style={styles.tripInfo}>
-          <Text style={styles.tripRoute}>{activeTrip.route.description}</Text>
-          <Text style={styles.tripTime}>
-            Departure: {activeTrip.departureTime ? new Date(activeTrip.departureTime).toLocaleTimeString() : 'When full'}
-          </Text>
-          <Text style={styles.tripStatus}>Status: {activeTrip.status}</Text>
-        </View>
-
-        {capacityStatus && (
-          <View style={styles.capacityInfo}>
-            <Text style={styles.capacityTitle}>
-              Passenger Status {capacityStatus.percentageFull === 100 ? '🚀' : '👥'}
-            </Text>
-            <View style={styles.capacityBar}>
-              <View 
-                style={[
-                  styles.capacityFill, 
-                  { 
-                    width: `${capacityStatus.percentageFull}%`,
-                    backgroundColor: capacityStatus.percentageFull === 100 ? '#28a745' : '#ffc107'
-                  }
-                ]} 
-              />
-            </View>
-            <Text style={styles.capacityText}>
-              {capacityStatus.bookedSeats}/{capacityStatus.totalCapacity} seats filled ({capacityStatus.percentageFull}%)
-            </Text>
-            <Text style={styles.capacitySubtext}>
-              {capacityStatus.bookingsCount} bookings • {capacityStatus.availableSeats} seats available
-            </Text>
-            {capacityStatus.willStartWhenFull && (
-              <Text style={styles.autoStartText}>
-                🚀 Will auto-start when full
-              </Text>
-            )}
-          </View>
-        )}
-
-        <View style={styles.tripActions}>
-          {activeTrip.status === 'scheduled' && (
-            <>
-              <TouchableOpacity
-                style={[styles.actionButton, styles.startButton]}
-                onPress={handleStartTrip}
-                disabled={actionLoading}
-              >
-                <Text style={styles.actionButtonText}>Start Trip</Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity
-                style={[
-                  styles.actionButton, 
-                  styles.cancelButton,
-                  (capacityStatus?.bookedSeats || 0) > 0 && styles.disabledButton
-                ]}
-                onPress={handleCancelWaitingTrip}
-                disabled={actionLoading || (capacityStatus?.bookedSeats || 0) > 0}
-              >
-                <Text style={styles.actionButtonText}>
-                  {(capacityStatus?.bookedSeats || 0) > 0 ? 'Has Passengers' : 'Cancel'}
-                </Text>
-              </TouchableOpacity>
-            </>
-          )}
-          
-          {activeTrip.status === 'in_progress' && (
-            <TouchableOpacity
-              style={[styles.actionButton, styles.completeButton]}
-              onPress={handleCompleteTrip}
-              disabled={actionLoading}
-            >
-              <Text style={styles.actionButtonText}>Complete Trip</Text>
-            </TouchableOpacity>
-          )}
-        </View>
-      </View>
-    );
-  };
-
-  // Render earnings card
-  const renderEarningsCard = () => (
-    <View style={styles.statsContainer}>
-      <TouchableOpacity 
-        style={styles.statCard}
-        onPress={() => router.push('/(driver)/earnings')}
-      >
-        <Text style={styles.statNumber}>
-          ${earnings?.totalEarnings?.toFixed(2) || '0.00'}
-        </Text>
-        <Text style={styles.statLabel}>Today's Earnings</Text>
-      </TouchableOpacity>
-      
-      <TouchableOpacity 
-        style={styles.statCard}
-        onPress={() => router.push('/(driver)/trips')}
-      >
-        <Text style={styles.statNumber}>{earnings?.totalTrips || 0}</Text>
-        <Text style={styles.statLabel}>Trips Today</Text>
-      </TouchableOpacity>
-      
-      <View style={styles.statCard}>
-        <Text style={styles.statNumber}>
-          {driverStatus?.profile?.rating?.toFixed(1) || '5.0'}⭐
-        </Text>
-        <Text style={styles.statLabel}>Rating</Text>
-      </View>
-    </View>
-  );
-
-  // Render availability modal
-  const renderAvailabilityModal = () => (
-    <Modal
-      visible={showAvailabilityModal}
-      animationType="slide"
-      presentationStyle="pageSheet"
-    >
-      <View style={styles.modalContainer}>
-        <View style={styles.modalHeader}>
-          <Text style={styles.modalTitle}>Declare Availability</Text>
-          <TouchableOpacity
-            onPress={() => setShowAvailabilityModal(false)}
-            style={styles.modalCloseButton}
-          >
-            <Text style={styles.modalCloseText}>✕</Text>
-          </TouchableOpacity>
-        </View>
-
-        <ScrollView style={styles.modalContent}>
-          {/* Station Selection */}
-          <Text style={styles.selectionLabel}>Select Station:</Text>
-          {loadingStations ? (
-            <ActivityIndicator size="small" color="#007bff" />
-          ) : (
-            <FlatList
-              data={stations}
-              keyExtractor={(item) => item.id}
-              renderItem={({ item }) => (
-                <TouchableOpacity
-                  style={[
-                    styles.selectionItem,
-                    selectedStation?.id === item.id && styles.selectedItem
-                  ]}
-                  onPress={() => handleStationSelection(item)}
-                >
-                  <Text style={styles.selectionItemTitle}>{item.name}</Text>
-                  <Text style={styles.selectionItemSubtitle}>
-                    {item.city}, {item.state}
-                  </Text>
-                </TouchableOpacity>
-              )}
-              style={styles.selectionList}
-            />
-          )}
-
-          {/* Destination Selection */}
-          {selectedStation && (
-            <>
-              <Text style={styles.selectionLabel}>Select Destination:</Text>
-              {loadingDestinations ? (
-                <ActivityIndicator size="small" color="#007bff" />
-              ) : (
-                <FlatList
-                  data={destinations}
-                  keyExtractor={(item) => item.id}
-                  renderItem={({ item }) => (
-                    <TouchableOpacity
-                      style={[
-                        styles.selectionItem,
-                        selectedDestination?.id === item.id && styles.selectedItem
-                      ]}
-                      onPress={() => setSelectedDestination(item)}
-                    >
-                      <Text style={styles.selectionItemTitle}>
-                        {item.endStation.name}
-                      </Text>
-                      <Text style={styles.selectionItemSubtitle}>
-                        ${item.basePrice} • {item.estimatedDuration} min
-                      </Text>
-                    </TouchableOpacity>
-                  )}
-                  style={styles.selectionList}
-                />
-              )}
-            </>
-          )}
-
-          {/* Confirm Button */}
-          {selectedStation && selectedDestination && (
-            <TouchableOpacity
-              style={[styles.confirmButton, actionLoading && styles.disabledButton]}
-              onPress={handleDeclareAvailability}
-              disabled={actionLoading}
-            >
-              {actionLoading ? (
-                <ActivityIndicator color="white" />
-              ) : (
-                <Text style={styles.confirmButtonText}>
-                  Create Trip: {selectedStation.name} → {selectedDestination.endStation.name}
-                </Text>
-              )}
-            </TouchableOpacity>
-          )}
-        </ScrollView>
-      </View>
-    </Modal>
-  );
+  }, [fetchDriverData]);
 
   if (loading) {
     return (
@@ -612,32 +112,64 @@ export default function DriverDashboard() {
         />
       }
     >
-      {/* Header with Logout Button */}
+      {/* Header with Buttons */}
       <View style={styles.header}>
         <View style={styles.headerContent}>
           <Text style={styles.title}>Driver Dashboard</Text>
           <Text style={styles.subtitle}>
-            Welcome back, {user?.username || driverStatus?.profile?.user?.username}! 👋
+            Welcome back, {user?.username}! 👋
           </Text>
         </View>
-        <TouchableOpacity
-          style={styles.logoutButton}
-          onPress={handleLogout}
-        >
-          <Text style={styles.logoutButtonText}>Logout</Text>
-        </TouchableOpacity>
+        <View style={styles.buttonContainer}>
+          {/* Logout Button */}
+          <TouchableOpacity
+            style={styles.logoutButton}
+            onPress={handleLogout}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.logoutIcon}>🚪</Text>
+            <Text style={styles.logoutButtonText}>Logout</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
+      {/* Declare Availability Button */}
       <TouchableOpacity
         style={styles.declareButton}
         onPress={() => router.push('/(driver)/declare-availability')}
       >
         <Text style={styles.declareButtonText}>Declare Availability</Text>
       </TouchableOpacity>
+
+      {/* Earnings Card */}
+      <View style={styles.statsContainer}>
+        <TouchableOpacity 
+          style={styles.statCard}
+          onPress={() => router.push('/(driver)/earnings')}
+        >
+          <Text style={styles.statNumber}>
+            ${earnings?.totalEarnings?.toFixed(2) || '0.00'}
+          </Text>
+          <Text style={styles.statLabel}>Today's Earnings</Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity 
+          style={styles.statCard}
+          onPress={() => router.push('/(driver)/trips')}
+        >
+          <Text style={styles.statNumber}>{earnings?.totalTrips || 0}</Text>
+          <Text style={styles.statLabel}>Trips Today</Text>
+        </TouchableOpacity>
+        
+        <View style={styles.statCard}>
+          <Text style={styles.statNumber}>
+            {driverStatus?.profile?.rating?.toFixed(1) || '5.0'}⭐
+          </Text>
+          <Text style={styles.statLabel}>Rating</Text>
+        </View>
+      </View>
       
-      {renderActiveTripCard()}
-      {renderEarningsCard()}
-      
+      {/* Quick Actions */}
       <View style={styles.quickActions}>
         <TouchableOpacity 
           style={styles.quickActionButton}
@@ -653,8 +185,6 @@ export default function DriverDashboard() {
           <Text style={styles.quickActionText}>💰 Earnings</Text>
         </TouchableOpacity>
       </View>
-
-      {renderAvailabilityModal()}
     </ScrollView>
   );
 }
@@ -678,12 +208,18 @@ const styles = StyleSheet.create({
     padding: 20,
     paddingTop: 60,
     backgroundColor: 'white',
-    flexDirection: 'row', // Make header horizontal
-    justifyContent: 'space-between', // Space between content and logout button
-    alignItems: 'flex-start', // Align items to top
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   headerContent: {
-    flex: 1, // Take up remaining space
+    flex: 1,
+    marginRight: 16,
   },
   title: {
     fontSize: 28,
@@ -695,12 +231,46 @@ const styles = StyleSheet.create({
     color: '#666',
     marginTop: 4,
   },
+  buttonContainer: {
+    gap: 8,
+  },
+  testButton: {
+    backgroundColor: '#28a745',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 6,
+    alignItems: 'center',
+    minWidth: 70,
+  },
+  testButtonText: {
+    color: 'white',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
   logoutButton: {
     backgroundColor: '#dc3545',
     paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 6,
-    marginTop: 4, // Small top margin to align with title
+    paddingVertical: 12,
+    borderRadius: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: 90,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
+    borderWidth: 1,
+    borderColor: '#dc3545',
+  },
+  logoutButtonDisabled: {
+    backgroundColor: '#6c757d',
+    borderColor: '#6c757d',
+  },
+  logoutIcon: {
+    fontSize: 16,
+    marginRight: 6,
   },
   logoutButtonText: {
     color: 'white',

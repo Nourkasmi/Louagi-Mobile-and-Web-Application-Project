@@ -1,4 +1,4 @@
-// app/(passenger)/home/index.tsx - CLEANED
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { useEffect, useState } from 'react';
 import { 
   View, 
@@ -7,7 +7,6 @@ import {
   TouchableOpacity, 
   ActivityIndicator, 
   StyleSheet, 
-  Alert,
   RefreshControl 
 } from 'react-native';
 import { useRouter } from 'expo-router';
@@ -26,27 +25,21 @@ export default function PassengerHomeScreen() {
   // Fetch stations
   const fetchStations = async (isRefresh = false) => {
     try {
-      if (isRefresh) {
-        setRefreshing(true);
-      } else {
-        setLoading(true);
-      }
+      if (isRefresh) setRefreshing(true);
+      else setLoading(true);
+
       setError(null);
-      
       const response = await getStations({ limit: 50 });
 
       if (response.success) {
         const stationsData = response.data?.stations || response.stations || [];
         setStations(stationsData);
-        
-        if (stationsData.length === 0) {
-          setError('No stations available at the moment');
-        }
+
+        if (stationsData.length === 0) setError('No stations available at the moment');
       } else {
         setError('Failed to load stations');
       }
     } catch (err: any) {
-      console.error('Error fetching stations:', err);
       setError('Failed to load stations. Please check your connection.');
     } finally {
       setLoading(false);
@@ -69,23 +62,17 @@ export default function PassengerHomeScreen() {
     });
   };
 
-  // Handle logout
-  const handleLogout = () => {
-    Alert.alert(
-      'Logout',
-      'Are you sure you want to logout?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Logout',
-          style: 'destructive',
-          onPress: () => {
-            dispatch(logout());
-            router.replace('/login');
-          }
-        }
-      ]
-    );
+  // CLEAN LOGOUT
+  const handleLogout = async () => {
+    try {
+      await AsyncStorage.removeItem('louagi_token');
+      global.authToken = undefined;
+      dispatch(logout());
+      router.replace('/login');
+    } catch (error) {
+      dispatch(logout());
+      router.replace('/login');
+    }
   };
 
   // Render station item

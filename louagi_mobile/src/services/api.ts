@@ -1,4 +1,4 @@
-// src/services/api.ts - Complete API service matching your backend
+// src/services/api.ts - COMPLETE CLEANED API service
 import store from '../store/store';
 import { logout } from '../store/authSlice';
 import axios, { InternalAxiosRequestConfig } from 'axios';
@@ -25,12 +25,9 @@ api.interceptors.request.use(
       config.headers.Authorization = `Bearer ${token}`;
     }
     
-    // Debug logging in development
+    // Debug logging in development only
     if (__DEV__) {
-      console.log(`🔄 API Request: ${config.method?.toUpperCase()} ${config.url}`, {
-        params: config.params,
-        hasAuth: !!token
-      });
+      console.log(`🔄 API Request: ${config.method?.toUpperCase()} ${config.url}`);
     }
     
     return config;
@@ -267,7 +264,6 @@ export const apiLogout = async (): Promise<ApiResponse> => {
   return res.data;
 };
 
-
 // ==================== STATION ENDPOINTS ====================
 
 export const getStations = async (params?: {
@@ -406,18 +402,14 @@ export const cancelWaitingTrip = async (): Promise<ApiResponse<{ cancelledTrip: 
   return res.data;
 };
 
-// src/services/api.ts
-
 export async function getSchedules(stationId?: string) {
   const params: any = {};
   if (stationId) params.stationId = stationId;
-  // This ensures we NEVER pass stationId=undefined, and only pass it if defined!
   const res = await api.get('/schedules', { params });
   return res.data;
 }
 
-
-// src/services/api.ts - CLEANED getDriverTrips function
+// CLEANED getDriverTrips function
 export const getDriverTrips = async (params?: {
   page?: number;
   limit?: number;
@@ -434,43 +426,33 @@ export const getDriverTrips = async (params?: {
       normalizedResponse = {
         success: res.data.success,
         message: res.data.message,
-        data: {
-          trips: res.data.trips || []
-        }
+        data: { trips: res.data.trips || [] }
       };
     } else if (Array.isArray(res.data)) {
       // Backend returns trips array directly
       normalizedResponse = {
         success: true,
-        data: {
-          trips: res.data
-        }
+        data: { trips: res.data }
       };
     } else if (res.data?.trips) {
       // Backend returns { trips: [...] } without success field
       normalizedResponse = {
         success: true,
-        data: {
-          trips: res.data.trips
-        }
+        data: { trips: res.data.trips }
       };
     } else if (res.data?.data?.trips) {
       // Backend returns { data: { trips: [...] } }
       normalizedResponse = {
         success: res.data.success || true,
         message: res.data.message,
-        data: {
-          trips: res.data.data.trips
-        }
+        data: { trips: res.data.data.trips }
       };
     } else {
       // Unexpected structure
       normalizedResponse = {
         success: false,
         message: 'Unexpected response format',
-        data: {
-          trips: []
-        }
+        data: { trips: [] }
       };
     }
 
@@ -480,9 +462,7 @@ export const getDriverTrips = async (params?: {
     return {
       success: false,
       message: 'Failed to fetch driver trips',
-      data: {
-        trips: []
-      }
+      data: { trips: [] }
     };
   }
 };

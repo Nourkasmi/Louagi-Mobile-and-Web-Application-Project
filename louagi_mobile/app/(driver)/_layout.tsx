@@ -1,4 +1,4 @@
-// app/(driver)/_layout.tsx
+// app/(driver)/_layout.tsx - FIXED: Hide Declare Availability Tab
 import React from 'react';
 import { Tabs } from 'expo-router';
 import { Platform } from 'react-native';
@@ -54,13 +54,11 @@ export default function DriverLayout() {
           ),
         }}
       />
+      {/* 🔧 FIXED: Hide Declare Availability tab from bottom navigation */}
       <Tabs.Screen
         name="declare-availability/index"
         options={{
-          title: 'Declare Availability',
-          tabBarIcon: ({ color }) => (
-            <IconSymbol size={28} name="person.badge.plus" color={color} />
-          ),
+          href: null, // This hides the tab from the bottom navigation
         }}
       />
       <Tabs.Screen
@@ -70,6 +68,13 @@ export default function DriverLayout() {
           tabBarIcon: ({ color }) => (
             <IconSymbol size={28} name="paperplane.fill" color={color} />
           ),
+        }}
+      />
+      {/* Add edit profile route (hidden from tabs) */}
+      <Tabs.Screen
+        name="profile/edit"
+        options={{
+          href: null, // Hidden from tab bar, accessible via navigation
         }}
       />
     </Tabs>

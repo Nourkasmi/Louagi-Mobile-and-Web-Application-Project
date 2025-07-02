@@ -510,6 +510,20 @@ export const getDriverQueue = async (): Promise<ApiResponse<{
   return res.data;
 };
 
+
+// ==================== DRIVER PROFILE UPDATES ====================
+
+export const updateDriverProfile = async (data: {
+  vehicleType?: string;
+  vehicleCapacity?: number;
+  experience?: number;
+  licenseNo?: string;
+  licenseExpiry?: string;
+}): Promise<ApiResponse<Driver>> => {
+  const res = await api.put('/drivers/profile', data);
+  return res.data;
+};
+
 // ==================== PAYMENT ENDPOINTS ====================
 
 export const createPaymentIntent = async (

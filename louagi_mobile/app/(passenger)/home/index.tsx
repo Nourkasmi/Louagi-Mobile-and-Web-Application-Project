@@ -1,3 +1,4 @@
+// app/(passenger)/home/index.tsx - FIXED: Always show logout button
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { useEffect, useState } from 'react';
 import { 
@@ -92,30 +93,10 @@ export default function PassengerHomeScreen() {
     </TouchableOpacity>
   );
 
-  if (loading && stations.length === 0) {
-    return (
-      <View style={styles.centered}>
-        <ActivityIndicator size="large" color="#0066cc" />
-        <Text style={styles.loadingText}>Loading stations...</Text>
-      </View>
-    );
-  }
-
-  if (error && stations.length === 0) {
-    return (
-      <View style={styles.centered}>
-        <Text style={styles.errorIcon}>🚌</Text>
-        <Text style={styles.errorText}>{error}</Text>
-        <TouchableOpacity style={styles.retryButton} onPress={() => fetchStations()}>
-          <Text style={styles.retryButtonText}>🔄 Retry</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
-
+  // 🔧 FIXED: Always render the full structure including header with logout button
   return (
     <View style={styles.container}>
-      {/* Header */}
+      {/* Header - ALWAYS SHOWN */}
       <View style={styles.header}>
         <View style={styles.headerContent}>
           <Text style={styles.title}>Book Your Louage</Text>
@@ -126,7 +107,7 @@ export default function PassengerHomeScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* Quick Stats */}
+      {/* Quick Stats - ALWAYS SHOWN */}
       <View style={styles.statsContainer}>
         <View style={styles.statItem}>
           <Text style={styles.statNumber}>{stations.length}</Text>
@@ -142,45 +123,64 @@ export default function PassengerHomeScreen() {
         </View>
       </View>
 
-      {/* Welcome Message */}
-      {stations.length > 0 && (
-        <View style={styles.welcomeCard}>
-          <Text style={styles.welcomeText}>
-            👋 Welcome! Choose your departure station to find available trips.
-          </Text>
+      {/* Content Area - Show loading, error, or stations list */}
+      {loading && stations.length === 0 ? (
+        <View style={styles.centered}>
+          <ActivityIndicator size="large" color="#0066cc" />
+          <Text style={styles.loadingText}>Loading stations...</Text>
         </View>
-      )}
+      ) : error && stations.length === 0 ? (
+        // 🔧 FIXED: Error state no longer replaces entire component
+        <View style={styles.centered}>
+          <Text style={styles.errorIcon}>🚌</Text>
+          <Text style={styles.errorText}>{error}</Text>
+          <TouchableOpacity style={styles.retryButton} onPress={() => fetchStations()}>
+            <Text style={styles.retryButtonText}>🔄 Retry</Text>
+          </TouchableOpacity>
+        </View>
+      ) : (
+        <>
+          {/* Welcome Message */}
+          {stations.length > 0 && (
+            <View style={styles.welcomeCard}>
+              <Text style={styles.welcomeText}>
+                👋 Welcome! Choose your departure station to find available trips.
+              </Text>
+            </View>
+          )}
 
-      {/* Stations List */}
-      <FlatList
-        data={stations}
-        keyExtractor={(item) => item.id}
-        renderItem={renderStationItem}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={() => fetchStations(true)}
-            colors={['#0066cc']}
+          {/* Stations List */}
+          <FlatList
+            data={stations}
+            keyExtractor={(item) => item.id}
+            renderItem={renderStationItem}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={() => fetchStations(true)}
+                colors={['#0066cc']}
+              />
+            }
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={styles.listContainer}
+            ListEmptyComponent={
+              <View style={styles.emptyState}>
+                <Text style={styles.emptyIcon}>🚌</Text>
+                <Text style={styles.emptyText}>No stations available</Text>
+                <Text style={styles.emptySubtext}>
+                  Pull to refresh or try again later
+                </Text>
+                <TouchableOpacity 
+                  style={styles.retryButton} 
+                  onPress={() => fetchStations()}
+                >
+                  <Text style={styles.retryButtonText}>🔄 Refresh</Text>
+                </TouchableOpacity>
+              </View>
+            }
           />
-        }
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.listContainer}
-        ListEmptyComponent={
-          <View style={styles.emptyState}>
-            <Text style={styles.emptyIcon}>🚌</Text>
-            <Text style={styles.emptyText}>No stations available</Text>
-            <Text style={styles.emptySubtext}>
-              Pull to refresh or try again later
-            </Text>
-            <TouchableOpacity 
-              style={styles.retryButton} 
-              onPress={() => fetchStations()}
-            >
-              <Text style={styles.retryButtonText}>🔄 Refresh</Text>
-            </TouchableOpacity>
-          </View>
-        }
-      />
+        </>
+      )}
     </View>
   );
 }

@@ -114,32 +114,32 @@ export default function DriverProfileScreen() {
   };
 
   // Render user info card
-  const renderUserInfoCard = () => (
-    <View style={styles.userCard}>
-      <View style={styles.userHeader}>
-        <View style={styles.avatar}>
-          <Text style={styles.avatarText}>
-            {userProfile?.username?.charAt(0).toUpperCase() || 'D'}
-          </Text>
-        </View>
-        <View style={styles.userInfo}>
-          <Text style={styles.userName}>{userProfile?.username}</Text>
-          <Text style={styles.userEmail}>{userProfile?.email}</Text>
-          <Text style={styles.userRole}>🚗 Driver</Text>
-          <Text style={styles.userRating}>⭐ {driverProfile?.rating?.toFixed(1) || '5.0'}</Text>
-        </View>
+const renderUserInfoCard = () => (
+  <View style={styles.userCard}>
+    <View style={styles.userHeader}>
+      <View style={styles.avatar}>
+        <Text style={styles.avatarText}>
+          {userProfile?.username?.charAt(0).toUpperCase() || 'D'}
+        </Text>
       </View>
-      
-      <TouchableOpacity
-        style={styles.editButton}
-        onPress={() => {
-          Alert.alert('Coming Soon', 'Profile editing will be available soon!');
-        }}
-      >
-        <Text style={styles.editButtonText}>Edit Profile</Text>
-      </TouchableOpacity>
+      <View style={styles.userInfo}>
+        <Text style={styles.userName}>{userProfile?.username}</Text>
+        <Text style={styles.userEmail}>{userProfile?.email}</Text>
+        <Text style={styles.userPhone}>{userProfile?.phone}</Text>
+        <Text style={styles.userRole}>🚗 Driver</Text>
+        <Text style={styles.userRating}>⭐ {driverProfile?.rating?.toFixed(1) || '5.0'}</Text>
+      </View>
     </View>
-  );
+    
+    {/* 🔧 UPDATED: Add Edit Profile Button */}
+    <TouchableOpacity
+      style={styles.editButton}
+      onPress={() => router.push('/(driver)/profile/edit')}
+    >
+      <Text style={styles.editButtonText}>Edit Profile</Text>
+    </TouchableOpacity>
+  </View>
+);
 
   // Render driver info card
   const renderDriverInfoCard = () => {

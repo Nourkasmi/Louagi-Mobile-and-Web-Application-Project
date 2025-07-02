@@ -1,4 +1,4 @@
-// app/(passenger)/search/index.tsx - COMPLETE WORKING VERSION WITH NAVIGATION FIX
+// app/(passenger)/search/index.tsx - FIXED VERSION WITH PROPER STATE CLEARING
 import React, { useEffect, useState, useCallback } from 'react';
 import { 
   View, 
@@ -33,43 +33,63 @@ export default function PassengerSearchScreen() {
   const [loading, setLoading] = useState(true);
   const [searchingTrips, setSearchingTrips] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [currentStationId, setCurrentStationId] = useState<string>('');
 
-  // Fetch destinations for this station
+  // 🔧 CRITICAL FIX: Reset all state when station changes
   useEffect(() => {
-    const fetchDestinations = async () => {
-      try {
-        setLoading(true);
-        
-        const response = await getDestinations(stationId, { limit: 50 });
-        
-        let dests = [];
-        if (response.success) {
-          if (response.data?.destinations) {
-            dests = response.data.destinations;
-          } else if (response.destinations) {
-            dests = response.destinations;
-          }
-        }
-        
-        setDestinations(dests);
-
-        if (!response.success || dests.length === 0) {
-          Alert.alert('Info', 'No destinations available for this station');
-        }
-      } catch (error) {
-        console.error('Error fetching destinations:', error);
-        Alert.alert('Error', 'Failed to load destinations');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    if (stationId) {
-      fetchDestinations();
+    // Check if we're switching to a different station
+    if (stationId && stationId !== currentStationId) {
+      console.log('🔄 Station changed from', currentStationId, 'to', stationId);
+      
+      // Clear all previous state
+      setDestinations([]);
+      setTrips([]);
+      setSelectedDestination(null);
+      setLoading(true);
+      setSearchingTrips(false);
+      setRefreshing(false);
+      
+      // Update current station
+      setCurrentStationId(stationId);
+      
+      // Fetch new destinations for this station
+      fetchDestinations(stationId);
     }
   }, [stationId]);
 
-  // THE WORKING TRIP SEARCH FUNCTION - Enhanced with multiple response structure handling
+  // Separate function to fetch destinations for a specific station
+  const fetchDestinations = async (targetStationId: string) => {
+    try {
+      setLoading(true);
+      console.log('📍 Fetching destinations for station:', targetStationId);
+      
+      const response = await getDestinations(targetStationId, { limit: 50 });
+      
+      let dests = [];
+      if (response.success) {
+        if (response.data?.destinations) {
+          dests = response.data.destinations;
+        } else if (response.destinations) {
+          dests = response.destinations;
+        }
+      }
+      
+      console.log('📍 Found', dests.length, 'destinations for station:', targetStationId);
+      setDestinations(dests);
+
+      if (!response.success || dests.length === 0) {
+        Alert.alert('Info', `No destinations available from ${stationName}`);
+      }
+    } catch (error) {
+      console.error('Error fetching destinations:', error);
+      Alert.alert('Error', 'Failed to load destinations');
+      setDestinations([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 🔧 FIXED: Enhanced trip search with proper station validation
   const searchTrips = useCallback(async (destination: Destination, isRefresh = false) => {
     try {
       if (isRefresh) {
@@ -78,9 +98,20 @@ export default function PassengerSearchScreen() {
         setSearchingTrips(true);
       }
       
+      console.log('🔍 Searching trips for destination:', destination.id, 'from station:', stationId);
+      
+      // Validate that destination belongs to current station
+      if (destination.startId !== stationId) {
+        console.warn('⚠️ Destination does not belong to current station!');
+        Alert.alert('Error', 'Invalid destination for selected station');
+        return;
+      }
+      
       setSelectedDestination(destination);
       
-      // API call with destinationId
+      // Clear previous trips before searching
+      setTrips([]);
+      
       const response = await getTrips({
         destinationId: destination.id,
         status: 'scheduled',
@@ -90,9 +121,7 @@ export default function PassengerSearchScreen() {
       
       let tripList = [];
       
-      // 🔧 CRITICAL FIX: Handle multiple possible response structures
       if (response.success) {
-        // Try different possible structures based on your working code
         if (response.data?.trips) {
           tripList = response.data.trips;
         } else if (response.trips) {
@@ -103,21 +132,33 @@ export default function PassengerSearchScreen() {
           tripList = response.data;
         }
         
-        // Filter for available seats
-        const availableTrips = Array.isArray(tripList) ? 
-          tripList.filter(trip => trip.availableSeats > 0) : [];
+        // 🔧 ADDITIONAL VALIDATION: Filter trips that actually belong to this route
+        const validTrips = Array.isArray(tripList) ? 
+          tripList.filter(trip => {
+            // Ensure trip's route matches our current station and destination
+            const routeMatches = trip.route?.startStation?.id === stationId && 
+                                trip.route?.endStation?.id === destination.endId;
+            const hasSeats = trip.availableSeats > 0;
+            
+            if (!routeMatches) {
+              console.warn('⚠️ Filtered out trip with wrong route:', trip.id);
+            }
+            
+            return routeMatches && hasSeats;
+          }) : [];
         
-        setTrips(availableTrips);
+        console.log('🎯 Found', validTrips.length, 'valid trips for route');
+        setTrips(validTrips);
         
-        if (availableTrips.length === 0 && tripList.length > 0) {
+        if (validTrips.length === 0 && tripList.length > 0) {
           Alert.alert(
             'Trips Found But Full', 
-            `Found ${tripList.length} trip(s), but all seats are booked. New trips are created when drivers declare availability.`
+            `Found ${tripList.length} trip(s), but all seats are booked or trips are for different routes. New trips are created when drivers declare availability.`
           );
-        } else if (availableTrips.length === 0) {
+        } else if (validTrips.length === 0) {
           Alert.alert(
             'No Available Trips', 
-            'No trips with available seats found for this route. New trips are created automatically when drivers declare availability.'
+            `No trips with available seats found for ${stationName} → ${destination.endStation?.name}. New trips are created automatically when drivers declare availability.`
           );
         }
       } else {
@@ -132,18 +173,41 @@ export default function PassengerSearchScreen() {
       setSearchingTrips(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [stationId, stationName]);
 
   // Auto-refresh trips every 30 seconds for real-time updates
   useEffect(() => {
-    if (selectedDestination) {
+    if (selectedDestination && selectedDestination.startId === stationId) {
       const interval = setInterval(() => {
         searchTrips(selectedDestination, true);
       }, 30000);
 
       return () => clearInterval(interval);
     }
-  }, [selectedDestination, searchTrips]);
+  }, [selectedDestination, searchTrips, stationId]);
+
+  // 🔧 FIXED: Enhanced destination selection with validation
+  const handleDestinationSelect = (destination: Destination) => {
+    console.log('🎯 Selected destination:', destination.description, 'for station:', stationId);
+    
+    // Validate destination belongs to current station
+    if (destination.startId !== stationId) {
+      console.error('❌ Destination startId does not match current station!');
+      Alert.alert('Error', 'Invalid destination selected');
+      return;
+    }
+    
+    // Clear any existing trips before searching new ones
+    setTrips([]);
+    searchTrips(destination);
+  };
+
+  // 🔧 FIXED: Reset destination and trips when changing route
+  const handleChangeRoute = () => {
+    console.log('🔄 Changing route - clearing destination and trips');
+    setSelectedDestination(null);
+    setTrips([]);
+  };
 
   // Format time for display
   const formatTime = (dateString: string | null) => {
@@ -197,11 +261,22 @@ export default function PassengerSearchScreen() {
     }
   };
 
-  // 🔧 FIXED: Navigate to booking screen with comprehensive error handling and data validation
+  // Navigate to booking screen with enhanced validation
   const selectTrip = (trip: Trip) => {
     try {
-      console.log('🚗 Original trip data:', trip);
+      console.log('🚗 Selecting trip:', trip.id, 'for route:', trip.route.description);
       
+      // Validate trip belongs to current route
+      if (trip.route?.startStation?.id !== stationId) {
+        Alert.alert('Error', 'This trip is not from the selected station');
+        return;
+      }
+      
+      if (!selectedDestination || trip.route?.endStation?.id !== selectedDestination.endId) {
+        Alert.alert('Error', 'This trip does not go to the selected destination');
+        return;
+      }
+
       // Validate trip data before navigation
       if (!trip || !trip.id) {
         Alert.alert('Error', 'Invalid trip data. Please try again.');
@@ -322,7 +397,7 @@ export default function PassengerSearchScreen() {
         }
       };
 
-      console.log('🚗 Safe trip data created:', safeTrip.id);
+      console.log('🚗 Navigating to booking with safe trip data');
       console.log('📍 Route:', safeTrip.route.startStation.name, '→', safeTrip.route.endStation.name);
       
       router.push({
@@ -338,11 +413,11 @@ export default function PassengerSearchScreen() {
     }
   };
 
-  // Render destination item
+  // Render destination item with validation
   const renderDestinationItem = ({ item }: { item: Destination }) => (
     <TouchableOpacity
       style={styles.destinationCard}
-      onPress={() => searchTrips(item)}
+      onPress={() => handleDestinationSelect(item)}
     >
       <Text style={styles.destinationName}>{item.description}</Text>
       <Text style={styles.destinationDetails}>
@@ -355,7 +430,7 @@ export default function PassengerSearchScreen() {
     </TouchableOpacity>
   );
 
-  // Enhanced trip item rendering
+  // Enhanced trip item rendering with route validation
   const renderTripItem = ({ item }: { item: Trip }) => {
     const bookedSeats = item.capacity - item.availableSeats;
     const statusInfo = getTripStatusInfo(item);
@@ -384,6 +459,13 @@ export default function PassengerSearchScreen() {
           <View style={[styles.statusBadge, { backgroundColor: statusInfo.color }]}>
             <Text style={styles.statusText}>{statusInfo.text}</Text>
           </View>
+        </View>
+        
+        {/* Route Validation Display */}
+        <View style={styles.routeValidation}>
+          <Text style={styles.routeText}>
+            {item.route?.startStation?.name || stationName} → {item.route?.endStation?.name || selectedDestination?.endStation?.name}
+          </Text>
         </View>
         
         {/* Capacity Visual */}
@@ -469,7 +551,7 @@ export default function PassengerSearchScreen() {
     return (
       <View style={styles.centered}>
         <ActivityIndicator size="large" color="#0066cc" />
-        <Text style={styles.loadingText}>Loading destinations...</Text>
+        <Text style={styles.loadingText}>Loading destinations for {stationName}...</Text>
       </View>
     );
   }
@@ -498,7 +580,7 @@ export default function PassengerSearchScreen() {
                 <Text style={styles.emptyIcon}>🎯</Text>
                 <Text style={styles.emptyText}>No destinations available</Text>
                 <Text style={styles.emptySubtext}>
-                  No routes are configured from this station yet.
+                  No routes are configured from {stationName} yet.
                 </Text>
               </View>
             }
@@ -511,10 +593,7 @@ export default function PassengerSearchScreen() {
               {stationName} → {selectedDestination.endStation?.name || 'Unknown'}
             </Text>
             <TouchableOpacity 
-              onPress={() => {
-                setSelectedDestination(null);
-                setTrips([]);
-              }}
+              onPress={handleChangeRoute}
               style={styles.changeButton}
             >
               <Text style={styles.changeButtonText}>Change Route</Text>
@@ -556,7 +635,7 @@ export default function PassengerSearchScreen() {
                     <Text style={styles.emptyIcon}>🚐</Text>
                     <Text style={styles.emptyText}>No trips available right now</Text>
                     <Text style={styles.emptySubtext}>
-                      Trips are created when drivers declare availability.{'\n'}
+                      Trips are created when drivers declare availability for this route.{'\n'}
                       Pull to refresh or try again in a few minutes.
                     </Text>
                     <TouchableOpacity
@@ -741,7 +820,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 8,
   },
   timeContainer: {
     flex: 1,
@@ -764,6 +843,13 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     color: 'white',
+  },
+  // 🔧 NEW: Route validation display
+  routeValidation: {
+    backgroundColor: '#f8f9fa',
+    padding: 8,
+    borderRadius: 6,
+    marginBottom: 12,
   },
   capacitySection: {
     marginBottom: 12,

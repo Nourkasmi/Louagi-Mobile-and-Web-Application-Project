@@ -63,18 +63,41 @@ export const useTripsData = () => {
             if (!response.ok) {
                 // Try to get error message from response
                 let errorMessage;
+                let errorDetails = null;
+
                 try {
                     const errorData = await response.json();
                     errorMessage = errorData.message || errorData.error || `HTTP ${response.status}: ${response.statusText}`;
-                } catch {
+                    errorDetails = errorData;
+                    console.error('🔍 Server Error Details:', errorData);
+                } catch (parseError) {
+                    console.error('🔍 Could not parse error response:', parseError);
                     errorMessage = `HTTP ${response.status}: ${response.statusText}`;
                 }
 
-                // Handle specific error codes
+                // Handle specific error codes with more detailed messages
                 if (response.status === 401) {
                     localStorage.removeItem('louagi_token');
                     window.location.href = '/login';
                     throw new Error('Session expired. Please login again.');
+                }
+
+                if (response.status === 500) {
+                    console.error('🚨 Server Error 500 - Backend Issue:', {
+                        url,
+                        method: config.method,
+                        headers: config.headers,
+                        errorDetails
+                    });
+                    throw new Error(`Server error (500): ${errorMessage}. Please check if the backend database is running and properly configured.`);
+                }
+
+                if (response.status === 404) {
+                    throw new Error(`Endpoint not found (404): ${endpoint}. Please check if the backend API routes are configured correctly.`);
+                }
+
+                if (response.status >= 500) {
+                    throw new Error(`Server error (${response.status}): ${errorMessage}. Please contact support or check server logs.`);
                 }
 
                 throw new Error(errorMessage);
@@ -98,8 +121,12 @@ export const useTripsData = () => {
             }
 
             if (error.name === 'TypeError' && error.message.includes('Failed to fetch')) {
-                console.error('❌ Network error:', endpoint);
-                throw new Error('Network error. Please check your internet connection and ensure the backend is running.');
+                console.error('❌ Network error:', {
+                    endpoint,
+                    url,
+                    message: 'Could not connect to backend server'
+                });
+                throw new Error(`Cannot connect to backend server at ${API_BASE_URL}. Please ensure the server is running on port 5000.`);
             }
 
             console.error('❌ API Request failed:', error);
@@ -121,6 +148,15 @@ export const useTripsData = () => {
             params.append('limit', filters.limit.toString());
 
             const endpoint = `/trips?${params.toString()}`;
+
+            console.log('🔍 Fetching trips with params:', {
+                search: filters.search,
+                status: filters.status,
+                page: filters.page,
+                limit: filters.limit,
+                fullEndpoint: endpoint
+            });
+
             const data = await apiRequest(endpoint);
 
             // Validate response structure
@@ -138,7 +174,8 @@ export const useTripsData = () => {
 
             // Validate trips data
             if (!Array.isArray(tripsData)) {
-                throw new Error('Invalid trips data format');
+                console.error('🔍 Invalid trips data structure:', data);
+                throw new Error('Invalid trips data format received from server');
             }
 
             setTrips(tripsData);
@@ -153,29 +190,36 @@ export const useTripsData = () => {
         } catch (err) {
             console.error('❌ Trips fetch error:', err);
 
-            // Retry logic for network errors
-            if (retryCount < 2 && (
-                err.message.includes('Network error') ||
+            // Retry logic for network errors (but not for server errors)
+            const shouldRetry = retryCount < 2 && (
+                err.message.includes('Cannot connect to backend') ||
                 err.message.includes('timed out') ||
-                err.message.includes('Failed to fetch')
-            )) {
-                console.log(`🔄 Retrying trips fetch (attempt ${retryCount + 1})...`);
+                err.message.includes('Network error') ||
+                (err.message.includes('Failed to fetch') && !err.message.includes('500'))
+            );
+
+            if (shouldRetry) {
+                console.log(`🔄 Retrying trips fetch (attempt ${retryCount + 1}/3)...`);
                 setTimeout(() => fetchTrips(retryCount + 1), 1000 * (retryCount + 1));
                 return;
             }
 
-            setError(err.message || 'Failed to load trips');
+            // Set user-friendly error messages
+            let userErrorMessage = err.message || 'Failed to load trips';
+
+            if (err.message.includes('Server error (500)')) {
+                userErrorMessage = 'Server database error. Please check if your backend database is running and configured correctly.';
+            } else if (err.message.includes('Cannot connect to backend')) {
+                userErrorMessage = 'Cannot connect to server. Please ensure your backend server is running on http://localhost:5000';
+            } else if (err.message.includes('Authentication') || err.message.includes('token')) {
+                userErrorMessage = 'Please login again to continue.';
+            } else if (err.message.includes('Network') || err.message.includes('connection')) {
+                userErrorMessage = 'Connection error. Please check your internet and try again.';
+            }
+
+            setError(userErrorMessage);
             setTrips([]);
             setPagination({ total: 0, totalPages: 0, currentPage: 1 });
-
-            // Show user-friendly error messages
-            if (err.message.includes('Authentication') || err.message.includes('token')) {
-                setError('Please login again to continue.');
-            } else if (err.message.includes('Network') || err.message.includes('connection')) {
-                setError('Connection error. Please check your internet and try again.');
-            } else if (err.message.includes('Server returned an error')) {
-                setError('Server error. Please try again later.');
-            }
         } finally {
             setLoading(false);
         }
@@ -310,12 +354,34 @@ export const useTripsData = () => {
         alert(`Trip Details:\nID: ${trip.id}\nRoute: ${trip.route?.description || 'Unknown'}\nStatus: ${trip.status}`);
     };
 
+    // ✅ NEW: Debug backend connection
+    const debugBackendConnection = useCallback(async () => {
+        console.log('🔍 DEBUGGING BACKEND CONNECTION');
+        console.log('API_BASE_URL:', API_BASE_URL);
+        console.log('Token exists:', !!localStorage.getItem('louagi_token'));
+        console.log('Navigator online:', navigator.onLine);
+
+        // Test basic connectivity
+        try {
+            const response = await fetch(`${API_BASE_URL.replace('/api', '')}/health`, {
+                method: 'GET',
+                mode: 'cors'
+            });
+            console.log('Health check response:', response.status);
+        } catch (error) {
+            console.error('Health check failed:', error.message);
+        }
+    }, [API_BASE_URL]);
+
     // ✅ ENHANCED: Load initial data with better error handling
     useEffect(() => {
         const loadData = async () => {
             console.log('🚀 Starting initial data load...');
             console.log('🔗 API URL:', API_BASE_URL);
             console.log('🔐 Token exists:', !!localStorage.getItem('louagi_token'));
+
+            // Run backend connection debug
+            await debugBackendConnection();
 
             try {
                 // Quick network check
@@ -332,8 +398,10 @@ export const useTripsData = () => {
                 // Set specific error messages based on error type
                 if (error.message.includes('Authentication') || error.message.includes('token')) {
                     setError('Authentication expired. Please login again.');
-                } else if (error.message.includes('Network') || error.message.includes('Failed to fetch')) {
-                    setError('Cannot connect to server. Please check if the backend is running.');
+                } else if (error.message.includes('Server error (500)')) {
+                    setError('Backend database error. Please check if your database is running and properly configured.');
+                } else if (error.message.includes('Cannot connect to backend')) {
+                    setError('Cannot connect to backend server. Please ensure it\'s running on http://localhost:5000');
                 } else if (error.message.includes('timeout')) {
                     setError('Server response timeout. Please try again.');
                 } else {
@@ -354,7 +422,7 @@ export const useTripsData = () => {
         };
 
         loadData();
-    }, [fetchTrips, fetchStats, API_BASE_URL]);
+    }, [fetchTrips, fetchStats, API_BASE_URL, debugBackendConnection]);
 
     // ✅ NEW: Auto-retry on network reconnection
     useEffect(() => {
@@ -400,6 +468,7 @@ export const useTripsData = () => {
         refreshData,
         handlePageChange,
         viewTripDetails,
+        debugBackendConnection, // NEW: for debugging
 
         // Computed
         hasFilters: Boolean(filters.search || filters.status),

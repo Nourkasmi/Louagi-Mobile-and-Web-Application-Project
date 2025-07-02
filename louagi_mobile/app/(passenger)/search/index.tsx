@@ -1,4 +1,4 @@
-// app/(passenger)/search/index.tsx - COMPLETE WORKING VERSION
+// app/(passenger)/search/index.tsx - COMPLETE WORKING VERSION WITH NAVIGATION FIX
 import React, { useEffect, useState, useCallback } from 'react';
 import { 
   View, 
@@ -197,15 +197,145 @@ export default function PassengerSearchScreen() {
     }
   };
 
-  // Navigate to booking screen
+  // 🔧 FIXED: Navigate to booking screen with comprehensive error handling and data validation
   const selectTrip = (trip: Trip) => {
-    router.push({
-      pathname: '/(passenger)/booking',
-      params: { 
-        tripId: trip.id,
-        tripData: JSON.stringify(trip)
+    try {
+      console.log('🚗 Original trip data:', trip);
+      
+      // Validate trip data before navigation
+      if (!trip || !trip.id) {
+        Alert.alert('Error', 'Invalid trip data. Please try again.');
+        return;
       }
-    });
+
+      // Create a safe trip object with all required properties
+      const safeTrip = {
+        id: trip.id,
+        routeId: trip.routeId || '',
+        scheduleId: trip.scheduleId || '',
+        driverId: trip.driverId || '',
+        capacity: trip.capacity || 4,
+        availableSeats: trip.availableSeats || 0,
+        status: trip.status || 'scheduled',
+        departureTime: trip.departureTime || null,
+        estimatedArrivalTime: trip.estimatedArrivalTime || null,
+        actualDepartureTime: trip.actualDepartureTime || null,
+        actualArrivalTime: trip.actualArrivalTime || null,
+        basePrice: trip.basePrice || 0,
+        currentPrice: trip.currentPrice || trip.basePrice || 0,
+        notes: trip.notes || null,
+        createdAt: trip.createdAt || new Date().toISOString(),
+        updatedAt: trip.updatedAt || new Date().toISOString(),
+        
+        // Safe route object
+        route: {
+          id: trip.route?.id || selectedDestination?.id || '',
+          startId: trip.route?.startId || stationId || '',
+          endId: trip.route?.endId || selectedDestination?.endId || '',
+          distance: trip.route?.distance || 0,
+          basePrice: trip.route?.basePrice || selectedDestination?.basePrice || 0,
+          estimatedDuration: trip.route?.estimatedDuration || selectedDestination?.estimatedDuration || 90,
+          isActive: trip.route?.isActive || true,
+          description: trip.route?.description || selectedDestination?.description || 'Trip route',
+          
+          // Safe start station
+          startStation: {
+            id: trip.route?.startStation?.id || stationId || '',
+            name: trip.route?.startStation?.name || stationName || 'Departure Station',
+            address: trip.route?.startStation?.address || 'Unknown Address',
+            city: trip.route?.startStation?.city || 'Unknown City',
+            state: trip.route?.startStation?.state || 'Tunisia',
+            zipCode: trip.route?.startStation?.zipCode || '00000',
+            capacity: trip.route?.startStation?.capacity || 100,
+            isActive: trip.route?.startStation?.isActive || true,
+            contactPhone: trip.route?.startStation?.contactPhone || null,
+            contactEmail: trip.route?.startStation?.contactEmail || null,
+            amenities: trip.route?.startStation?.amenities || {}
+          },
+          
+          // Safe end station
+          endStation: {
+            id: trip.route?.endStation?.id || selectedDestination?.endStation?.id || '',
+            name: trip.route?.endStation?.name || selectedDestination?.endStation?.name || 'Destination Station',
+            address: trip.route?.endStation?.address || selectedDestination?.endStation?.address || 'Unknown Address',
+            city: trip.route?.endStation?.city || selectedDestination?.endStation?.city || 'Unknown City',
+            state: trip.route?.endStation?.state || 'Tunisia',
+            zipCode: trip.route?.endStation?.zipCode || '00000',
+            capacity: trip.route?.endStation?.capacity || 100,
+            isActive: trip.route?.endStation?.isActive || true,
+            contactPhone: trip.route?.endStation?.contactPhone || null,
+            contactEmail: trip.route?.endStation?.contactEmail || null,
+            amenities: trip.route?.endStation?.amenities || {}
+          }
+        },
+        
+        // Safe driver object
+        driver: {
+          id: trip.driver?.id || '',
+          licenseNo: trip.driver?.licenseNo || 'Unknown',
+          licenseExpiry: trip.driver?.licenseExpiry || '2030-01-01',
+          experience: trip.driver?.experience || 5,
+          rating: trip.driver?.rating || 5.0,
+          vehicleType: trip.driver?.vehicleType || 'Vehicle',
+          vehicleCapacity: trip.driver?.vehicleCapacity || trip.capacity || 4,
+          isVerified: trip.driver?.isVerified || true,
+          isAvailable: trip.driver?.isAvailable || true,
+          documents: trip.driver?.documents || {},
+          
+          // Safe user object for driver
+          user: {
+            id: trip.driver?.user?.id || '',
+            username: trip.driver?.user?.username || 'Unknown Driver',
+            email: trip.driver?.user?.email || 'driver@louagi.com',
+            phone: trip.driver?.user?.phone || '+216 XX XXX XXX',
+            role: 'driver' as const,
+            isActive: trip.driver?.user?.isActive || true,
+            profileImage: trip.driver?.user?.profileImage || null,
+            createdAt: trip.driver?.user?.createdAt || new Date().toISOString(),
+            updatedAt: trip.driver?.user?.updatedAt || new Date().toISOString()
+          }
+        },
+        
+        // Safe schedule object (optional)
+        schedule: trip.schedule || {
+          id: '',
+          stationId: stationId || '',
+          dayOfWeek: new Date().getDay(),
+          startTime: '06:00',
+          endTime: '20:00',
+          isActive: true,
+          maxTrips: 10,
+          notes: null,
+          station: {
+            id: stationId || '',
+            name: stationName || 'Station',
+            address: 'Unknown',
+            city: 'Unknown',
+            state: 'Tunisia',
+            zipCode: '00000',
+            capacity: 100,
+            isActive: true,
+            contactPhone: null,
+            contactEmail: null,
+            amenities: {}
+          }
+        }
+      };
+
+      console.log('🚗 Safe trip data created:', safeTrip.id);
+      console.log('📍 Route:', safeTrip.route.startStation.name, '→', safeTrip.route.endStation.name);
+      
+      router.push({
+        pathname: '/(passenger)/booking',
+        params: { 
+          tripId: safeTrip.id,
+          tripData: JSON.stringify(safeTrip)
+        }
+      });
+    } catch (error) {
+      console.error('Error navigating to booking:', error);
+      Alert.alert('Navigation Error', 'Unable to open booking screen. Please try again.');
+    }
   };
 
   // Render destination item
@@ -335,23 +465,6 @@ export default function PassengerSearchScreen() {
     );
   };
 
-  // Debug panel for development
-  const renderDebugPanel = () => {
-    if (!__DEV__) return null;
-    
-    return (
-      <View style={styles.debugPanel}>
-        <Text style={styles.debugTitle}>🔍 Debug Info:</Text>
-        <Text style={styles.debugText}>Station ID: {stationId}</Text>
-        <Text style={styles.debugText}>Destinations: {destinations.length}</Text>
-        <Text style={styles.debugText}>Selected: {selectedDestination?.description || 'None'}</Text>
-        <Text style={styles.debugText}>Trips: {trips.length}</Text>
-        <Text style={styles.debugText}>Loading: {loading.toString()}</Text>
-        <Text style={styles.debugText}>Searching: {searchingTrips.toString()}</Text>
-      </View>
-    );
-  };
-
   if (loading) {
     return (
       <View style={styles.centered}>
@@ -370,9 +483,6 @@ export default function PassengerSearchScreen() {
         <Text style={styles.title}>Search Trips</Text>
         <Text style={styles.subtitle}>From: {stationName}</Text>
       </View>
-
-      {/* Debug panel for development */}
-      {renderDebugPanel()}
 
       {!selectedDestination ? (
         <>
@@ -427,13 +537,6 @@ export default function PassengerSearchScreen() {
                   <Text style={styles.refreshButtonText}>🔄 Refresh</Text>
                 </TouchableOpacity>
               </View>
-              
-              {/* Trip count indicator */}
-              {__DEV__ && (
-                <Text style={styles.tripCountText}>
-                  📊 Found {trips.length} trips with available seats
-                </Text>
-              )}
               
               <FlatList
                 data={trips}
@@ -517,28 +620,6 @@ const styles = StyleSheet.create({
     color: '#666',
     marginTop: 4,
   },
-  
-  // Debug panel styles (only visible in development)
-  debugPanel: {
-    backgroundColor: '#fff3cd',
-    padding: 12,
-    margin: 16,
-    borderRadius: 8,
-    borderLeftWidth: 4,
-    borderLeftColor: '#ffc107',
-  },
-  debugTitle: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: '#856404',
-    marginBottom: 8,
-  },
-  debugText: {
-    fontSize: 12,
-    color: '#856404',
-    marginBottom: 2,
-  },
-  
   sectionTitle: {
     fontSize: 18,
     fontWeight: '600',
@@ -627,12 +708,6 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 12,
     fontWeight: '600',
-  },
-  tripCountText: {
-    fontSize: 12,
-    color: '#666',
-    textAlign: 'center',
-    marginBottom: 8,
   },
   tripsTip: {
     backgroundColor: '#fff3cd',

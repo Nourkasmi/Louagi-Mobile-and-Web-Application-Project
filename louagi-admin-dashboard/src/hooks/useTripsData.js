@@ -1,5 +1,5 @@
-// src/hooks/useTripsData.js
-import { useState, useEffect, useCallback } from 'react';
+// src/hooks/useTripsData.js - FIXED VERSION
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { showToast } from '../utils/toast';
 
 export const useTripsData = () => {
@@ -30,7 +30,11 @@ export const useTripsData = () => {
 
     const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 
-    // ✅ ENHANCED: Centralized API request function with better error handling
+    // ✅ FIX: Use ref to prevent infinite loops
+    const isInitialLoad = useRef(true);
+    const abortControllerRef = useRef(null);
+
+    // ✅ FIX: Memoized API request function
     const apiRequest = useCallback(async (endpoint, options = {}) => {
         const token = localStorage.getItem('louagi_token');
 
@@ -38,8 +42,13 @@ export const useTripsData = () => {
             throw new Error('Authentication token not found. Please login again.');
         }
 
-        // Build full URL
-        const url = `${API_BASE_URL}${endpoint}`;
+        // Cancel previous request if still pending
+        if (abortControllerRef.current) {
+            abortControllerRef.current.abort();
+        }
+
+        // Create new abort controller
+        abortControllerRef.current = new AbortController();
 
         const config = {
             method: 'GET',
@@ -47,63 +56,35 @@ export const useTripsData = () => {
                 'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json',
             },
-            // Add timeout to prevent hanging requests
-            signal: AbortSignal.timeout(15000), // 15 second timeout
+            signal: abortControllerRef.current.signal,
             ...options
         };
 
+        const url = `${API_BASE_URL}${endpoint}`;
         console.log(`🔄 API Request: ${config.method} ${url}`);
 
         try {
             const response = await fetch(url, config);
-
             console.log(`📥 API Response: ${response.status} ${response.statusText}`);
 
-            // Check if response is ok
             if (!response.ok) {
-                // Try to get error message from response
                 let errorMessage;
-                let errorDetails = null;
-
                 try {
                     const errorData = await response.json();
                     errorMessage = errorData.message || errorData.error || `HTTP ${response.status}: ${response.statusText}`;
-                    errorDetails = errorData;
-                    console.error('🔍 Server Error Details:', errorData);
-                } catch (parseError) {
-                    console.error('🔍 Could not parse error response:', parseError);
+                } catch {
                     errorMessage = `HTTP ${response.status}: ${response.statusText}`;
                 }
 
-                // Handle specific error codes with more detailed messages
                 if (response.status === 401) {
                     localStorage.removeItem('louagi_token');
                     window.location.href = '/login';
                     throw new Error('Session expired. Please login again.');
                 }
 
-                if (response.status === 500) {
-                    console.error('🚨 Server Error 500 - Backend Issue:', {
-                        url,
-                        method: config.method,
-                        headers: config.headers,
-                        errorDetails
-                    });
-                    throw new Error(`Server error (500): ${errorMessage}. Please check if the backend database is running and properly configured.`);
-                }
-
-                if (response.status === 404) {
-                    throw new Error(`Endpoint not found (404): ${endpoint}. Please check if the backend API routes are configured correctly.`);
-                }
-
-                if (response.status >= 500) {
-                    throw new Error(`Server error (${response.status}): ${errorMessage}. Please contact support or check server logs.`);
-                }
-
                 throw new Error(errorMessage);
             }
 
-            // Parse JSON response
             const data = await response.json();
             console.log(`📊 API Data received:`, {
                 endpoint,
@@ -114,19 +95,14 @@ export const useTripsData = () => {
 
             return data;
         } catch (error) {
-            // Handle different types of errors
             if (error.name === 'AbortError') {
-                console.error('❌ Request timeout:', endpoint);
-                throw new Error('Request timed out. Please check your connection and try again.');
+                console.log('🚫 Request cancelled');
+                throw new Error('Request cancelled');
             }
 
             if (error.name === 'TypeError' && error.message.includes('Failed to fetch')) {
-                console.error('❌ Network error:', {
-                    endpoint,
-                    url,
-                    message: 'Could not connect to backend server'
-                });
-                throw new Error(`Cannot connect to backend server at ${API_BASE_URL}. Please ensure the server is running on port 5000.`);
+                console.error('❌ Network error:', endpoint);
+                throw new Error('Network error. Please check your internet connection and ensure the backend is running.');
             }
 
             console.error('❌ API Request failed:', error);
@@ -134,29 +110,20 @@ export const useTripsData = () => {
         }
     }, [API_BASE_URL]);
 
-    // ✅ ENHANCED: Fetch trips with better error handling and retry logic
-    const fetchTrips = useCallback(async (retryCount = 0) => {
+    // ✅ FIX: Stable fetchTrips function with better dependency management
+    const fetchTrips = useCallback(async () => {
         try {
-            setLoading(true);
+            console.log('📡 Fetching trips with filters:', filters);
             setError(null);
 
             // Build query parameters
             const params = new URLSearchParams();
-            if (filters.search) params.append('search', filters.search);
-            if (filters.status) params.append('status', filters.status);
+            if (filters.search?.trim()) params.append('search', filters.search.trim());
+            if (filters.status?.trim()) params.append('status', filters.status.trim());
             params.append('page', filters.page.toString());
             params.append('limit', filters.limit.toString());
 
             const endpoint = `/trips?${params.toString()}`;
-
-            console.log('🔍 Fetching trips with params:', {
-                search: filters.search,
-                status: filters.status,
-                page: filters.page,
-                limit: filters.limit,
-                fullEndpoint: endpoint
-            });
-
             const data = await apiRequest(endpoint);
 
             // Validate response structure
@@ -174,8 +141,7 @@ export const useTripsData = () => {
 
             // Validate trips data
             if (!Array.isArray(tripsData)) {
-                console.error('🔍 Invalid trips data structure:', data);
-                throw new Error('Invalid trips data format received from server');
+                throw new Error('Invalid trips data format');
             }
 
             setTrips(tripsData);
@@ -188,44 +154,27 @@ export const useTripsData = () => {
             console.log(`✅ Trips loaded successfully: ${tripsData.length} trips`);
 
         } catch (err) {
+            if (err.message === 'Request cancelled') {
+                return; // Don't update state for cancelled requests
+            }
+
             console.error('❌ Trips fetch error:', err);
-
-            // Retry logic for network errors (but not for server errors)
-            const shouldRetry = retryCount < 2 && (
-                err.message.includes('Cannot connect to backend') ||
-                err.message.includes('timed out') ||
-                err.message.includes('Network error') ||
-                (err.message.includes('Failed to fetch') && !err.message.includes('500'))
-            );
-
-            if (shouldRetry) {
-                console.log(`🔄 Retrying trips fetch (attempt ${retryCount + 1}/3)...`);
-                setTimeout(() => fetchTrips(retryCount + 1), 1000 * (retryCount + 1));
-                return;
-            }
-
-            // Set user-friendly error messages
-            let userErrorMessage = err.message || 'Failed to load trips';
-
-            if (err.message.includes('Server error (500)')) {
-                userErrorMessage = 'Server database error. Please check if your backend database is running and configured correctly.';
-            } else if (err.message.includes('Cannot connect to backend')) {
-                userErrorMessage = 'Cannot connect to server. Please ensure your backend server is running on http://localhost:5000';
-            } else if (err.message.includes('Authentication') || err.message.includes('token')) {
-                userErrorMessage = 'Please login again to continue.';
-            } else if (err.message.includes('Network') || err.message.includes('connection')) {
-                userErrorMessage = 'Connection error. Please check your internet and try again.';
-            }
-
-            setError(userErrorMessage);
+            setError(err.message || 'Failed to load trips');
             setTrips([]);
             setPagination({ total: 0, totalPages: 0, currentPage: 1 });
-        } finally {
-            setLoading(false);
-        }
-    }, [filters, apiRequest]);
 
-    // ✅ ENHANCED: Fetch trip statistics with fallback
+            // Show user-friendly error messages
+            if (err.message.includes('Authentication') || err.message.includes('token')) {
+                setError('Please login again to continue.');
+            } else if (err.message.includes('Network') || err.message.includes('connection')) {
+                setError('Connection error. Please check your internet and try again.');
+            } else if (err.message.includes('Server returned an error')) {
+                setError('Server error. Please try again later.');
+            }
+        }
+    }, [filters.search, filters.status, filters.page, filters.limit, apiRequest]);
+
+    // ✅ FIX: Separate stats fetching with proper dependencies
     const fetchStats = useCallback(async () => {
         try {
             console.log('📊 Fetching trip stats...');
@@ -242,14 +191,18 @@ export const useTripsData = () => {
             } else {
                 console.warn('⚠️ Stats endpoint returned unexpected format');
                 // Calculate stats from current trips data as fallback
-                setStats({
-                    totalTrips: trips.length,
-                    activeTrips: trips.filter(t => t.status === 'in_progress').length,
-                    completedTrips: trips.filter(t => t.status === 'completed').length,
-                    totalPassengers: trips.reduce((sum, t) => sum + (t.passengerCount || 0), 0)
-                });
+                setStats(prev => ({
+                    totalTrips: trips.length || prev.totalTrips,
+                    activeTrips: trips.filter(t => t.status === 'in_progress').length || prev.activeTrips,
+                    completedTrips: trips.filter(t => t.status === 'completed').length || prev.completedTrips,
+                    totalPassengers: trips.reduce((sum, t) => sum + (t.passengerCount || 0), 0) || prev.totalPassengers
+                }));
             }
         } catch (error) {
+            if (error.message === 'Request cancelled') {
+                return; // Don't update state for cancelled requests
+            }
+
             console.warn('⚠️ Could not fetch trip stats:', error.message);
             // Use calculated stats as fallback
             setStats({
@@ -259,9 +212,9 @@ export const useTripsData = () => {
                 totalPassengers: trips.reduce((sum, t) => sum + (t.passengerCount || 0), 0)
             });
         }
-    }, [apiRequest, trips]);
+    }, [trips, apiRequest]);
 
-    // ✅ ENHANCED: Update trip status with optimistic updates
+    // ✅ FIX: Update trip status with optimistic updates
     const updateTripStatus = async (tripId, newStatus) => {
         try {
             // Optimistic update
@@ -276,7 +229,7 @@ export const useTripsData = () => {
             });
 
             if (data.success) {
-                // Refresh stats
+                // Refresh stats after successful update
                 await fetchStats();
                 showToast(`Trip status updated to ${newStatus}`, 'success');
                 return { success: true };
@@ -292,7 +245,7 @@ export const useTripsData = () => {
         }
     };
 
-    // ✅ ENHANCED: Export trips with error handling
+    // ✅ FIX: Export trips with error handling
     const exportTrips = () => {
         try {
             if (!trips.length) {
@@ -328,11 +281,11 @@ export const useTripsData = () => {
         }
     };
 
-    // ✅ ENHANCED: Refresh data with loading state
+    // ✅ FIX: Refresh data with loading state
     const refreshData = async () => {
         setRefreshing(true);
         try {
-            await Promise.all([fetchTrips(), fetchStats()]);
+            await fetchTrips(); // This will also trigger stats update
             showToast('Data refreshed successfully', 'success');
         } catch (error) {
             console.error('Refresh error:', error);
@@ -343,88 +296,81 @@ export const useTripsData = () => {
     };
 
     // Handle page change
-    const handlePageChange = (newPage) => {
+    const handlePageChange = useCallback((newPage) => {
         setFilters(prev => ({ ...prev, page: newPage }));
-    };
+    }, []);
 
     // View trip details (placeholder for modal)
-    const viewTripDetails = (trip) => {
+    const viewTripDetails = useCallback((trip) => {
         console.log('Viewing trip details:', trip);
-        // You can implement a modal here
         alert(`Trip Details:\nID: ${trip.id}\nRoute: ${trip.route?.description || 'Unknown'}\nStatus: ${trip.status}`);
-    };
+    }, []);
 
-    // ✅ NEW: Debug backend connection
-    const debugBackendConnection = useCallback(async () => {
-        console.log('🔍 DEBUGGING BACKEND CONNECTION');
-        console.log('API_BASE_URL:', API_BASE_URL);
-        console.log('Token exists:', !!localStorage.getItem('louagi_token'));
-        console.log('Navigator online:', navigator.onLine);
-
-        // Test basic connectivity
-        try {
-            const response = await fetch(`${API_BASE_URL.replace('/api', '')}/health`, {
-                method: 'GET',
-                mode: 'cors'
-            });
-            console.log('Health check response:', response.status);
-        } catch (error) {
-            console.error('Health check failed:', error.message);
-        }
-    }, [API_BASE_URL]);
-
-    // ✅ ENHANCED: Load initial data with better error handling
+    // ✅ FIX: Initial data loading effect - runs only once
     useEffect(() => {
-        const loadData = async () => {
+        if (isInitialLoad.current) {
             console.log('🚀 Starting initial data load...');
             console.log('🔗 API URL:', API_BASE_URL);
             console.log('🔐 Token exists:', !!localStorage.getItem('louagi_token'));
 
-            // Run backend connection debug
-            await debugBackendConnection();
+            isInitialLoad.current = false;
+            setLoading(true);
 
-            try {
-                // Quick network check
-                if (!navigator.onLine) {
-                    throw new Error('No internet connection detected');
+            const loadInitialData = async () => {
+                try {
+                    // Quick network check
+                    if (!navigator.onLine) {
+                        throw new Error('No internet connection detected');
+                    }
+
+                    await fetchTrips();
+                    console.log('✅ Initial trips loaded successfully');
+                } catch (error) {
+                    console.error('❌ Initial trips fetch failed:', error.message);
+                    setError(error.message);
+                } finally {
+                    setLoading(false);
                 }
+            };
 
-                // Try to fetch trips first
-                await fetchTrips();
-                console.log('✅ Trips loaded successfully');
-            } catch (error) {
-                console.error('❌ Initial trips fetch failed:', error.message);
+            loadInitialData();
+        }
 
-                // Set specific error messages based on error type
-                if (error.message.includes('Authentication') || error.message.includes('token')) {
-                    setError('Authentication expired. Please login again.');
-                } else if (error.message.includes('Server error (500)')) {
-                    setError('Backend database error. Please check if your database is running and properly configured.');
-                } else if (error.message.includes('Cannot connect to backend')) {
-                    setError('Cannot connect to backend server. Please ensure it\'s running on http://localhost:5000');
-                } else if (error.message.includes('timeout')) {
-                    setError('Server response timeout. Please try again.');
-                } else {
-                    setError(`Connection error: ${error.message}`);
-                }
-
-                setLoading(false);
-            }
-
-            // Try to fetch stats (non-critical)
-            try {
-                await fetchStats();
-                console.log('✅ Stats loaded successfully');
-            } catch (error) {
-                console.warn('⚠️ Stats fetch failed, using fallback:', error.message);
-                // This is non-critical, so we don't show error to user
+        // Cleanup function
+        return () => {
+            if (abortControllerRef.current) {
+                abortControllerRef.current.abort();
             }
         };
+    }, []); // ✅ FIX: Empty dependency array - only run once
 
-        loadData();
-    }, [fetchTrips, fetchStats, API_BASE_URL, debugBackendConnection]);
+    // ✅ FIX: Filter change effect - runs when filters change (but not on initial load)
+    useEffect(() => {
+        if (!isInitialLoad.current && !loading) {
+            console.log('🔄 Filters changed, refetching trips:', filters);
 
-    // ✅ NEW: Auto-retry on network reconnection
+            const refetchWithDelay = setTimeout(() => {
+                fetchTrips();
+            }, 100); // Small delay to prevent rapid consecutive calls
+
+            return () => clearTimeout(refetchWithDelay);
+        }
+    }, [filters.search, filters.status, filters.page, filters.limit, fetchTrips, loading]);
+
+    // ✅ FIX: Stats update effect - runs when trips change
+    useEffect(() => {
+        if (!isInitialLoad.current && trips.length > 0) {
+            console.log('📊 Trips updated, refreshing stats');
+
+            const updateStatsWithDelay = setTimeout(() => {
+                fetchStats();
+            }, 200); // Small delay to prevent rapid consecutive calls
+
+            return () => clearTimeout(updateStatsWithDelay);
+        }
+    }, [trips.length, fetchStats]);
+
+    // ✅ FIX: Network reconnection handler
     useEffect(() => {
         const handleOnline = () => {
             console.log('🌐 Network reconnected, retrying data fetch...');
@@ -445,7 +391,7 @@ export const useTripsData = () => {
             window.removeEventListener('online', handleOnline);
             window.removeEventListener('offline', handleOffline);
         };
-    }, [error, loading, refreshData]);
+    }, [error, loading]); // ✅ FIX: Stable dependencies
 
     return {
         // Data
@@ -468,7 +414,6 @@ export const useTripsData = () => {
         refreshData,
         handlePageChange,
         viewTripDetails,
-        debugBackendConnection, // NEW: for debugging
 
         // Computed
         hasFilters: Boolean(filters.search || filters.status),

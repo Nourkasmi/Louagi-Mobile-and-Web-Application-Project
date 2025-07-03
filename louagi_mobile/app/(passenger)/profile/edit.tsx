@@ -1,10 +1,12 @@
+// 📁 app/(passenger)/profile/edit.tsx - UPDATED (Clean Logic Only)
 import React, { useEffect, useState } from 'react';
-import { View, Text, TextInput, StyleSheet, TouchableOpacity, Alert, ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, Alert, ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState } from '../../../src/store/store';
 import { updateUserProfile, getCurrentUser, type User } from '../../../src/services/api';
 import { loginSuccess } from '../../../src/store/authSlice';
+import { styles } from './edit.styles'; // 🆕 Import styles
 
 export default function EditProfileScreen() {
   const router = useRouter();
@@ -115,56 +117,3 @@ export default function EditProfileScreen() {
     </KeyboardAvoidingView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    padding: 24,
-    paddingTop: 60,
-    flexGrow: 1,
-    backgroundColor: '#f8f9fa',
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    marginBottom: 28,
-    color: '#333',
-    textAlign: 'left',
-  },
-  label: {
-    fontSize: 15,
-    fontWeight: '500',
-    color: '#333',
-    marginBottom: 6,
-    marginTop: 18,
-  },
-  input: {
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-    fontSize: 16,
-    borderWidth: 1,
-    borderColor: '#eee',
-    marginBottom: 4,
-  },
-  button: {
-    marginTop: 28,
-    backgroundColor: '#0066cc',
-    borderRadius: 8,
-    paddingVertical: 14,
-    alignItems: 'center',
-  },
-  buttonText: {
-    color: '#fff',
-    fontSize: 17,
-    fontWeight: '600',
-  },
-  cancelButton: {
-    marginTop: 20,
-    alignItems: 'center',
-  },
-  cancelButtonText: {
-    color: '#888',
-    fontSize: 16,
-  },
-});

@@ -1,11 +1,13 @@
+// 📁 app/login.tsx - UPDATED (Clean Logic Only)
 import React, { useState } from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View } from 'react-native';
 import { TextInput, Button, Title } from 'react-native-paper';
 import { useRouter } from 'expo-router';
 import { useDispatch } from 'react-redux';
 import { loginSuccess } from '../src/store/authSlice';
 import { login } from '../src/services/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { styles } from './login.styles'; // 🆕 Import styles
 
 const LoginScreen: React.FC = () => {
   const [email, setEmail] = useState<string>('');
@@ -14,46 +16,46 @@ const LoginScreen: React.FC = () => {
   const dispatch = useDispatch();
 
   const handleLogin = async (): Promise<void> => {
-  try {
-    const res = await login(email, password);
+    try {
+      const res = await login(email, password);
 
-    if (!res.success || !res.token || !res.user) {
-      alert(res.message || 'Login failed');
-      return;
+      if (!res.success || !res.token || !res.user) {
+        alert(res.message || 'Login failed');
+        return;
+      }
+
+      // Store token in AsyncStorage
+      await AsyncStorage.setItem('louagi_token', res.token);
+
+      // @ts-ignore (if you have a global type, better to type this!)
+      global.authToken = res.token;
+
+      dispatch(
+        loginSuccess({
+          user: res.user,
+          token: res.token,
+        })
+      );
+
+      // Route based on user role
+      switch (res.user.role) {
+        case 'passenger':
+          router.replace('/(passenger)/home');
+          break;
+        case 'driver':
+          router.replace('/(driver)/dashboard');
+          break;
+        case 'admin':
+          router.replace('/(driver)/dashboard'); // Fallback for now
+          break;
+        default:
+          router.replace('/(passenger)/home');
+      }
+    } catch (error) {
+      console.error('Login error:', error);
+      alert('Server error or invalid credentials');
     }
-
-    // Store token in AsyncStorage
-    await AsyncStorage.setItem('louagi_token', res.token);
-
-    // @ts-ignore (if you have a global type, better to type this!)
-    global.authToken = res.token;
-
-    dispatch(
-      loginSuccess({
-        user: res.user,
-        token: res.token,
-      })
-    );
-
-    // Route based on user role
-    switch (res.user.role) {
-      case 'passenger':
-        router.replace('/(passenger)/home');
-        break;
-      case 'driver':
-        router.replace('/(driver)/dashboard');
-        break;
-      case 'admin':
-        router.replace('/(driver)/dashboard'); // Fallback for now
-        break;
-      default:
-        router.replace('/(passenger)/home');
-    }
-  } catch (error) {
-    console.error('Login error:', error);
-    alert('Server error or invalid credentials');
-  }
-};
+  };
 
   return (
     <View style={styles.container}>
@@ -84,24 +86,3 @@ const LoginScreen: React.FC = () => {
 };
 
 export default LoginScreen;
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    padding: 24,
-    justifyContent: 'center',
-  },
-  title: {
-    marginBottom: 20,
-    textAlign: 'center',
-  },
-  input: {
-    marginBottom: 12,
-  },
-  button: {
-    marginTop: 12,
-  },
-  link: {
-    marginTop: 8,
-  },
-});

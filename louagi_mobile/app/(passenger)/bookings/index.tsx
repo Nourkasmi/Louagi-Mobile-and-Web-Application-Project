@@ -1,3 +1,4 @@
+// 📁 app/(passenger)/bookings/index.tsx - UPDATED (Clean Logic Only)
 import React, { useEffect, useState } from 'react';
 import {
   View,
@@ -5,12 +6,12 @@ import {
   FlatList,
   TouchableOpacity,
   ActivityIndicator,
-  StyleSheet,
   RefreshControl,
   Alert,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { getMyBookings, cancelBooking, type Booking } from '../../../src/services/api';
+import { styles } from './index.styles'; // 🆕 Import styles
 
 type FilterType = 'all' | 'pending' | 'confirmed' | 'completed' | 'cancelled';
 
@@ -83,7 +84,6 @@ export default function PassengerBookingsScreen() {
     fetchBookings(nextPage);
   }
 };
-
 
   // Pull to refresh
   const handleRefresh = () => {
@@ -271,7 +271,6 @@ export default function PassengerBookingsScreen() {
     );
   }
 
-
   return (
     <View style={styles.container}>
       {/* Header */}
@@ -380,228 +379,3 @@ export default function PassengerBookingsScreen() {
     </View>
   );
 }
-// ...styles remain unchanged
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f8f9fa',
-  },
-  centered: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingText: {
-    marginTop: 12,
-    fontSize: 16,
-    color: '#666',
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: 'white',
-    padding: 16,
-    paddingTop: 60,
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#333',
-  },
-  backButton: {
-    padding: 8,
-  },
-  backButtonText: {
-    fontSize: 16,
-    color: '#0066cc',
-    fontWeight: '600',
-  },
-  summaryCard: {
-    backgroundColor: 'white',
-    margin: 16,
-    padding: 16,
-    borderRadius: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  summaryTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 12,
-  },
-  summaryStats: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-  },
-  statItem: {
-    alignItems: 'center',
-  },
-  statNumber: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#0066cc',
-    marginBottom: 4,
-  },
-  statLabel: {
-    fontSize: 12,
-    color: '#666',
-    textAlign: 'center',
-  },
-  filterContainer: {
-    backgroundColor: 'white',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
-  },
-  filterButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    marginRight: 12,
-    borderRadius: 20,
-    backgroundColor: '#f0f0f0',
-  },
-  filterButtonActive: {
-    backgroundColor: '#0066cc',
-  },
-  filterButtonText: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#666',
-  },
-  filterButtonTextActive: {
-    color: 'white',
-  },
-  bookingCard: {
-    backgroundColor: 'white',
-    margin: 16,
-    marginBottom: 8,
-    padding: 16,
-    borderRadius: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  bookingHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  routeText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
-    flex: 1,
-  },
-  statusBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  statusText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: 'white',
-  },
-  bookingDetails: {
-    marginBottom: 8,
-  },
-  bookingReference: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#0066cc',
-    marginBottom: 2,
-  },
-  dateTime: {
-    fontSize: 14,
-    color: '#666',
-  },
-  tripInfo: {
-    marginBottom: 8,
-  },
-  routeDetails: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 2,
-  },
-  seatInfo: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#333',
-  },
-  driverInfo: {
-    fontSize: 12,
-    color: '#888',
-    marginBottom: 12,
-  },
-  cancelButton: {
-    backgroundColor: '#ff4444',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 6,
-    alignSelf: 'flex-start',
-    marginBottom: 8,
-  },
-  cancelButtonText: {
-    color: 'white',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  viewDetailsButton: {
-    alignSelf: 'flex-end',
-  },
-  viewDetailsText: {
-    fontSize: 14,
-    color: '#0066cc',
-    fontWeight: '600',
-  },
-  loadingFooter: {
-    padding: 20,
-    alignItems: 'center',
-  },
-  emptyContainer: {
-    flexGrow: 1,
-  },
-  emptyState: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 40,
-  },
-  emptyText: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#666',
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-  emptySubtext: {
-    fontSize: 16,
-    color: '#888',
-    textAlign: 'center',
-    marginBottom: 24,
-    lineHeight: 22,
-  },
-  exploreButton: {
-    backgroundColor: '#0066cc',
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 8,
-  },
-  exploreButtonText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-});

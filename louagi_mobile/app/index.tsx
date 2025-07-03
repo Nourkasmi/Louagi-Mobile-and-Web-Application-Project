@@ -1,10 +1,10 @@
-// app/index.tsx - Clean Router to Correct App
+// 📁 app/index.tsx - UPDATED (Clean Logic Only)
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'expo-router';
 import { useSelector } from 'react-redux';
 import { ActivityIndicator, View } from 'react-native';
-
 import { RootState } from '../src/store/store';
+import { styles } from './index.styles'; // 🆕 Import styles
 
 export default function Index() {
   const auth = useSelector((state: RootState) => state.auth);
@@ -46,7 +46,7 @@ export default function Index() {
   }, [isReady, auth.isAuthenticated, auth.user?.role]);
 
   return (
-    <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+    <View style={styles.container}>
       <ActivityIndicator size="large" color="#0066cc" />
     </View>
   );

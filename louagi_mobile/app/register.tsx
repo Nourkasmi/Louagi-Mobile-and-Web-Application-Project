@@ -1,10 +1,12 @@
+// 📁 app/register.tsx - UPDATED (Clean Logic Only)
 import React, { useState } from 'react';
-import { View, StyleSheet, ScrollView } from 'react-native';
+import { View, ScrollView } from 'react-native';
 import { TextInput, Button, Title, RadioButton } from 'react-native-paper';
 import { useRouter } from 'expo-router';
 import { useDispatch } from 'react-redux';
 import { loginSuccess } from '../src/store/authSlice';
 import { register } from '../src/services/api';
+import { styles } from './register.styles'; // 🆕 Import styles
 
 type FormState = {
   username: string;
@@ -176,30 +178,3 @@ const RegisterScreen: React.FC = () => {
 };
 
 export default RegisterScreen;
-
-const styles = StyleSheet.create({
-  container: {
-    padding: 24,
-    flexGrow: 1,
-    justifyContent: 'center',
-  },
-  title: {
-    marginBottom: 20,
-    textAlign: 'center',
-  },
-  input: {
-    marginBottom: 12,
-  },
-  button: {
-    marginTop: 12,
-  },
-  link: {
-    marginTop: 8,
-  },
-  radioRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-    gap: 12,
-  },
-});

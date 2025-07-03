@@ -1,5 +1,5 @@
-// src/hooks/useTripsData.js
-import { useState, useEffect, useCallback } from 'react';
+// src/hooks/useTripsData.js - FIXED VERSION
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { showToast } from '../utils/toast';
 
 export const useTripsData = () => {
@@ -30,7 +30,11 @@ export const useTripsData = () => {
 
     const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 
-    // ✅ ENHANCED: Centralized API request function with better error handling
+    // ✅ FIX: Use ref to prevent infinite loops
+    const isInitialLoad = useRef(true);
+    const abortControllerRef = useRef(null);
+
+    // ✅ FIX: Memoized API request function
     const apiRequest = useCallback(async (endpoint, options = {}) => {
         const token = localStorage.getItem('louagi_token');
 
@@ -38,8 +42,13 @@ export const useTripsData = () => {
             throw new Error('Authentication token not found. Please login again.');
         }
 
-        // Build full URL
-        const url = `${API_BASE_URL}${endpoint}`;
+        // Cancel previous request if still pending
+        if (abortControllerRef.current) {
+            abortControllerRef.current.abort();
+        }
+
+        // Create new abort controller
+        abortControllerRef.current = new AbortController();
 
         const config = {
             method: 'GET',
@@ -47,21 +56,18 @@ export const useTripsData = () => {
                 'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json',
             },
-            // Add timeout to prevent hanging requests
-            signal: AbortSignal.timeout(15000), // 15 second timeout
+            signal: abortControllerRef.current.signal,
             ...options
         };
 
+        const url = `${API_BASE_URL}${endpoint}`;
         console.log(`🔄 API Request: ${config.method} ${url}`);
 
         try {
             const response = await fetch(url, config);
-
             console.log(`📥 API Response: ${response.status} ${response.statusText}`);
 
-            // Check if response is ok
             if (!response.ok) {
-                // Try to get error message from response
                 let errorMessage;
                 try {
                     const errorData = await response.json();
@@ -70,7 +76,6 @@ export const useTripsData = () => {
                     errorMessage = `HTTP ${response.status}: ${response.statusText}`;
                 }
 
-                // Handle specific error codes
                 if (response.status === 401) {
                     localStorage.removeItem('louagi_token');
                     window.location.href = '/login';
@@ -80,7 +85,6 @@ export const useTripsData = () => {
                 throw new Error(errorMessage);
             }
 
-            // Parse JSON response
             const data = await response.json();
             console.log(`📊 API Data received:`, {
                 endpoint,
@@ -91,10 +95,9 @@ export const useTripsData = () => {
 
             return data;
         } catch (error) {
-            // Handle different types of errors
             if (error.name === 'AbortError') {
-                console.error('❌ Request timeout:', endpoint);
-                throw new Error('Request timed out. Please check your connection and try again.');
+                console.log('🚫 Request cancelled');
+                throw new Error('Request cancelled');
             }
 
             if (error.name === 'TypeError' && error.message.includes('Failed to fetch')) {
@@ -107,16 +110,16 @@ export const useTripsData = () => {
         }
     }, [API_BASE_URL]);
 
-    // ✅ ENHANCED: Fetch trips with better error handling and retry logic
-    const fetchTrips = useCallback(async (retryCount = 0) => {
+    // ✅ FIX: Stable fetchTrips function with better dependency management
+    const fetchTrips = useCallback(async () => {
         try {
-            setLoading(true);
+            console.log('📡 Fetching trips with filters:', filters);
             setError(null);
 
             // Build query parameters
             const params = new URLSearchParams();
-            if (filters.search) params.append('search', filters.search);
-            if (filters.status) params.append('status', filters.status);
+            if (filters.search?.trim()) params.append('search', filters.search.trim());
+            if (filters.status?.trim()) params.append('status', filters.status.trim());
             params.append('page', filters.page.toString());
             params.append('limit', filters.limit.toString());
 
@@ -151,19 +154,11 @@ export const useTripsData = () => {
             console.log(`✅ Trips loaded successfully: ${tripsData.length} trips`);
 
         } catch (err) {
-            console.error('❌ Trips fetch error:', err);
-
-            // Retry logic for network errors
-            if (retryCount < 2 && (
-                err.message.includes('Network error') ||
-                err.message.includes('timed out') ||
-                err.message.includes('Failed to fetch')
-            )) {
-                console.log(`🔄 Retrying trips fetch (attempt ${retryCount + 1})...`);
-                setTimeout(() => fetchTrips(retryCount + 1), 1000 * (retryCount + 1));
-                return;
+            if (err.message === 'Request cancelled') {
+                return; // Don't update state for cancelled requests
             }
 
+            console.error('❌ Trips fetch error:', err);
             setError(err.message || 'Failed to load trips');
             setTrips([]);
             setPagination({ total: 0, totalPages: 0, currentPage: 1 });
@@ -176,12 +171,10 @@ export const useTripsData = () => {
             } else if (err.message.includes('Server returned an error')) {
                 setError('Server error. Please try again later.');
             }
-        } finally {
-            setLoading(false);
         }
-    }, [filters, apiRequest]);
+    }, [filters.search, filters.status, filters.page, filters.limit, apiRequest]);
 
-    // ✅ ENHANCED: Fetch trip statistics with fallback
+    // ✅ FIX: Separate stats fetching with proper dependencies
     const fetchStats = useCallback(async () => {
         try {
             console.log('📊 Fetching trip stats...');
@@ -198,14 +191,18 @@ export const useTripsData = () => {
             } else {
                 console.warn('⚠️ Stats endpoint returned unexpected format');
                 // Calculate stats from current trips data as fallback
-                setStats({
-                    totalTrips: trips.length,
-                    activeTrips: trips.filter(t => t.status === 'in_progress').length,
-                    completedTrips: trips.filter(t => t.status === 'completed').length,
-                    totalPassengers: trips.reduce((sum, t) => sum + (t.passengerCount || 0), 0)
-                });
+                setStats(prev => ({
+                    totalTrips: trips.length || prev.totalTrips,
+                    activeTrips: trips.filter(t => t.status === 'in_progress').length || prev.activeTrips,
+                    completedTrips: trips.filter(t => t.status === 'completed').length || prev.completedTrips,
+                    totalPassengers: trips.reduce((sum, t) => sum + (t.passengerCount || 0), 0) || prev.totalPassengers
+                }));
             }
         } catch (error) {
+            if (error.message === 'Request cancelled') {
+                return; // Don't update state for cancelled requests
+            }
+
             console.warn('⚠️ Could not fetch trip stats:', error.message);
             // Use calculated stats as fallback
             setStats({
@@ -215,9 +212,9 @@ export const useTripsData = () => {
                 totalPassengers: trips.reduce((sum, t) => sum + (t.passengerCount || 0), 0)
             });
         }
-    }, [apiRequest, trips]);
+    }, [trips, apiRequest]);
 
-    // ✅ ENHANCED: Update trip status with optimistic updates
+    // ✅ FIX: Update trip status with optimistic updates
     const updateTripStatus = async (tripId, newStatus) => {
         try {
             // Optimistic update
@@ -232,7 +229,7 @@ export const useTripsData = () => {
             });
 
             if (data.success) {
-                // Refresh stats
+                // Refresh stats after successful update
                 await fetchStats();
                 showToast(`Trip status updated to ${newStatus}`, 'success');
                 return { success: true };
@@ -248,7 +245,7 @@ export const useTripsData = () => {
         }
     };
 
-    // ✅ ENHANCED: Export trips with error handling
+    // ✅ FIX: Export trips with error handling
     const exportTrips = () => {
         try {
             if (!trips.length) {
@@ -284,11 +281,11 @@ export const useTripsData = () => {
         }
     };
 
-    // ✅ ENHANCED: Refresh data with loading state
+    // ✅ FIX: Refresh data with loading state
     const refreshData = async () => {
         setRefreshing(true);
         try {
-            await Promise.all([fetchTrips(), fetchStats()]);
+            await fetchTrips(); // This will also trigger stats update
             showToast('Data refreshed successfully', 'success');
         } catch (error) {
             console.error('Refresh error:', error);
@@ -299,64 +296,81 @@ export const useTripsData = () => {
     };
 
     // Handle page change
-    const handlePageChange = (newPage) => {
+    const handlePageChange = useCallback((newPage) => {
         setFilters(prev => ({ ...prev, page: newPage }));
-    };
+    }, []);
 
     // View trip details (placeholder for modal)
-    const viewTripDetails = (trip) => {
+    const viewTripDetails = useCallback((trip) => {
         console.log('Viewing trip details:', trip);
-        // You can implement a modal here
         alert(`Trip Details:\nID: ${trip.id}\nRoute: ${trip.route?.description || 'Unknown'}\nStatus: ${trip.status}`);
-    };
+    }, []);
 
-    // ✅ ENHANCED: Load initial data with better error handling
+    // ✅ FIX: Initial data loading effect - runs only once
     useEffect(() => {
-        const loadData = async () => {
+        if (isInitialLoad.current) {
             console.log('🚀 Starting initial data load...');
             console.log('🔗 API URL:', API_BASE_URL);
             console.log('🔐 Token exists:', !!localStorage.getItem('louagi_token'));
 
-            try {
-                // Quick network check
-                if (!navigator.onLine) {
-                    throw new Error('No internet connection detected');
+            isInitialLoad.current = false;
+            setLoading(true);
+
+            const loadInitialData = async () => {
+                try {
+                    // Quick network check
+                    if (!navigator.onLine) {
+                        throw new Error('No internet connection detected');
+                    }
+
+                    await fetchTrips();
+                    console.log('✅ Initial trips loaded successfully');
+                } catch (error) {
+                    console.error('❌ Initial trips fetch failed:', error.message);
+                    setError(error.message);
+                } finally {
+                    setLoading(false);
                 }
+            };
 
-                // Try to fetch trips first
-                await fetchTrips();
-                console.log('✅ Trips loaded successfully');
-            } catch (error) {
-                console.error('❌ Initial trips fetch failed:', error.message);
+            loadInitialData();
+        }
 
-                // Set specific error messages based on error type
-                if (error.message.includes('Authentication') || error.message.includes('token')) {
-                    setError('Authentication expired. Please login again.');
-                } else if (error.message.includes('Network') || error.message.includes('Failed to fetch')) {
-                    setError('Cannot connect to server. Please check if the backend is running.');
-                } else if (error.message.includes('timeout')) {
-                    setError('Server response timeout. Please try again.');
-                } else {
-                    setError(`Connection error: ${error.message}`);
-                }
-
-                setLoading(false);
-            }
-
-            // Try to fetch stats (non-critical)
-            try {
-                await fetchStats();
-                console.log('✅ Stats loaded successfully');
-            } catch (error) {
-                console.warn('⚠️ Stats fetch failed, using fallback:', error.message);
-                // This is non-critical, so we don't show error to user
+        // Cleanup function
+        return () => {
+            if (abortControllerRef.current) {
+                abortControllerRef.current.abort();
             }
         };
+    }, []); // ✅ FIX: Empty dependency array - only run once
 
-        loadData();
-    }, [fetchTrips, fetchStats, API_BASE_URL]);
+    // ✅ FIX: Filter change effect - runs when filters change (but not on initial load)
+    useEffect(() => {
+        if (!isInitialLoad.current && !loading) {
+            console.log('🔄 Filters changed, refetching trips:', filters);
 
-    // ✅ NEW: Auto-retry on network reconnection
+            const refetchWithDelay = setTimeout(() => {
+                fetchTrips();
+            }, 100); // Small delay to prevent rapid consecutive calls
+
+            return () => clearTimeout(refetchWithDelay);
+        }
+    }, [filters.search, filters.status, filters.page, filters.limit, fetchTrips, loading]);
+
+    // ✅ FIX: Stats update effect - runs when trips change
+    useEffect(() => {
+        if (!isInitialLoad.current && trips.length > 0) {
+            console.log('📊 Trips updated, refreshing stats');
+
+            const updateStatsWithDelay = setTimeout(() => {
+                fetchStats();
+            }, 200); // Small delay to prevent rapid consecutive calls
+
+            return () => clearTimeout(updateStatsWithDelay);
+        }
+    }, [trips.length, fetchStats]);
+
+    // ✅ FIX: Network reconnection handler
     useEffect(() => {
         const handleOnline = () => {
             console.log('🌐 Network reconnected, retrying data fetch...');
@@ -377,7 +391,7 @@ export const useTripsData = () => {
             window.removeEventListener('online', handleOnline);
             window.removeEventListener('offline', handleOffline);
         };
-    }, [error, loading, refreshData]);
+    }, [error, loading]); // ✅ FIX: Stable dependencies
 
     return {
         // Data

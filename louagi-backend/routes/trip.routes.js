@@ -4,11 +4,19 @@ const tripController = require('../controllers/trip.controller');
 const authMiddleware = require('../middlewares/auth.middleware');
 const { validateUUID } = require('../middlewares/param.middleware');
 
-// ✅ Public routes
+// ✅ CRITICAL: Specific routes MUST come before parameterized routes
+// Otherwise Express treats "stats" as an ID parameter
+
+// ✅ Public routes (no authentication required)
 router.get('/', tripController.getAllTrips);
+
+// ✅ NEW: Trip statistics endpoint - MUST be before /:id route
+router.get('/stats', tripController.getTripStats);
+
+// ✅ Parameterized routes (MUST come after specific routes like /stats)
 router.get('/:id', validateUUID('id'), tripController.getTripById);
 
-// ✅ Admin-only: create and delete trips
+// ✅ Admin-only routes
 router.post(
   '/',
   authMiddleware.authenticate,

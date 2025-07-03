@@ -1,4 +1,4 @@
-const { Trip, Destination, Schedule, Driver, DriverQueue } = require('../models');
+const { Trip, Destination, Schedule, Driver, DriverQueue, Booking } = require('../models');
 const { Op } = require('sequelize');
 const { validate: isUUID } = require('uuid');
 const generateTripsFromSchedules = require('../utils/trip.generator');
@@ -27,8 +27,8 @@ async function reindexQueuePositions(stationId, scheduleId, destinationId, trans
   for (let i = 0; i < waitingDrivers.length; i++) {
     const newPosition = i + 1;
     if (waitingDrivers[i].position !== newPosition) {
-      await waitingDrivers[i].update({ 
-        position: newPosition 
+      await waitingDrivers[i].update({
+        position: newPosition
       }, { transaction });
     }
   }
@@ -97,47 +97,165 @@ const tripController = {
 
   // ✅ Get all trips with filters and pagination
   getAllTrips: async (req, res) => {
-  try {
-    const { page = 1, limit = 10, status, driverId, search, destinationId, routeId } = req.query;
-    const offset = (page - 1) * limit;
+    try {
+      const { page = 1, limit = 10, status, driverId, search, destinationId, routeId } = req.query;
+      const offset = (page - 1) * limit;
 
-    const whereClause = {};
+      const whereClause = {};
 
-    if (status) whereClause.status = status;
-    if (driverId && isUUID(driverId)) whereClause.driverId = driverId;
-    if (destinationId && isUUID(destinationId)) whereClause.routeId = destinationId; // 👈 THIS LINE!
-    if (routeId && isUUID(routeId)) whereClause.routeId = routeId; // (optional, if someone sends routeId instead)
-    if (search) {
-      whereClause[Op.or] = [
-        { notes: { [Op.iLike]: `%${search}%` } }
-      ];
+      if (status) whereClause.status = status;
+      if (driverId && isUUID(driverId)) whereClause.driverId = driverId;
+      if (destinationId && isUUID(destinationId)) whereClause.routeId = destinationId;
+      if (routeId && isUUID(routeId)) whereClause.routeId = routeId;
+      if (search) {
+        whereClause[Op.or] = [
+          { notes: { [Op.iLike]: `%${search}%` } }
+        ];
+      }
+
+      const { count, rows } = await Trip.findAndCountAll({
+        where: whereClause,
+        include: [
+          { model: Destination, as: 'route' },
+          { model: Schedule, as: 'schedule' },
+          { model: Driver, as: 'driver' }
+        ],
+        offset,
+        limit: parseInt(limit),
+        order: [['departureTime', 'DESC']]
+      });
+
+      return res.status(200).json({
+        success: true,
+        trips: rows,
+        total: count,
+        totalPages: Math.ceil(count / limit),
+        currentPage: parseInt(page)
+      });
+    } catch (error) {
+      console.error('Get trips error:', error);
+      return res.status(500).json({ success: false, message: 'Failed to fetch trips' });
     }
+  },
 
-    const { count, rows } = await Trip.findAndCountAll({
-      where: whereClause,
-      include: [
-        { model: Destination, as: 'route' },
-        { model: Schedule, as: 'schedule' },
-        { model: Driver, as: 'driver' }
-      ],
-      offset,
-      limit: parseInt(limit),
-      order: [['departureTime', 'DESC']]
-    });
+  // ✅ NEW: Get trip statistics
+  getTripStats: async (req, res) => {
+    try {
+      console.log('📊 Fetching trip statistics...');
 
-    return res.status(200).json({
-      success: true,
-      trips: rows,
-      total: count,
-      totalPages: Math.ceil(count / limit),
-      currentPage: parseInt(page)
-    });
-  } catch (error) {
-    console.error('Get trips error:', error);
-    return res.status(500).json({ success: false, message: 'Failed to fetch trips' });
-  }
-},
+      // Parallel queries for better performance
+      const [
+        totalTrips,
+        activeTrips,
+        completedTrips,
+        scheduledTrips,
+        cancelledTrips,
+        todayTrips,
+        totalPassengers,
+        waitingDrivers,
+        totalRevenue
+      ] = await Promise.all([
+        // Total trips count
+        Trip.count(),
 
+        // Active trips (in progress)
+        Trip.count({ where: { status: 'in_progress' } }),
+
+        // Completed trips
+        Trip.count({ where: { status: 'completed' } }),
+
+        // Scheduled trips
+        Trip.count({ where: { status: 'scheduled' } }),
+
+        // Cancelled trips
+        Trip.count({ where: { status: 'cancelled' } }),
+
+        // Today's trips
+        Trip.count({
+          where: {
+            createdAt: {
+              [Op.gte]: new Date(new Date().setHours(0, 0, 0, 0))
+            }
+          }
+        }),
+
+        // Total passengers served
+        Booking.sum('seats', {
+          where: {
+            status: { [Op.in]: ['confirmed', 'completed'] }
+          }
+        }),
+
+        // Waiting drivers in queue
+        DriverQueue.count({ where: { status: 'waiting' } }),
+
+        // Total revenue from completed bookings
+        Booking.sum('amount', {
+          where: {
+            status: { [Op.in]: ['confirmed', 'completed'] }
+          }
+        })
+      ]);
+
+      // Calculate additional metrics
+      const completionRate = totalTrips > 0 ?
+        ((completedTrips / totalTrips) * 100).toFixed(1) : 0;
+
+      const cancellationRate = totalTrips > 0 ?
+        ((cancelledTrips / totalTrips) * 100).toFixed(1) : 0;
+
+      const averagePassengersPerTrip = completedTrips > 0 ?
+        (totalPassengers / completedTrips).toFixed(1) : 0;
+
+      const stats = {
+        // Basic counts
+        totalTrips,
+        activeTrips,
+        completedTrips,
+        scheduledTrips,
+        cancelledTrips,
+        todayTrips,
+
+        // Passenger metrics
+        totalPassengers: parseInt(totalPassengers || 0),
+        averagePassengersPerTrip: parseFloat(averagePassengersPerTrip),
+
+        // Driver metrics
+        waitingDrivers,
+
+        // Financial metrics
+        totalRevenue: parseFloat(totalRevenue || 0),
+
+        // Performance metrics
+        completionRate: parseFloat(completionRate),
+        cancellationRate: parseFloat(cancellationRate),
+
+        // Meta information
+        lastUpdated: new Date().toISOString(),
+        period: 'all_time'
+      };
+
+      console.log('✅ Trip stats calculated successfully:', {
+        totalTrips,
+        activeTrips,
+        completedTrips,
+        totalPassengers: stats.totalPassengers
+      });
+
+      return res.status(200).json({
+        success: true,
+        stats
+      });
+
+    } catch (error) {
+      console.error('❌ Get trip stats error:', error);
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to retrieve trip statistics',
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
+  },
 
   // ✅ Get trip by ID
   getTripById: async (req, res) => {
@@ -172,9 +290,9 @@ const tripController = {
       const { status } = req.body;
 
       if (!['scheduled', 'in_progress', 'completed', 'cancelled'].includes(status)) {
-        return res.status(400).json({ 
-          success: false, 
-          message: 'Invalid status' 
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid status'
         });
       }
 
@@ -196,12 +314,12 @@ const tripController = {
         // ✅ Remove driver from queue when trip starts (manual or auto)
         if (status === 'in_progress' && trip.queueEntry) {
           console.log(`🚗 Trip started - removing driver from queue`);
-          
+
           const { stationId, scheduleId, destinationId } = trip.queueEntry;
-          
+
           // Remove queue entry
           await trip.queueEntry.destroy({ transaction: t });
-          
+
           // Reindex remaining queue positions  
           await reindexQueuePositions(stationId, scheduleId, destinationId, t);
 
@@ -211,9 +329,9 @@ const tripController = {
         // ✅ Also cleanup on cancellation
         if (status === 'cancelled' && trip.queueEntry) {
           console.log(`❌ Trip cancelled - removing driver from queue`);
-          
+
           const { stationId, scheduleId, destinationId } = trip.queueEntry;
-          
+
           await trip.queueEntry.destroy({ transaction: t });
           await reindexQueuePositions(stationId, scheduleId, destinationId, t);
         }
@@ -221,17 +339,17 @@ const tripController = {
         return trip;
       });
 
-      return res.status(200).json({ 
-        success: true, 
+      return res.status(200).json({
+        success: true,
         trip: result,
-        message: `Trip status updated to ${status}` 
+        message: `Trip status updated to ${status}`
       });
 
     } catch (error) {
       console.error('Update trip status error:', error);
-      return res.status(500).json({ 
-        success: false, 
-        message: error.message || 'Failed to update trip status' 
+      return res.status(500).json({
+        success: false,
+        message: error.message || 'Failed to update trip status'
       });
     }
   },
@@ -266,42 +384,40 @@ const tripController = {
   },
 
   // ✅ Get all trips assigned to the logged-in driver
-getDriverTrips: async (req, res) => {
-  try {
-    const userId = req.user.id;
-    const driver = await Driver.findOne({ where: { user_id: userId } });
-    if (!driver) {
-      return res.status(404).json({ success: false, message: 'Driver not found' });
+  getDriverTrips: async (req, res) => {
+    try {
+      const userId = req.user.id;
+      const driver = await Driver.findOne({ where: { user_id: userId } });
+      if (!driver) {
+        return res.status(404).json({ success: false, message: 'Driver not found' });
+      }
+
+      console.log('[getDriverTrips] Found driver:', driver.id, driver);
+
+      const trips = await Trip.findAll({
+        where: { driverId: driver.id },
+        include: [
+          {
+            model: Destination,
+            as: 'route',
+            include: [
+              { model: require('../models').Station, as: 'startStation' },
+              { model: require('../models').Station, as: 'endStation' }
+            ]
+          },
+          { model: Schedule, as: 'schedule' }
+        ],
+        order: [['departureTime', 'DESC']]
+      });
+
+      console.log('[getDriverTrips] trips result (count):', trips.length);
+
+      return res.status(200).json({ success: true, trips });
+    } catch (error) {
+      console.error('Error fetching driver trips:', error);
+      return res.status(500).json({ success: false, message: 'Failed to fetch trips' });
     }
-
-    console.log('[getDriverTrips] Found driver:', driver.id, driver);
-
-    const trips = await Trip.findAll({
-      where: { driverId: driver.id },
-      include: [
-        {
-          model: Destination,
-          as: 'route',
-          include: [
-            { model: require('../models').Station, as: 'startStation' },
-            { model: require('../models').Station, as: 'endStation' }
-          ]
-        },
-        { model: Schedule, as: 'schedule' }
-      ],
-      order: [['departureTime', 'DESC']]
-    });
-
-    console.log('[getDriverTrips] trips result (count):', trips.length);
-
-        console.dir(trips, { depth: 7 });
-
-    return res.status(200).json({ success: true, trips });
-  } catch (error) {
-    console.error('Error fetching driver trips:', error);
-    return res.status(500).json({ success: false, message: 'Failed to fetch trips' });
-  }
-},
+  },
 
   /**
    * ✅ ENHANCED: Mark a trip as completed by the driver
@@ -319,7 +435,7 @@ getDriverTrips: async (req, res) => {
 
       // Use transaction for data consistency
       const result = await sequelize.transaction(async (t) => {
-        const trip = await Trip.findOne({ 
+        const trip = await Trip.findOne({
           where: { id: tripId, driverId: driver.id },
           include: [{ model: DriverQueue, as: 'queueEntry' }],
           transaction: t
@@ -347,17 +463,17 @@ getDriverTrips: async (req, res) => {
         return trip;
       });
 
-      return res.status(200).json({ 
-        success: true, 
-        message: 'Trip marked as completed', 
-        trip: result 
+      return res.status(200).json({
+        success: true,
+        message: 'Trip marked as completed',
+        trip: result
       });
 
     } catch (error) {
       console.error('Complete trip error:', error);
-      return res.status(500).json({ 
-        success: false, 
-        message: error.message || 'Failed to complete trip' 
+      return res.status(500).json({
+        success: false,
+        message: error.message || 'Failed to complete trip'
       });
     }
   }

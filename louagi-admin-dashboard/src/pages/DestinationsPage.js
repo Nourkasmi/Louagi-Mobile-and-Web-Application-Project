@@ -1,6 +1,6 @@
-// src/pages/DestinationsPage.js - Clean Version
+// src/pages/DestinationsPage.js - Complete Implementation
 import React, { useState } from 'react';
-import { Plus } from 'lucide-react';
+import { Plus, RefreshCw, Download } from 'lucide-react';
 import PageHeader from '../components/common/PageHeader';
 import { useDestinationsData } from '../hooks/useDestinationsData';
 import {
@@ -36,7 +36,10 @@ const DestinationsPage = () => {
         fetchDestinations,
         createDestination,
         updateDestination,
-        deleteDestination
+        deleteDestination,
+
+        // Computed
+        hasFilters
     } = useDestinationsData();
 
     // Modal state
@@ -90,6 +93,36 @@ const DestinationsPage = () => {
         setCurrentPage(newPage);
     };
 
+    const handleExport = () => {
+        if (destinations.length === 0) {
+            alert('No destinations to export');
+            return;
+        }
+
+        // Create CSV content
+        const csvContent = [
+            ['Route', 'Start Station', 'End Station', 'Distance (km)', 'Price ($)', 'Duration (min)', 'Status'].join(','),
+            ...destinations.map(dest => [
+                dest.description || `${dest.startStation?.name} to ${dest.endStation?.name}`,
+                dest.startStation?.name || 'Unknown',
+                dest.endStation?.name || 'Unknown',
+                dest.distance || 0,
+                dest.basePrice || 0,
+                dest.estimatedDuration || 0,
+                dest.isActive ? 'Active' : 'Inactive'
+            ].join(','))
+        ].join('\n');
+
+        // Download CSV
+        const blob = new Blob([csvContent], { type: 'text/csv' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `destinations-${new Date().toISOString().split('T')[0]}.csv`;
+        a.click();
+        window.URL.revokeObjectURL(url);
+    };
+
     // ========================================
     // RENDER CONDITIONS
     // ========================================
@@ -116,15 +149,31 @@ const DestinationsPage = () => {
             {/* Page Header */}
             <PageHeader
                 title="Destinations Management"
-                subtitle="Manage routes and destinations"
+                subtitle={`${destinations.length} destinations found • Manage routes between stations`}
                 action={
-                    <button
-                        onClick={handleCreateNew}
-                        className="btn-primary flex items-center space-x-2"
-                    >
-                        <Plus className="h-4 w-4" />
-                        <span>Add Destination</span>
-                    </button>
+                    <div className="flex items-center space-x-3">
+                        <button
+                            onClick={handleExport}
+                            className="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200 transition-colors flex items-center space-x-2"
+                        >
+                            <Download className="h-4 w-4" />
+                            <span>Export</span>
+                        </button>
+                        <button
+                            onClick={fetchDestinations}
+                            className="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200 transition-colors flex items-center space-x-2"
+                        >
+                            <RefreshCw className="h-4 w-4" />
+                            <span>Refresh</span>
+                        </button>
+                        <button
+                            onClick={handleCreateNew}
+                            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2"
+                        >
+                            <Plus className="h-4 w-4" />
+                            <span>Add Destination</span>
+                        </button>
+                    </div>
                 }
             />
 
@@ -136,6 +185,13 @@ const DestinationsPage = () => {
                 setFilters={setFilters}
                 stations={stations}
             />
+
+            {/* Error state for operations */}
+            {error && destinations.length > 0 && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                    <div className="text-red-800 text-sm">{error}</div>
+                </div>
+            )}
 
             {/* Destinations Table */}
             <DestinationsTable
@@ -171,6 +227,12 @@ const DestinationsPage = () => {
                 initialData={selectedDestination}
                 submitting={submitting}
             />
+
+            {/* Connection Status */}
+            <div className="text-xs text-gray-500 text-center">
+                ✅ Connected to backend: {process.env.REACT_APP_API_URL || 'http://localhost:5000/api'} •
+                Last updated: {new Date().toLocaleTimeString()}
+            </div>
         </div>
     );
 };

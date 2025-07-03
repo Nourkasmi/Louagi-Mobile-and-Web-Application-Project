@@ -1,3 +1,4 @@
+// src/components/layout/Sidebar.js - Updated with Destinations
 import React from 'react';
 import {
     BarChart3,
@@ -9,7 +10,8 @@ import {
     Route,
     Settings,
     Clock,
-    FileText
+    FileText,
+    Navigation // ✅ NEW: Icon for destinations
 } from 'lucide-react';
 
 const Sidebar = ({ isOpen, onClose, currentRoute, setCurrentRoute }) => {
@@ -43,6 +45,11 @@ const Sidebar = ({ isOpen, onClose, currentRoute, setCurrentRoute }) => {
             name: 'Stations',
             route: 'stations',
             icon: MapPin
+        },
+        {
+            name: 'Destinations', // ✅ NEW: Added destinations menu item
+            route: 'destinations',
+            icon: Navigation
         },
         {
             name: 'Schedules',

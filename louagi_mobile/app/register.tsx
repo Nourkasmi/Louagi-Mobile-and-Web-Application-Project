@@ -1,4 +1,4 @@
-// 📁 app/register.tsx - COMPLETE Enhanced Register Component with Clean Architecture
+// 📁 app/register.tsx - COMPLETE FIXED Registration Component
 import React, { useState, useRef, useCallback, useMemo } from 'react';
 import {
   View,
@@ -228,9 +228,14 @@ const RegisterScreen: React.FC = () => {
     }
   }, [currentStep, form.role]);
 
-  // Submit handler
+  // FIXED Submit handler with better debugging
   const handleSubmit = useCallback(async (): Promise<void> => {
-    if (!validateStep(currentStep)) return;
+    console.log('🚀 Starting registration process...');
+
+    if (!validateStep(currentStep)) {
+      console.log('❌ Validation failed at step:', currentStep);
+      return;
+    }
 
     setIsLoading(true);
 
@@ -248,50 +253,119 @@ const RegisterScreen: React.FC = () => {
         }),
       };
 
+      console.log('🚀 Submitting registration payload:', {
+        ...payload,
+        password: '[HIDDEN]'
+      });
+
       const res = await register(payload);
 
-      if (!res.success || !res.user || !res.token) {
+      console.log('📡 Registration response received:', {
+        success: res.success,
+        hasUser: !!res.user,
+        hasToken: !!res.token,
+        message: res.message,
+        userRole: res.user?.role,
+        fullResponse: res, // Log full response for debugging
+      });
+
+      if (!res.success) {
+        console.log('❌ Registration failed:', res.message);
         Alert.alert('Registration Failed', res.message || 'Please try again');
         return;
       }
 
+      if (!res.user || !res.token) {
+        console.log('❌ Registration response missing user or token:', {
+          hasUser: !!res.user,
+          hasToken: !!res.token,
+          response: res
+        });
+        Alert.alert('Registration Failed', 'Invalid response from server. Please try again.');
+        return;
+      }
+
+      console.log('✅ Registration successful, storing data...');
+
       // Store authentication data
-      await Promise.all([
-        AsyncStorage.setItem('louagi_token', res.token),
-        AsyncStorage.setItem('louagi_user', JSON.stringify(res.user)),
-      ]);
+      try {
+        await Promise.all([
+          AsyncStorage.setItem('louagi_token', res.token),
+          AsyncStorage.setItem('louagi_user', JSON.stringify(res.user)),
+        ]);
+        console.log('✅ Auth data stored successfully');
+      } catch (storageError) {
+        console.error('❌ Error storing auth data:', storageError);
+        Alert.alert('Warning', 'Registration successful but failed to save locally. You may need to log in again.');
+      }
 
       // Set global token
       global.authToken = res.token;
+      console.log('✅ Global token set');
 
       // Update Redux state
-      dispatch(loginSuccess({
-        user: res.user,
-        token: res.token,
-      }));
+      try {
+        dispatch(loginSuccess({
+          user: res.user,
+          token: res.token,
+        }));
+        console.log('✅ Redux state updated');
+      } catch (reduxError) {
+        console.error('❌ Error updating Redux:', reduxError);
+      }
 
-      // Success feedback
-      Alert.alert(
-        'Welcome to Louagi!',
-        `Account created successfully. Welcome ${res.user.username}!`,
-        [
-          {
-            text: 'Get Started',
-            onPress: () => {
-              const routes = {
-                passenger: '/(passenger)/home',
-                driver: '/(driver)/dashboard',
-                admin: '/(driver)/dashboard',
-              } as const;
+      // Success feedback - Handle web vs mobile differently
+      console.log('🎉 Registration successful, navigating...');
 
-              const targetRoute = routes[res.user.role as keyof typeof routes] || routes.passenger;
-              router.replace(targetRoute);
-            },
-          },
-        ]
-      );
+      const routes = {
+        passenger: '/(passenger)/home',
+        driver: '/(driver)/dashboard',
+        admin: '/(driver)/dashboard',
+      } as const;
+
+      const targetRoute = routes[res.user.role as keyof typeof routes] || routes.passenger;
+      console.log('🧭 Target route:', targetRoute);
+
+      try {
+        // On web, navigate immediately since Alert.alert doesn't work well
+        if (Platform.OS === 'web') {
+          router.replace(targetRoute);
+          console.log('✅ Web navigation successful');
+        } else {
+          // On mobile, show alert first
+          Alert.alert(
+            'Welcome to Louagi!',
+            `Account created successfully. Welcome ${res.user.username}!`,
+            [
+              {
+                text: 'Get Started',
+                onPress: () => {
+                  router.replace(targetRoute);
+                  console.log('✅ Mobile navigation successful');
+                },
+              },
+            ]
+          );
+        }
+      } catch (navError) {
+        console.error('❌ Navigation error:', navError);
+        // Fallback navigation attempt
+        setTimeout(() => {
+          try {
+            router.replace(targetRoute);
+          } catch (secondError) {
+            console.error('❌ Second navigation attempt failed:', secondError);
+          }
+        }, 100);
+      }
+
     } catch (error: any) {
-      console.error('Register error:', error);
+      console.error('💥 Registration error caught:', {
+        message: error.message,
+        status: error.response?.status,
+        data: error.response?.data,
+        stack: error.stack
+      });
 
       const errorMessages = {
         400: 'Invalid data provided. Please check your information.',
@@ -310,8 +384,10 @@ const RegisterScreen: React.FC = () => {
         errorMessage = errorMessages.network;
       }
 
+      console.log('📢 Showing error alert:', errorMessage);
       Alert.alert('Registration Error', errorMessage);
     } finally {
+      console.log('🏁 Registration process completed, setting loading to false');
       setIsLoading(false);
     }
   }, [currentStep, form, validateStep, dispatch, router]);

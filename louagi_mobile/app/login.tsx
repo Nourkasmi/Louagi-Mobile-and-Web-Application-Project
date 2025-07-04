@@ -1,4 +1,4 @@
-// 📁 app/login.tsx - ENHANCED Login Component with Clean Architecture
+// 📁 app/login.tsx - Login Screen WITHOUT Demo Section
 import React, { useState, useRef, useCallback } from 'react';
 import {
   View,
@@ -39,12 +39,6 @@ interface LoginFormData {
   email: string;
   password: string;
 }
-
-// Constants
-const DEMO_ACCOUNTS = {
-  passenger: { email: 'passenger@demo.com', password: 'password123' },
-  driver: { email: 'driver@demo.com', password: 'password123' },
-} as const;
 
 const LoginScreen: React.FC = () => {
   // Hooks
@@ -128,12 +122,6 @@ const LoginScreen: React.FC = () => {
     }
   }, [hasAttemptedSubmit, errors]);
 
-  // Handle demo login
-  const handleDemoLogin = useCallback((type: keyof typeof DEMO_ACCOUNTS) => {
-    const demoAccount = DEMO_ACCOUNTS[type];
-    setFormData(demoAccount);
-  }, []);
-
   // Main login handler
   const handleLogin = useCallback(async (): Promise<void> => {
     setHasAttemptedSubmit(true);
@@ -170,22 +158,37 @@ const LoginScreen: React.FC = () => {
         token: res.token,
       }));
 
-      // Success feedback
-      Alert.alert(
-        'Welcome Back!',
-        `Hello ${res.user.username}, you're successfully logged in.`,
-        [{ text: 'Continue', style: 'default' }]
-      );
+      // Success feedback and navigation
+      if (Platform.OS === 'web') {
+        // On web, navigate immediately
+        const routes = {
+          passenger: '/(passenger)/home',
+          driver: '/(driver)/dashboard',
+          admin: '/(driver)/dashboard',
+        } as const;
 
-      // Navigate based on role
-      const routes = {
-        passenger: '/(passenger)/home',
-        driver: '/(driver)/dashboard',
-        admin: '/(driver)/dashboard', // Fallback
-      } as const;
+        const targetRoute = routes[res.user.role as keyof typeof routes] || routes.passenger;
+        router.replace(targetRoute);
+      } else {
+        // On mobile, show alert first
+        Alert.alert(
+          'Welcome Back!',
+          `Hello ${res.user.username}, you're successfully logged in.`,
+          [{
+            text: 'Continue',
+            onPress: () => {
+              const routes = {
+                passenger: '/(passenger)/home',
+                driver: '/(driver)/dashboard',
+                admin: '/(driver)/dashboard',
+              } as const;
 
-      const targetRoute = routes[res.user.role as keyof typeof routes] || routes.passenger;
-      router.replace(targetRoute);
+              const targetRoute = routes[res.user.role as keyof typeof routes] || routes.passenger;
+              router.replace(targetRoute);
+            }
+          }]
+        );
+      }
 
     } catch (error: any) {
       console.error('Login error:', error);
@@ -384,33 +387,6 @@ const LoginScreen: React.FC = () => {
               <Text style={styles.registerLink}>Create Account</Text>
             </TouchableOpacity>
           </View>
-
-          {/* Demo Login Section (Development Only) */}
-          {__DEV__ && (
-            <View style={styles.demoContainer}>
-              <Text style={styles.demoTitle}>Quick Demo Login</Text>
-              <View style={styles.demoButtons}>
-                <TouchableOpacity
-                  style={styles.demoButton}
-                  onPress={() => handleDemoLogin('passenger')}
-                  disabled={isLoading}
-                  accessibilityRole="button"
-                  accessibilityLabel="Demo passenger login"
-                >
-                  <Text style={styles.demoButtonText}>Passenger</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.demoButton}
-                  onPress={() => handleDemoLogin('driver')}
-                  disabled={isLoading}
-                  accessibilityRole="button"
-                  accessibilityLabel="Demo driver login"
-                >
-                  <Text style={styles.demoButtonText}>Driver</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          )}
 
           {/* Loading Overlay */}
           {isLoading && (

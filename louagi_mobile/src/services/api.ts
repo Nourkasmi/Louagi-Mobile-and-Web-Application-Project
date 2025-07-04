@@ -1,4 +1,4 @@
-// src/services/api.ts - COMPLETE CLEANED API service
+// src/services/api.ts - COMPLETE UPDATED VERSION
 import store from '../store/store';
 import { logout } from '../store/authSlice';
 import axios, { InternalAxiosRequestConfig } from 'axios';
@@ -24,12 +24,12 @@ api.interceptors.request.use(
     if (token && config.headers) {
       config.headers.Authorization = `Bearer ${token}`;
     }
-    
+
     // Debug logging in development only
     if (__DEV__) {
       console.log(`🔄 API Request: ${config.method?.toUpperCase()} ${config.url}`);
     }
-    
+
     return config;
   },
   (error) => Promise.reject(error)
@@ -202,8 +202,16 @@ export interface DriverStatus {
   activeTrip?: Trip;
   queueEntry?: DriverQueue;
   capacityInfo?: TripCapacityStatus;
+  timingInfo?: {
+    departureTime: string;
+    estimatedArrivalTime: string;
+    formattedDeparture: string;
+    formattedArrival: string;
+    minutesUntilDeparture: number;
+  };
   canDeclareAvailability: boolean;
-  systemType: 'capacity-based';
+  canDeclareFull: boolean;
+  systemType: 'time-based';
 }
 
 export interface TripCapacityStatus {
@@ -300,6 +308,15 @@ export const getDestinationById = async (id: string): Promise<ApiResponse<Destin
   return res.data;
 };
 
+// ==================== SCHEDULE ENDPOINTS ====================
+
+export async function getSchedules(stationId?: string) {
+  const params: any = {};
+  if (stationId) params.stationId = stationId;
+  const res = await api.get('/schedules', { params });
+  return res.data;
+}
+
 // ==================== TRIP ENDPOINTS ====================
 
 export const getTrips = async (params?: {
@@ -324,49 +341,7 @@ export const updateTripStatus = async (id: string, status: Trip['status']): Prom
   return res.data;
 };
 
-// ==================== BOOKING ENDPOINTS ====================
-
-export const createBooking = async (bookingData: {
-  tripId: string;
-  seats?: number;
-  specialRequests?: string;
-}): Promise<ApiResponse<Booking>> => {
-  const res = await api.post('/bookings', bookingData);
-  return res.data;
-};
-
-export const getMyBookings = async (params?: {
-  page?: number;
-  limit?: number;
-  status?: string;
-  startDate?: string;
-  endDate?: string;
-}): Promise<ApiResponse<{ bookings: Booking[]; summary: any }>> => {
-  const res = await api.get('/bookings/my', { params });
-  return res.data;
-};
-
-export const getBookingById = async (id: string): Promise<ApiResponse<Booking>> => {
-  const res = await api.get(`/bookings/${id}`);
-  return res.data;
-};
-
-export const getBookingByReference = async (reference: string): Promise<ApiResponse<Booking>> => {
-  const res = await api.get(`/bookings/reference/${reference}`);
-  return res.data;
-};
-
-export const cancelBooking = async (id: string, reason?: string): Promise<ApiResponse<Booking>> => {
-  const res = await api.patch(`/bookings/${id}/cancel`, { cancellationReason: reason });
-  return res.data;
-};
-
-export const updateBookingStatus = async (id: string, status: Booking['status'], reason?: string): Promise<ApiResponse<Booking>> => {
-  const res = await api.patch(`/bookings/${id}/status`, { status, cancellationReason: reason });
-  return res.data;
-};
-
-// ==================== DRIVER ENDPOINTS ====================
+// ==================== ENHANCED DECLARE AVAILABILITY ====================
 
 export const declareAvailability = async (data: {
   stationId: string;
@@ -374,8 +349,18 @@ export const declareAvailability = async (data: {
   destinationId: string;
 }): Promise<ApiResponse<{
   trip: Trip;
-  queuePosition: number;
-  status: string;
+  timing?: {
+    queuePosition: number;
+    departureTime: string;
+    estimatedArrivalTime: string;
+    formattedDeparture: string;
+    formattedArrival: string;
+    duration: string;
+    queueDelayMinutes: number;
+    totalDelayFromNow: number;
+    scheduleStatus: string;
+    isScheduleActive: boolean;
+  };
   waitingForPassengers: boolean;
   availableSeats: number;
   totalCapacity: number;
@@ -383,9 +368,146 @@ export const declareAvailability = async (data: {
   wasAutoStarted?: boolean;
   autoConfirmedBookings?: number;
 }>> => {
-  const res = await api.post('/drivers/available', data);
-  return res.data;
+  try {
+    console.log('📡 API: Declaring availability with data:', data);
+
+    // Validate input data
+    if (!data.stationId || !data.scheduleId || !data.destinationId) {
+      throw new Error('Missing required parameters: stationId, scheduleId, or destinationId');
+    }
+
+    const res = await api.post('/drivers/available', data);
+    console.log('📡 API: Declare availability raw response:', res.data);
+
+    // Handle different response structures from backend
+    let normalizedResponse: ApiResponse;
+
+    if (res.data?.success !== undefined) {
+      // Backend returns { success: true, trip: {...}, timing: {...} }
+      normalizedResponse = {
+        success: res.data.success,
+        message: res.data.message,
+        data: {
+          trip: res.data.trip,
+          timing: res.data.timing,
+          waitingForPassengers: res.data.waitingForPassengers || true,
+          availableSeats: res.data.availableSeats || res.data.trip?.availableSeats || 0,
+          totalCapacity: res.data.totalCapacity || res.data.trip?.capacity || 4,
+          systemType: res.data.systemType || 'time-based',
+          wasAutoStarted: res.data.wasAutoStarted || res.data.tripAutoStarted,
+          autoConfirmedBookings: res.data.autoConfirmedBookings || 0,
+        }
+      };
+    } else if (res.data?.trip) {
+      // Backend returns { trip: {...} } without success field
+      normalizedResponse = {
+        success: true,
+        message: 'Trip created successfully',
+        data: {
+          trip: res.data.trip,
+          timing: res.data.timing,
+          waitingForPassengers: res.data.waitingForPassengers || true,
+          availableSeats: res.data.availableSeats || res.data.trip?.availableSeats || 0,
+          totalCapacity: res.data.totalCapacity || res.data.trip?.capacity || 4,
+          systemType: res.data.systemType || 'time-based',
+          wasAutoStarted: res.data.wasAutoStarted || res.data.tripAutoStarted,
+          autoConfirmedBookings: res.data.autoConfirmedBookings || 0,
+        }
+      };
+    } else if (res.status === 201 || res.status === 200) {
+      // Backend returns success status but different structure
+      normalizedResponse = {
+        success: true,
+        message: 'Availability declared successfully',
+        data: {
+          trip: res.data,
+          waitingForPassengers: true,
+          availableSeats: res.data?.availableSeats || 4,
+          totalCapacity: res.data?.capacity || 4,
+          systemType: 'time-based',
+        }
+      };
+    } else {
+      // Unexpected structure
+      normalizedResponse = {
+        success: false,
+        message: 'Unexpected response format from server',
+        data: res.data
+      };
+    }
+
+    console.log('📡 API: Normalized response:', normalizedResponse);
+    return normalizedResponse;
+
+  } catch (error: any) {
+    console.error('❌ API: Declare availability error:', error);
+
+    // Enhanced error handling
+    if (error.response) {
+      const status = error.response.status;
+      const errorData = error.response.data;
+
+      let errorMessage = 'Failed to declare availability';
+
+      switch (status) {
+        case 400:
+          errorMessage = errorData?.message || 'Invalid request. Please check your selections.';
+          break;
+        case 401:
+          errorMessage = 'Authentication required. Please log in again.';
+          break;
+        case 403:
+          errorMessage = errorData?.message || 'You do not have permission to declare availability.';
+          break;
+        case 404:
+          errorMessage = 'Selected station, destination, or schedule not found.';
+          break;
+        case 409:
+          errorMessage = errorData?.message || 'You already have an active trip or are in queue.';
+          break;
+        case 422:
+          errorMessage = errorData?.message || 'Invalid data provided. Please check your selections.';
+          break;
+        case 500:
+          errorMessage = 'Server error. Please try again in a moment.';
+          break;
+        default:
+          errorMessage = errorData?.message || `Server error (${status}). Please try again.`;
+      }
+
+      return {
+        success: false,
+        message: errorMessage,
+        error: {
+          status,
+          data: errorData
+        }
+      };
+    } else if (error.request) {
+      // Network error
+      return {
+        success: false,
+        message: 'Network error. Please check your internet connection and try again.',
+        error: {
+          type: 'network',
+          message: error.message
+        }
+      };
+    } else {
+      // Other error
+      return {
+        success: false,
+        message: error.message || 'An unexpected error occurred. Please try again.',
+        error: {
+          type: 'unknown',
+          message: error.message
+        }
+      };
+    }
+  }
 };
+
+// ==================== DRIVER ENDPOINTS ====================
 
 export const getDriverStatus = async (): Promise<ApiResponse<DriverStatus>> => {
   const res = await api.get('/drivers/status');
@@ -402,13 +524,6 @@ export const cancelWaitingTrip = async (): Promise<ApiResponse<{ cancelledTrip: 
   return res.data;
 };
 
-export async function getSchedules(stationId?: string) {
-  const params: any = {};
-  if (stationId) params.stationId = stationId;
-  const res = await api.get('/schedules', { params });
-  return res.data;
-}
-
 // CLEANED getDriverTrips function
 export const getDriverTrips = async (params?: {
   page?: number;
@@ -417,7 +532,7 @@ export const getDriverTrips = async (params?: {
 }): Promise<ApiResponse<{ trips: Trip[] }>> => {
   try {
     const res = await api.get('/drivers/trips', { params });
-    
+
     // Handle different response structures from backend
     let normalizedResponse: ApiResponse<{ trips: Trip[] }>;
 
@@ -510,9 +625,6 @@ export const getDriverQueue = async (): Promise<ApiResponse<{
   return res.data;
 };
 
-
-// ==================== DRIVER PROFILE UPDATES ====================
-
 export const updateDriverProfile = async (data: {
   vehicleType?: string;
   vehicleCapacity?: number;
@@ -524,10 +636,52 @@ export const updateDriverProfile = async (data: {
   return res.data;
 };
 
+// ==================== BOOKING ENDPOINTS ====================
+
+export const createBooking = async (bookingData: {
+  tripId: string;
+  seats?: number;
+  specialRequests?: string;
+}): Promise<ApiResponse<Booking>> => {
+  const res = await api.post('/bookings', bookingData);
+  return res.data;
+};
+
+export const getMyBookings = async (params?: {
+  page?: number;
+  limit?: number;
+  status?: string;
+  startDate?: string;
+  endDate?: string;
+}): Promise<ApiResponse<{ bookings: Booking[]; summary: any }>> => {
+  const res = await api.get('/bookings/my', { params });
+  return res.data;
+};
+
+export const getBookingById = async (id: string): Promise<ApiResponse<Booking>> => {
+  const res = await api.get(`/bookings/${id}`);
+  return res.data;
+};
+
+export const getBookingByReference = async (reference: string): Promise<ApiResponse<Booking>> => {
+  const res = await api.get(`/bookings/reference/${reference}`);
+  return res.data;
+};
+
+export const cancelBooking = async (id: string, reason?: string): Promise<ApiResponse<Booking>> => {
+  const res = await api.patch(`/bookings/${id}/cancel`, { cancellationReason: reason });
+  return res.data;
+};
+
+export const updateBookingStatus = async (id: string, status: Booking['status'], reason?: string): Promise<ApiResponse<Booking>> => {
+  const res = await api.patch(`/bookings/${id}/status`, { status, cancellationReason: reason });
+  return res.data;
+};
+
 // ==================== PAYMENT ENDPOINTS ====================
 
 export const createPaymentIntent = async (
-  bookingId: string, 
+  bookingId: string,
   savePaymentMethod?: boolean
 ): Promise<{
   success: boolean;
@@ -539,12 +693,12 @@ export const createPaymentIntent = async (
   clientSecret?: string; // Add this for backward compatibility
 }> => {
   const res = await api.post('/payments/intent', { bookingId, savePaymentMethod });
-  
+
   // Add clientSecret to root level for backward compatibility
   if (res.data.success && res.data.data?.clientSecret) {
     res.data.clientSecret = res.data.data.clientSecret;
   }
-  
+
   return res.data;
 };
 

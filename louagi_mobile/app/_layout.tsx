@@ -1,11 +1,10 @@
-// app/_layout.tsx - UPDATED Root Layout with Clean Route Groups
+// app/_layout.tsx - FIXED Root Layout
 import React, { useEffect } from 'react';
 import { Stack } from 'expo-router';
 import { Provider } from 'react-redux';
 import { PaperProvider } from 'react-native-paper';
 import store from '../src/store/store';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-
 
 export default function RootLayout() {
   useEffect(() => {
@@ -15,8 +14,6 @@ export default function RootLayout() {
         const token = await AsyncStorage.getItem('louagi_token');
         if (token) {
           global.authToken = token;
-          // Optionally: dispatch(loginSuccess({ user, token })) if you store user in AsyncStorage too
-          // But usually, you'll auto-fetch user profile after login elsewhere
           console.log('JWT restored from AsyncStorage!');
         } else {
           global.authToken = undefined;
@@ -29,21 +26,9 @@ export default function RootLayout() {
 
     restoreAuthToken();
 
-    // Initialize services
-    const initializeServices = async () => {
-      try {
-        await offlineService.initialize();
-        console.log('App services initialized successfully');
-      } catch (error) {
-        console.error('Error initializing app services:', error);
-      }
-    };
+    // 🔧 REMOVED: offlineService initialization that was causing errors
+    // If you need offline service, implement it properly first
 
-    initializeServices();
-
-    return () => {
-      offlineService.cleanup();
-    };
   }, []);
 
   return (
@@ -55,7 +40,7 @@ export default function RootLayout() {
           <Stack.Screen name="login" />
           <Stack.Screen name="register" />
 
-          {/* ✅ NEW: Clean Route Groups */}
+          {/* Route Groups */}
           <Stack.Screen name="(passenger)" />
           <Stack.Screen name="(driver)" />
         </Stack>

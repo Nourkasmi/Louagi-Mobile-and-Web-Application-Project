@@ -4,10 +4,8 @@ import { Users, Car, CreditCard, FileText } from 'lucide-react';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import {
     StatCard,
-    BookingChart,
     SystemStatus,
     RecentActivity,
-    QuickActions,
     DashboardHeader,
     DashboardError
 } from '../components/dashboard';
@@ -19,14 +17,8 @@ const DashboardPage = () => {
         loading,
         error,
         recentActivity,
-        chartData,
         fetchDashboardStats
     } = useDashboardData();
-
-    const handleNavigate = (route) => {
-        console.log(`Navigate to ${route}`);
-        // Add navigation logic here when needed
-    };
 
     if (loading) {
         return (
@@ -51,7 +43,6 @@ const DashboardPage = () => {
                     <StatCard
                         title="Total Users"
                         value={stats.totalUsers.toLocaleString()}
-                        change="+12.5%"
                         changeType="positive"
                         icon={Users}
                         color="from-blue-600 to-blue-800"
@@ -60,25 +51,21 @@ const DashboardPage = () => {
                     <StatCard
                         title="Active Trips"
                         value={stats.activeTrips}
-                        change="+3"
                         changeType="positive"
                         icon={Car}
                         color="from-green-600 to-green-800"
                         subtitle="Currently running"
                     />
-                    <StatCard
-                        title="Total Revenue"
-                        value={`$${stats.totalRevenue.toFixed(2)}`}
-                        change="+8.2%"
-                        changeType="positive"
-                        icon={CreditCard}
-                        color="from-purple-600 to-purple-800"
-                        subtitle="This month"
-                    />
+<StatCard
+    title="Total Revenue"
+    value={`$${stats.totalRevenue.toFixed(2)}`}
+    icon={CreditCard}
+    color="from-purple-600 to-purple-800"
+    subtitle="This month"
+/>
                     <StatCard
                         title="Today's Bookings"
                         value={stats.todayBookings}
-                        change="+15"
                         changeType="positive"
                         icon={FileText}
                         color="from-orange-600 to-orange-800"
@@ -86,16 +73,14 @@ const DashboardPage = () => {
                     />
                 </div>
 
-                {/* Charts Section */}
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                    <BookingChart chartData={chartData} />
+                {/* System Status Only */}
+                <div className="grid grid-cols-1 lg:grid-cols-1 gap-6">
                     <SystemStatus />
                 </div>
 
-                {/* Recent Activity & Quick Actions */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Recent Activity Only */}
+                <div className="grid grid-cols-1 lg:grid-cols-1 gap-6">
                     <RecentActivity recentActivity={recentActivity} />
-                    <QuickActions stats={stats} onNavigate={handleNavigate} />
                 </div>
 
                 {/* Footer Info */}

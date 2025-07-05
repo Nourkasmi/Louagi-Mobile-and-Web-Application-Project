@@ -11,15 +11,6 @@ export const useDashboardData = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [recentActivity, setRecentActivity] = useState([]);
-    const [chartData, setChartData] = useState([
-        { name: 'Mon', bookings: 42, revenue: 1050 },
-        { name: 'Tue', bookings: 58, revenue: 1450 },
-        { name: 'Wed', bookings: 67, revenue: 1675 },
-        { name: 'Thu', bookings: 74, revenue: 1850 },
-        { name: 'Fri', bookings: 89, revenue: 2225 },
-        { name: 'Sat', bookings: 95, revenue: 2375 },
-        { name: 'Sun', bookings: 78, revenue: 1950 }
-    ]);
 
     const fetchDashboardStats = useCallback(async () => {
         try {
@@ -102,12 +93,6 @@ export const useDashboardData = () => {
 
             console.log('✅ Dashboard stats loaded:', calculatedStats);
 
-            // Check if we got any real data
-            const hasRealData = calculatedStats.totalUsers > 0 || calculatedStats.activeTrips > 0;
-            if (!hasRealData) {
-                console.log('ℹ️ No data available from backend - showing mock data');
-            }
-
         } catch (error) {
             console.error('❌ Dashboard error:', error);
             // Don't show error for network issues, just use mock data
@@ -139,19 +124,6 @@ export const useDashboardData = () => {
         }
     }, []);
 
-    // Simulated real-time updates
-    useEffect(() => {
-        const interval = setInterval(() => {
-            setStats(prev => ({
-                ...prev,
-                todayBookings: prev.todayBookings + Math.floor(Math.random() * 2),
-                totalRevenue: prev.totalRevenue + (Math.random() * 50)
-            }));
-        }, 10000); // Update every 10 seconds
-
-        return () => clearInterval(interval);
-    }, []);
-
     // Fetch data on mount
     useEffect(() => {
         fetchDashboardStats();
@@ -162,7 +134,6 @@ export const useDashboardData = () => {
         loading,
         error,
         recentActivity,
-        chartData,
         fetchDashboardStats
     };
 };

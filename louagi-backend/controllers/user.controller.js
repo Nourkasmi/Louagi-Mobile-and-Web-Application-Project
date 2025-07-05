@@ -2,6 +2,7 @@ const bcrypt = require('bcrypt');
 const { User, Passenger, Driver } = require('../models');
 const { validateUserUpdate } = require('../middlewares/validate.middleware');
 const { sequelize } = require('../models');
+const { Op } = require('sequelize'); // <-- ADD THIS LINE
 
 /**
  * User management controller

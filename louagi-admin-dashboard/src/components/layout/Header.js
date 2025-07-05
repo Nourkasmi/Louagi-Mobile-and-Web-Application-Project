@@ -1,9 +1,8 @@
+// src/components/layout/Header.js - Updated (Removed Search & Notifications)
 import React, { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import {
     Menu,
-    Bell,
-    Search,
     User,
     Settings,
     LogOut,
@@ -13,7 +12,6 @@ import {
 const Header = ({ onMenuClick }) => {
     const { user, logout } = useAuth();
     const [showProfileMenu, setShowProfileMenu] = useState(false);
-    const [notifications] = useState(3);
     const profileMenuRef = useRef(null);
 
     useEffect(() => {
@@ -40,42 +38,18 @@ const Header = ({ onMenuClick }) => {
     return (
         <header className="bg-white shadow-sm border-b border-gray-200">
             <div className="flex items-center justify-between h-16 px-4 lg:px-6">
-                {/* Left side */}
-                <div className="flex items-center space-x-4">
-                    {/* Mobile menu button */}
+                {/* Left side - Mobile menu button only */}
+                <div className="flex items-center">
                     <button
                         onClick={onMenuClick}
                         className="lg:hidden p-2 rounded-lg text-gray-500 hover:bg-gray-100"
                     >
                         <Menu className="h-5 w-5" />
                     </button>
-
-                    {/* Search bar */}
-                    <div className="hidden md:block relative">
-                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                            <Search className="h-4 w-4 text-gray-400" />
-                        </div>
-                        <input
-                            type="text"
-                            placeholder="Search..."
-                            className="pl-10 pr-4 py-2 w-64 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        />
-                    </div>
                 </div>
 
-                {/* Right side */}
-                <div className="flex items-center space-x-4">
-                    {/* Notifications */}
-                    <button className="relative p-2 text-gray-500 hover:bg-gray-100 rounded-lg">
-                        <Bell className="h-5 w-5" />
-                        {notifications > 0 && (
-                            <span className="absolute -top-1 -right-1 h-4 w-4 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
-                                {notifications}
-                            </span>
-                        )}
-                    </button>
-
-                    {/* Profile menu */}
+                {/* Right side - Profile menu only */}
+                <div className="flex items-center">
                     <div className="relative" ref={profileMenuRef}>
                         <button
                             onClick={() => setShowProfileMenu(!showProfileMenu)}

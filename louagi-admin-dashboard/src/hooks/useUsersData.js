@@ -1,4 +1,3 @@
-// src/hooks/useUsersData.js
 import { useState, useEffect, useCallback } from 'react';
 import { showToast } from '../utils/toast';
 
@@ -20,7 +19,8 @@ export const useUsersData = () => {
     });
     const [selectedUsers, setSelectedUsers] = useState([]);
 
-    const fetchUsers = useCallback(async () => {
+    // The only place you use filters is here, but you control when to fetch!
+    const fetchUsers = useCallback(async (overrideFilters, overridePage) => {
         try {
             setLoading(true);
             setError(null);
@@ -31,9 +31,12 @@ export const useUsersData = () => {
             }
 
             const params = new URLSearchParams();
-            if (filters.role) params.append('role', filters.role);
-            if (filters.search) params.append('search', filters.search);
-            params.append('page', pagination.page.toString());
+            const filtersToUse = overrideFilters || filters;
+            const pageToUse = overridePage || pagination.page;
+
+            if (filtersToUse.role) params.append('role', filtersToUse.role);
+            if (filtersToUse.search) params.append('search', filtersToUse.search);
+            params.append('page', pageToUse.toString());
             params.append('limit', pagination.limit.toString());
 
             const baseUrl = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
@@ -66,15 +69,17 @@ export const useUsersData = () => {
         } finally {
             setLoading(false);
         }
-    }, [pagination.page, filters]);
+    // eslint-disable-next-line
+    }, [filters, pagination.page, pagination.limit]); // pagination.limit rarely changes, safe to leave
 
+    // Only fetch on first mount and when the page changes!
     useEffect(() => {
         fetchUsers();
-    }, [fetchUsers]);
+        // eslint-disable-next-line
+    }, [pagination.page]);
 
     const createUser = async (userData) => {
         try {
-            console.log('🔄 Creating user with data:', userData);
             setActionLoading(prev => ({ ...prev, create: true }));
 
             const token = localStorage.getItem('louagi_token');
@@ -90,14 +95,11 @@ export const useUsersData = () => {
                 role: userData.role
             };
 
-            // Add driver specific fields if role is driver
             if (userData.role === 'driver') {
                 requestData.license_no = userData.license_no.trim();
                 requestData.experience = parseInt(userData.experience) || 0;
                 requestData.license_expiry = userData.license_expiry;
             }
-
-            console.log('📤 Sending request data:', requestData);
 
             const baseUrl = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
             const response = await fetch(`${baseUrl}/auth/register`, {
@@ -109,29 +111,22 @@ export const useUsersData = () => {
                 body: JSON.stringify(requestData)
             });
 
-            console.log('📥 Response status:', response.status);
-
             let data;
             try {
                 data = await response.json();
-                console.log('📥 Response data:', data);
             } catch (parseError) {
-                console.error('❌ Failed to parse JSON response:', parseError);
                 throw new Error('Invalid response from server');
             }
 
             if (response.ok && (data.success || data.user)) {
-                console.log('✅ User created successfully');
-                await fetchUsers(); // Refresh the users list
+                await fetchUsers();
                 showToast('User created successfully!', 'success');
                 return { success: true };
             } else {
                 const errorMessage = data.message || data.error || `HTTP ${response.status}: Failed to create user`;
-                console.error('❌ User creation failed:', errorMessage);
                 throw new Error(errorMessage);
             }
         } catch (err) {
-            console.error('❌ Error creating user:', err);
             const errorMessage = err.message || 'Failed to create user';
             showToast('Error creating user: ' + errorMessage, 'error');
             return { success: false, error: errorMessage };
@@ -165,7 +160,6 @@ export const useUsersData = () => {
                 throw new Error(data.message || 'Failed to delete user');
             }
         } catch (err) {
-            console.error('Error deleting user:', err);
             showToast('Error deleting user: ' + err.message, 'error');
             return { success: false, error: err.message };
         } finally {
@@ -200,7 +194,6 @@ export const useUsersData = () => {
                 throw new Error(data.message || 'Failed to update user status');
             }
         } catch (err) {
-            console.error('Error updating user status:', err);
             showToast('Error updating user status: ' + err.message, 'error');
             return { success: false, error: err.message };
         } finally {
@@ -208,13 +201,20 @@ export const useUsersData = () => {
         }
     };
 
+    // THIS is the search handler for your search bar
     const handleSearch = (e) => {
         e.preventDefault();
         setPagination(prev => ({ ...prev, page: 1 }));
+        setTimeout(() => {
+            fetchUsers(filters, 1);
+        }, 0); // Defer to after page=1, so fetches page 1 with new filters
     };
 
     const handlePageChange = (newPage) => {
         setPagination(prev => ({ ...prev, page: newPage }));
+        setTimeout(() => {
+            fetchUsers(filters, newPage);
+        }, 0);
     };
 
     const handleBulkAction = (action) => {

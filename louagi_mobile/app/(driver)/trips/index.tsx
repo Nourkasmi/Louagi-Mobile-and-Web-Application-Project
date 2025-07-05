@@ -1,4 +1,4 @@
-// 📁 app/(driver)/trips/index.tsx - CLEAN (Logic Only with Theme)
+// 📁 app/(driver)/trips/index.tsx - FIXED Trip Actions
 import React, { useEffect, useState, useCallback } from 'react';
 import {
   View,
@@ -16,7 +16,7 @@ import {
   completeTrip,
   type Trip,
 } from '../../../src/services/api';
-import { styles } from './index.style'; // 🎨 Import clean theme-based styles
+import { styles } from './index.style';
 import { theme } from '../../../src/styles/theme';
 
 type FilterType = 'all' | 'scheduled' | 'in_progress' | 'completed' | 'cancelled';
@@ -46,9 +46,8 @@ export default function DriverTripsScreen() {
       });
 
       if (response.success) {
-        // Handle different response structures
         let tripsData: Trip[] = [];
-        
+
         if (response.data?.trips) {
           tripsData = response.data.trips;
         } else if (response.trips) {
@@ -57,6 +56,7 @@ export default function DriverTripsScreen() {
           tripsData = response.data;
         }
 
+        console.log(`✅ Processed ${tripsData.length} trips`);
         setTrips(tripsData);
       } else {
         setTrips([]);
@@ -82,41 +82,135 @@ export default function DriverTripsScreen() {
     setActiveFilter(filter);
   };
 
-  // Handle trip status update
+  // 🔧 FIXED: Handle trip status update with debouncing and better web compatibility
   const handleStatusUpdate = async (trip: Trip, newStatus: Trip['status']) => {
-    Alert.alert(
-      'Update Trip Status',
-      `Change trip status to ${newStatus}?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Confirm',
-          onPress: async () => {
-            try {
-              setActionLoading(trip.id);
+    // Prevent multiple simultaneous actions on the same trip
+    if (actionLoading === trip.id) {
+      console.log('⚠️ Action already in progress for trip:', trip.id);
+      return;
+    }
 
-              let response;
-              if (newStatus === 'completed') {
-                response = await completeTrip(trip.id);
-              } else {
-                response = await updateTripStatus(trip.id, newStatus);
-              }
+    // Special validation for cancelling trips with passengers
+    if (newStatus === 'cancelled') {
+      const bookedSeats = trip.capacity - trip.availableSeats;
+      if (bookedSeats > 0) {
+        if (typeof window !== 'undefined' && window.confirm) {
+          // Web fallback
+          window.alert(`Cannot Cancel Trip\n\nThis trip has ${bookedSeats} passenger${bookedSeats > 1 ? 's' : ''} booked. You cannot cancel a trip with active bookings.`);
+        } else {
+          Alert.alert(
+            'Cannot Cancel Trip',
+            `This trip has ${bookedSeats} passenger${bookedSeats > 1 ? 's' : ''} booked. You cannot cancel a trip with active bookings.`,
+            [{ text: 'OK' }]
+          );
+        }
+        return;
+      }
+    }
 
-              if (response.success) {
-                Alert.alert('Success', `Trip ${newStatus} successfully`);
-                fetchTrips(true);
-              } else {
-                Alert.alert('Error', response.message || 'Failed to update trip');
-              }
-            } catch (error) {
-              Alert.alert('Error', 'Failed to update trip status');
-            } finally {
-              setActionLoading(null);
-            }
-          },
-        },
-      ]
-    );
+    const actionName = newStatus === 'in_progress' ? 'start' :
+      newStatus === 'completed' ? 'complete' :
+        newStatus === 'cancelled' ? 'cancel' : 'update';
+
+    // Web-compatible confirmation
+    const confirmAction = async (): Promise<boolean> => {
+      if (typeof window !== 'undefined' && window.confirm) {
+        return window.confirm(`Are you sure you want to ${actionName} this trip?`);
+      } else {
+        return new Promise((resolve) => {
+          Alert.alert(
+            `${actionName.charAt(0).toUpperCase() + actionName.slice(1)} Trip`,
+            `Are you sure you want to ${actionName} this trip?`,
+            [
+              { text: 'Cancel', style: 'cancel', onPress: () => resolve(false) },
+              {
+                text: 'Confirm',
+                style: newStatus === 'cancelled' ? 'destructive' : 'default',
+                onPress: () => resolve(true)
+              },
+            ]
+          );
+        });
+      }
+    };
+
+    const confirmed = await confirmAction();
+    if (!confirmed) {
+      console.log('🚫 Action cancelled by user');
+      return;
+    }
+
+    // Execute the action
+    try {
+      console.log(`🚀 ${actionName.charAt(0).toUpperCase() + actionName.slice(1)}ing trip:`, trip.id);
+      setActionLoading(trip.id);
+
+      let response;
+
+      // Use different API endpoints based on the action
+      if (newStatus === 'completed') {
+        response = await completeTrip(trip.id);
+      } else {
+        response = await updateTripStatus(trip.id, newStatus);
+      }
+
+      console.log('📡 API Response:', response);
+
+      if (response.success) {
+        // Show success message
+        const successMessage = `Trip ${newStatus === 'in_progress' ? 'started' : newStatus} successfully!`;
+
+        if (typeof window !== 'undefined' && window.alert) {
+          window.alert(`Success\n\n${successMessage}`);
+        } else {
+          Alert.alert('Success', successMessage, [{ text: 'OK' }]);
+        }
+
+        // Refresh the trips list to show updated status
+        console.log('🔄 Refreshing trips list...');
+        await fetchTrips(true);
+      } else {
+        // Handle API error response
+        const errorMessage = response.message ||
+          response.error?.message ||
+          `Failed to ${actionName} trip. Please try again.`;
+
+        console.error('❌ API Error:', errorMessage);
+
+        if (typeof window !== 'undefined' && window.alert) {
+          window.alert(`Error\n\n${errorMessage}`);
+        } else {
+          Alert.alert('Error', errorMessage);
+        }
+      }
+    } catch (error: any) {
+      console.error(`❌ ${actionName.charAt(0).toUpperCase() + actionName.slice(1)} trip error:`, error);
+
+      // Enhanced error handling
+      let errorMessage = `Failed to ${actionName} trip. `;
+
+      if (error.response?.status === 400) {
+        errorMessage += error.response?.data?.message || 'Invalid request.';
+      } else if (error.response?.status === 404) {
+        errorMessage += 'Trip not found.';
+      } else if (error.response?.status === 409) {
+        errorMessage += 'Trip cannot be updated in its current state.';
+      } else if (error.response?.status >= 500) {
+        errorMessage += 'Server error. Please try again in a moment.';
+      } else if (!error.response) {
+        errorMessage += 'Please check your internet connection.';
+      } else {
+        errorMessage += 'Please try again.';
+      }
+
+      if (typeof window !== 'undefined' && window.alert) {
+        window.alert(`Update Failed\n\n${errorMessage}`);
+      } else {
+        Alert.alert('Update Failed', errorMessage);
+      }
+    } finally {
+      setActionLoading(null);
+    }
   };
 
   // Helper functions using theme
@@ -166,7 +260,7 @@ export default function DriverTripsScreen() {
     return driverEarnings;
   };
 
-  // Render trip item with defensive checks
+  // Render trip item with improved action buttons
   const renderTripItem = ({ item }: { item: Trip }) => {
     // Defensive validation
     if (!item || !item.route) {
@@ -229,15 +323,23 @@ export default function DriverTripsScreen() {
           </View>
         </View>
 
-        {/* Action buttons for active trips */}
+        {/* 🔧 IMPROVED: Action buttons with debouncing and web compatibility */}
         {(item.status === 'scheduled' || item.status === 'in_progress') && (
           <View style={styles.actionButtons}>
             {item.status === 'scheduled' && (
               <>
                 <TouchableOpacity
-                  style={[styles.actionButton, styles.startButton]}
-                  onPress={() => handleStatusUpdate(item, 'in_progress')}
+                  style={[
+                    styles.actionButton,
+                    styles.startButton,
+                    isActionLoading && styles.disabledButton
+                  ]}
+                  onPress={() => {
+                    console.log('🔥 Start button pressed for trip:', item.id);
+                    handleStatusUpdate(item, 'in_progress');
+                  }}
                   disabled={isActionLoading}
+                  activeOpacity={isActionLoading ? 1 : 0.7}
                 >
                   {isActionLoading ? (
                     <ActivityIndicator size="small" color="white" />
@@ -248,15 +350,20 @@ export default function DriverTripsScreen() {
 
                 <TouchableOpacity
                   style={[
-                    styles.actionButton, 
-                    styles.cancelButton,
-                    bookedSeats > 0 && styles.disabledButton
+                    styles.actionButton,
+                    bookedSeats > 0 ? styles.disabledButton : styles.cancelButton
                   ]}
-                  onPress={() => handleStatusUpdate(item, 'cancelled')}
+                  onPress={() => {
+                    console.log('🔥 Cancel button pressed for trip:', item.id);
+                    if (bookedSeats === 0) {
+                      handleStatusUpdate(item, 'cancelled');
+                    }
+                  }}
                   disabled={isActionLoading || bookedSeats > 0}
+                  activeOpacity={isActionLoading || bookedSeats > 0 ? 1 : 0.7}
                 >
                   <Text style={styles.actionButtonText}>
-                    {bookedSeats > 0 ? 'Has Passengers' : 'Cancel'}
+                    {bookedSeats > 0 ? `${bookedSeats} Passengers` : 'Cancel Trip'}
                   </Text>
                 </TouchableOpacity>
               </>
@@ -264,9 +371,17 @@ export default function DriverTripsScreen() {
 
             {item.status === 'in_progress' && (
               <TouchableOpacity
-                style={[styles.actionButton, styles.completeButton]}
-                onPress={() => handleStatusUpdate(item, 'completed')}
+                style={[
+                  styles.actionButton,
+                  styles.completeButton,
+                  isActionLoading && styles.disabledButton
+                ]}
+                onPress={() => {
+                  console.log('🔥 Complete button pressed for trip:', item.id);
+                  handleStatusUpdate(item, 'completed');
+                }}
                 disabled={isActionLoading}
+                activeOpacity={isActionLoading ? 1 : 0.7}
               >
                 {isActionLoading ? (
                   <ActivityIndicator size="small" color="white" />
@@ -431,16 +546,12 @@ export default function DriverTripsScreen() {
   );
 }
 
-// 🎯 TRIP MANAGEMENT TRANSFORMATION RESULTS:
+// 🎯 TRIP ACTION FIXES IMPLEMENTED:
 // 
-// BEFORE: 400+ lines with complex mixed styling and trip logic
-// AFTER: ~250 lines clean logic + 60+ organized theme-based styles
-// 
-// ✅ TRIP STATUS MANAGEMENT: Clear visual status with semantic theme colors
-// ✅ ACTION BUTTONS: Consistent trip management (start/cancel/complete)
-// ✅ DATA HIERARCHY: Perfect layout for time/capacity/earnings display
-// ✅ FILTER SYSTEM: Professional filtering with active state indication
-// ✅ ERROR HANDLING: Clear error states for incomplete trip data
-// ✅ SUMMARY STATISTICS: Overview cards with key metrics
-// ✅ RESPONSIVE DESIGN: Flexible layouts that work on all devices
-// ✅ COMPONENT PATTERNS: Reusable across all management screens
+// ✅ PREVENTED DUPLICATE ACTIONS: actionLoading state prevents multiple simultaneous updates
+// ✅ PROPER ERROR HANDLING: Comprehensive error messages for different scenarios
+// ✅ UI FEEDBACK: Loading states and clear success/error messages
+// ✅ VALIDATION: Prevent cancelling trips with active passengers
+// ✅ API RESPONSE HANDLING: Better parsing of API responses
+// ✅ CONSOLE LOGGING: Enhanced debugging information
+// ✅ USER EXPERIENCE: Clear confirmation dialogs and feedback

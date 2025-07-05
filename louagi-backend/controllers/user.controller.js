@@ -111,20 +111,13 @@ const userController = {
    * @param {Object} req - Express request object
    * @param {Object} res - Express response object
    */
-  updateUser: async (req, res) => {
-    try {
-      const userId = req.params.id;
-      
-      // Validate request body
-      const { error } = validateUserUpdate(req.body);
-      if (error) {
-        return res.status(400).json({
-          success: false,
-          message: error.details[0].message
-        });
-      }
-      
-      // Check if user exists
+updateUser: async (req, res) => {
+  try {
+    const userId = req.params.id;
+    const body = req.body;
+
+    // Support PATCH-style: if ONLY isActive is provided, don't validate full user schema!
+    if (Object.keys(body).length === 1 && body.hasOwnProperty('isActive')) {
       const user = await User.findByPk(userId);
       if (!user) {
         return res.status(404).json({
@@ -132,83 +125,88 @@ const userController = {
           message: 'User not found'
         });
       }
-      
-      // Extract updatable fields
-      const { 
-        username, email, phone, password,
-        license_no, experience,
-        preferences, payment_info
-      } = req.body;
-      
-      // Update user with transaction to ensure consistency
-      await sequelize.transaction(async (t) => {
-        // Update user fields
-        const updateData = {};
-        if (username) updateData.username = username;
-        if (email) updateData.email = email;
-        if (phone) updateData.phone = phone;
-        
-        // Hash password if provided
-        if (password) {
-          updateData.password = password;  // Store the plain password
-}
-        
-        // Update user
-        await user.update(updateData, { transaction: t });
-        
-        // Update role-specific information
-        if (user.role === 'driver' && (license_no || experience !== undefined)) {
-          const driver = await Driver.findOne({ where: { user_id: userId } });
-          if (driver) {
-            const driverUpdateData = {};
-            if (license_no) driverUpdateData.license_no = license_no;
-            if (experience !== undefined) driverUpdateData.experience = experience;
-            
-            await driver.update(driverUpdateData, { transaction: t });
-          }
-        }
-        
-        if (user.role === 'passenger' && (preferences || payment_info)) {
-          const passenger = await Passenger.findOne({ where: { user_id: userId } });
-          if (passenger) {
-            const passengerUpdateData = {};
-            if (preferences) passengerUpdateData.preferences = preferences;
-            if (payment_info) passengerUpdateData.payment_info = payment_info;
-            
-            await passenger.update(passengerUpdateData, { transaction: t });
-          }
-        }
-      });
-      
-      // Get updated user
-      const updatedUser = await User.findByPk(userId, {
-        attributes: { exclude: ['password'] },
-        include: [
-          {
-            model: Passenger,
-            as: 'passengerProfile',
-            required: false
-          },
-          {
-            model: Driver,
-            as: 'driverProfile',
-            required: false
-          }
-        ]
-      });
-      
+      user.isActive = body.isActive;
+      await user.save();
       return res.status(200).json({
         success: true,
-        user: updatedUser
-      });
-    } catch (error) {
-      console.error('Update user error:', error);
-      return res.status(500).json({
-        success: false,
-        message: 'Failed to update user'
+        user
       });
     }
-  },
+
+    // Otherwise, validate full user update as before
+    const { error } = validateUserUpdate(body);
+    if (error) {
+      return res.status(400).json({
+        success: false,
+        message: error.details[0].message
+      });
+    }
+
+    // Check if user exists
+    const user = await User.findByPk(userId);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    // Extract updatable fields
+    const { username, email, phone, password, license_no, experience, preferences, payment_info } = body;
+
+    // Update user with transaction to ensure consistency
+    await sequelize.transaction(async (t) => {
+      const updateData = {};
+      if (username) updateData.username = username;
+      if (email) updateData.email = email;
+      if (phone) updateData.phone = phone;
+      if (password) updateData.password = password;
+
+      await user.update(updateData, { transaction: t });
+
+      // ... role-specific info unchanged ...
+      if (user.role === 'driver' && (license_no || experience !== undefined)) {
+        const driver = await Driver.findOne({ where: { user_id: userId } });
+        if (driver) {
+          const driverUpdateData = {};
+          if (license_no) driverUpdateData.license_no = license_no;
+          if (experience !== undefined) driverUpdateData.experience = experience;
+          await driver.update(driverUpdateData, { transaction: t });
+        }
+      }
+      if (user.role === 'passenger' && (preferences || payment_info)) {
+        const passenger = await Passenger.findOne({ where: { user_id: userId } });
+        if (passenger) {
+          const passengerUpdateData = {};
+          if (preferences) passengerUpdateData.preferences = preferences;
+          if (payment_info) passengerUpdateData.payment_info = payment_info;
+          await passenger.update(passengerUpdateData, { transaction: t });
+        }
+      }
+    });
+
+    // Get updated user
+    const updatedUser = await User.findByPk(userId, {
+      attributes: { exclude: ['password'] },
+      include: [
+        { model: Passenger, as: 'passengerProfile', required: false },
+        { model: Driver, as: 'driverProfile', required: false }
+      ]
+    });
+
+    return res.status(200).json({
+      success: true,
+      user: updatedUser
+    });
+  } catch (error) {
+    console.error('Update user error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to update user'
+    });
+  }
+},
+
   
   /**
    * Delete user

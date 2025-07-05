@@ -1,5 +1,5 @@
 // src/hooks/useDriversData.js
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 
 export const useDriversData = () => {
     const [drivers, setDrivers] = useState([]);
@@ -7,11 +7,13 @@ export const useDriversData = () => {
     const [error, setError] = useState(null);
     const [filters, setFilters] = useState({
         search: '',
-        status: '',
-        verification: '',
         page: 1,
         limit: 10
     });
+
+    // Ref to track if this is the initial load
+    const isInitialLoad = useRef(true);
+    const abortControllerRef = useRef(null);
 
     // Real stats fetching
     const [stats, setStats] = useState({
@@ -73,9 +75,17 @@ export const useDriversData = () => {
                 throw new Error('No authentication token found');
             }
 
+            // Cancel previous request if still pending
+            if (abortControllerRef.current) {
+                abortControllerRef.current.abort();
+            }
+            abortControllerRef.current = new AbortController();
+
             // Build query parameters
             const params = new URLSearchParams();
-            if (filters.search) params.append('search', filters.search);
+            if (filters.search && filters.search.trim()) {
+                params.append('search', filters.search.trim());
+            }
             params.append('page', filters.page.toString());
             params.append('limit', filters.limit.toString());
             params.append('role', 'driver'); // Only get drivers
@@ -89,7 +99,8 @@ export const useDriversData = () => {
                 headers: {
                     'Authorization': `Bearer ${token}`,
                     'Content-Type': 'application/json'
-                }
+                },
+                signal: abortControllerRef.current.signal
             });
 
             if (!driversResponse.ok) {
@@ -144,6 +155,12 @@ export const useDriversData = () => {
             }
 
         } catch (err) {
+            // Don't show error for aborted requests
+            if (err.name === 'AbortError') {
+                console.log('🚫 Request cancelled');
+                return;
+            }
+
             console.error('❌ Drivers fetch error:', err);
             setError(err.message || 'Failed to load drivers');
 
@@ -162,11 +179,24 @@ export const useDriversData = () => {
         }
     }, [filters]);
 
-    // ✅ SIMPLIFIED: Load drivers on mount and filter changes
+    // ✅ Initial load effect - only run once
     useEffect(() => {
-        console.log('🔄 Effect triggered, filters changed:', filters);
-        fetchDrivers();
-    }, [filters.page, filters.search]); // Only re-fetch on important filter changes
+        if (isInitialLoad.current) {
+            isInitialLoad.current = false;
+            fetchDrivers();
+        }
+    }, []);
+
+    // ✅ Effect for filter changes (after initial load)
+    useEffect(() => {
+        if (!isInitialLoad.current) {
+            const timeoutId = setTimeout(() => {
+                fetchDrivers();
+            }, 100); // Small delay to prevent rapid consecutive calls
+
+            return () => clearTimeout(timeoutId);
+        }
+    }, [filters.search, filters.page]);
 
     // ✅ Load stats after drivers are loaded
     useEffect(() => {
@@ -175,39 +205,20 @@ export const useDriversData = () => {
         }
     }, [drivers, fetchStats]);
 
+    // Cleanup function
+    useEffect(() => {
+        return () => {
+            if (abortControllerRef.current) {
+                abortControllerRef.current.abort();
+            }
+        };
+    }, []);
+
     const handlePageChange = useCallback((newPage) => {
         if (newPage >= 1 && newPage <= pagination.totalPages) {
             setFilters(prev => ({ ...prev, page: newPage }));
         }
     }, [pagination.totalPages]);
-
-    const handleExport = useCallback(() => {
-        // Implementation for export functionality
-        console.log('Exporting drivers data...');
-
-        // Create CSV content
-        const headers = ['Name', 'Email', 'Phone', 'License', 'Rating', 'Status'];
-        const csvContent = [
-            headers.join(','),
-            ...drivers.map(driver => [
-                driver.name,
-                driver.email,
-                driver.phone,
-                driver.licenseNo,
-                driver.rating,
-                driver.isActive ? 'Active' : 'Inactive'
-            ].join(','))
-        ].join('\n');
-
-        // Download CSV
-        const blob = new Blob([csvContent], { type: 'text/csv' });
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `drivers_${new Date().toISOString().split('T')[0]}.csv`;
-        a.click();
-        window.URL.revokeObjectURL(url);
-    }, [drivers]);
 
     return {
         drivers,
@@ -218,7 +229,6 @@ export const useDriversData = () => {
         pagination,
         fetchDrivers,
         setFilters,
-        handlePageChange,
-        handleExport
+        handlePageChange
     };
 };

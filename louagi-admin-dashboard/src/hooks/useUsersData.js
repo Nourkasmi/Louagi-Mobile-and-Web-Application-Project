@@ -12,14 +12,12 @@ export const useUsersData = () => {
         total: 0,
         totalPages: 0
     });
+    // Only search filter remains!
     const [filters, setFilters] = useState({
-        search: '',
-        role: '',
-        status: ''
+        search: ''
     });
     const [selectedUsers, setSelectedUsers] = useState([]);
 
-    // The only place you use filters is here, but you control when to fetch!
     const fetchUsers = useCallback(async (overrideFilters, overridePage) => {
         try {
             setLoading(true);
@@ -34,7 +32,6 @@ export const useUsersData = () => {
             const filtersToUse = overrideFilters || filters;
             const pageToUse = overridePage || pagination.page;
 
-            if (filtersToUse.role) params.append('role', filtersToUse.role);
             if (filtersToUse.search) params.append('search', filtersToUse.search);
             params.append('page', pageToUse.toString());
             params.append('limit', pagination.limit.toString());
@@ -70,9 +67,9 @@ export const useUsersData = () => {
             setLoading(false);
         }
     // eslint-disable-next-line
-    }, [filters, pagination.page, pagination.limit]); // pagination.limit rarely changes, safe to leave
+    }, [filters, pagination.page, pagination.limit]);
 
-    // Only fetch on first mount and when the page changes!
+    // Fetch on mount and page change
     useEffect(() => {
         fetchUsers();
         // eslint-disable-next-line
@@ -201,7 +198,7 @@ export const useUsersData = () => {
         }
     };
 
-    // THIS is the search handler for your search bar
+    // Search handler for your search bar
     const handleSearch = (e) => {
         e.preventDefault();
         setPagination(prev => ({ ...prev, page: 1 }));

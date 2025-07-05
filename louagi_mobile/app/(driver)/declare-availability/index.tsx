@@ -1,4 +1,4 @@
-// app/(driver)/declare-availability/index.tsx - COMPLETE FIXED VERSION
+// app/(driver)/declare-availability/index.tsx - FIXED VERSION
 import React, { useEffect, useState } from 'react';
 import {
   View,
@@ -179,7 +179,7 @@ export default function DeclareAvailabilityScreen() {
     setSelectedSchedule(schedule);
   };
 
-  // Handle submission with better error handling
+  // 🔧 FIXED: Redirect to trip screen to follow places and time
   const handleSubmit = async () => {
     if (!selectedStation || !selectedDestination || !selectedSchedule) {
       Alert.alert('Missing Selection', 'Please select a station, destination, and schedule before continuing.');
@@ -202,51 +202,28 @@ export default function DeclareAvailabilityScreen() {
 
       console.log('✅ Declare availability response:', response);
 
-      // Check for success regardless of response structure
-      const isSuccess = response.success || response.data?.success ||
-        response.trip || response.data?.trip;
+      // 🔧 FIXED: Redirect to trips screen to see the new trip
+      if (response.success) {
+        const tripData = response.data?.trip;
+        const timingData = response.data?.timing;
 
-      if (isSuccess) {
-        const tripData = response.data?.trip || response.trip;
-        const message = response.message || response.data?.message || 'Availability declared successfully!';
+        console.log('🎯 SUCCESS! Trip created:', tripData?.id);
+        console.log('⏰ Departure time:', timingData?.formattedDeparture);
+        console.log('📊 Queue position:', timingData?.queuePosition);
+        console.log('🚗 Redirecting to trips screen to see new trip...');
 
-        // Show success with trip details
-        let successMessage = message;
-        if (tripData) {
-          successMessage += `\n\nTrip created for ${selectedDestination.description}`;
-          if (tripData.departureTime) {
-            const departureTime = new Date(tripData.departureTime).toLocaleTimeString();
-            successMessage += `\nScheduled departure: ${departureTime}`;
-          }
-          if (response.data?.timing?.queuePosition) {
-            successMessage += `\nQueue position: ${response.data.timing.queuePosition}`;
-          }
-        }
+        // 🚗 REDIRECT TO TRIPS SCREEN - Better UX to see trip details, timing, and passengers
+        router.replace('/(driver)/trips');
 
-        Alert.alert(
-          'Success! 🎉',
-          successMessage,
-          [
-            {
-              text: 'View Dashboard',
-              onPress: () => router.replace('/(driver)/dashboard')
-            },
-            {
-              text: 'Declare Another',
-              style: 'cancel',
-              onPress: () => {
-                // Reset selections for another declaration
-                setSelectedStation(null);
-                setSelectedDestination(null);
-                setSelectedSchedule(null);
-              }
-            }
-          ]
-        );
+        // Log success details for debugging
+        console.log('🎉 Availability declared successfully!');
+        console.log('📍 Route:', selectedDestination.description);
+        console.log('⏰ Scheduled departure:', timingData?.formattedDeparture);
+        console.log('🪑 Available seats:', response.data?.availableSeats);
+
       } else {
-        // Handle API errors with specific messages
+        // Handle API errors
         const errorMessage = response.message ||
-          response.data?.message ||
           response.error?.message ||
           'Could not declare availability. Please try again.';
 
@@ -256,7 +233,7 @@ export default function DeclareAvailabilityScreen() {
     } catch (error: any) {
       console.error('❌ Network/API Error:', error);
 
-      // More specific error handling
+      // Error handling with specific messages
       let errorMessage = 'Failed to declare availability. ';
 
       if (error.response?.status === 400) {
@@ -264,8 +241,13 @@ export default function DeclareAvailabilityScreen() {
         errorMessage += apiError;
       } else if (error.response?.status === 401) {
         errorMessage += 'Please log in again.';
+        setTimeout(() => {
+          router.replace('/login');
+        }, 1000);
       } else if (error.response?.status === 403) {
         errorMessage += 'You don\'t have permission to perform this action.';
+      } else if (error.response?.status === 409) {
+        errorMessage += 'You already have an active trip or are in queue.';
       } else if (error.response?.status >= 500) {
         errorMessage += 'Server error. Please try again in a moment.';
       } else if (!error.response) {

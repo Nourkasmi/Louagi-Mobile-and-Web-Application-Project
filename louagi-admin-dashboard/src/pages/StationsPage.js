@@ -1,4 +1,4 @@
-// src/pages/StationsPage.js - Complete Version with Edit Functionality
+// src/pages/StationsPage.js - CLEANED VERSION (Removed Quick Actions)
 import React, { useState } from 'react';
 import { useStationsData } from '../hooks/useStationsData';
 import {
@@ -6,17 +6,16 @@ import {
     StationFilters,
     StationTable,
     AddStationModal,
-    StationQuickActions,
     StationPageHeader
 } from '../components/stations';
-import EditStationModal from '../components/stations/EditStationModal'; // Add this import
+import EditStationModal from '../components/stations/EditStationModal';
 import StationErrorState from '../components/stations/StationErrorState';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 
 const StationsPage = () => {
     const [showAddModal, setShowAddModal] = useState(false);
-    const [showEditModal, setShowEditModal] = useState(false); // Add edit modal state
-    const [selectedStation, setSelectedStation] = useState(null); // Add selected station state
+    const [showEditModal, setShowEditModal] = useState(false);
+    const [selectedStation, setSelectedStation] = useState(null);
 
     const {
         stations,
@@ -48,14 +47,12 @@ const StationsPage = () => {
         return result;
     };
 
-    // Updated edit functionality
     const handleEditStation = (station) => {
         console.log('Edit station:', station);
         setSelectedStation(station);
         setShowEditModal(true);
     };
 
-    // Add update station function
     const handleUpdateStation = async (stationId, stationData) => {
         try {
             const token = localStorage.getItem('louagi_token');
@@ -84,7 +81,6 @@ const StationsPage = () => {
             const data = await response.json();
 
             if (response.ok && data.success) {
-                // Refresh stations list
                 await fetchStations();
                 alert('Station updated successfully!');
                 return { success: true };
@@ -100,7 +96,6 @@ const StationsPage = () => {
 
     const handleDeleteStation = (station) => {
         console.log('Delete station:', station);
-        // TODO: Implement delete functionality
         if (window.confirm(`Are you sure you want to delete "${station.name}"? This action cannot be undone.`)) {
             alert('Delete functionality will be implemented in the next update.');
         }
@@ -108,7 +103,6 @@ const StationsPage = () => {
 
     const handleViewStation = (station) => {
         console.log('View station:', station);
-        // TODO: Implement view functionality
         alert(`Station Details:\n\nName: ${station.name}\nCity: ${station.city}\nCapacity: ${station.capacity}\nStatus: ${station.isActive ? 'Active' : 'Inactive'}`);
     };
 
@@ -142,6 +136,7 @@ const StationsPage = () => {
             <StationFilters
                 filters={filters}
                 setFilters={setFilters}
+                onRefresh={fetchStations}
             />
 
             {/* Stations Table */}
@@ -154,8 +149,7 @@ const StationsPage = () => {
                 onView={handleViewStation}
             />
 
-            {/* Quick Actions */}
-            <StationQuickActions stats={stats} />
+            {/* REMOVED: Quick Actions Section */}
 
             {/* Add Station Modal */}
             <AddStationModal

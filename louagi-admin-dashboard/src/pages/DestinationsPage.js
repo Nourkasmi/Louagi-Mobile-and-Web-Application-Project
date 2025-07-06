@@ -1,4 +1,4 @@
-// src/pages/DestinationsPage.js - Complete Implementation
+// src/pages/DestinationsPage.js - FIXED VERSION
 import React, { useState } from 'react';
 import { Plus, RefreshCw, Download } from 'lucide-react';
 import PageHeader from '../components/common/PageHeader';
@@ -26,20 +26,15 @@ const DestinationsPage = () => {
         totalPages,
         setCurrentPage,
 
-        // Filters
+        // Filters (simplified to just search)
         searchTerm,
         setSearchTerm,
-        filters,
-        setFilters,
 
         // Actions
         fetchDestinations,
         createDestination,
         updateDestination,
-        deleteDestination,
-
-        // Computed
-        hasFilters
+        deleteDestination
     } = useDestinationsData();
 
     // Modal state
@@ -91,6 +86,10 @@ const DestinationsPage = () => {
 
     const handlePageChange = (newPage) => {
         setCurrentPage(newPage);
+    };
+
+    const handleRefresh = () => {
+        fetchDestinations();
     };
 
     const handleExport = () => {
@@ -160,7 +159,7 @@ const DestinationsPage = () => {
                             <span>Export</span>
                         </button>
                         <button
-                            onClick={fetchDestinations}
+                            onClick={handleRefresh}
                             className="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200 transition-colors flex items-center space-x-2"
                         >
                             <RefreshCw className="h-4 w-4" />
@@ -177,13 +176,11 @@ const DestinationsPage = () => {
                 }
             />
 
-            {/* Filters */}
+            {/* Simplified Filters - Search Only */}
             <DestinationFilters
                 searchTerm={searchTerm}
                 setSearchTerm={setSearchTerm}
-                filters={filters}
-                setFilters={setFilters}
-                stations={stations}
+                onRefresh={handleRefresh}
             />
 
             {/* Error state for operations */}

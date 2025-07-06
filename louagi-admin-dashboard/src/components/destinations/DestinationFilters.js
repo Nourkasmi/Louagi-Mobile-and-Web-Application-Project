@@ -1,70 +1,102 @@
-// src/components/destinations/DestinationFilters.js
-import React from 'react';
-import { Search } from 'lucide-react';
+// src/components/destinations/DestinationFilters.js - FIXED VERSION
+import React, { useState, useEffect, useCallback } from 'react';
+import { Search, RefreshCw } from 'lucide-react';
 
 const DestinationFilters = ({
     searchTerm,
     setSearchTerm,
-    filters,
-    setFilters,
-    stations
+    onRefresh
 }) => {
+    // Local search state to prevent immediate API calls
+    const [localSearch, setLocalSearch] = useState(searchTerm || '');
+
+    // Update local search when external searchTerm changes (like clearing)
+    useEffect(() => {
+        setLocalSearch(searchTerm || '');
+    }, [searchTerm]);
+
+    // Debounced search function - only update parent after user stops typing
+    const debouncedSearch = useCallback(
+        (() => {
+            let timeoutId;
+            return (searchValue) => {
+                clearTimeout(timeoutId);
+                timeoutId = setTimeout(() => {
+                    // Only update if the value actually changed
+                    if (searchValue !== searchTerm) {
+                        setSearchTerm(searchValue);
+                    }
+                }, 500); // 500ms delay after user stops typing
+            };
+        })(),
+        [searchTerm, setSearchTerm]
+    );
+
+    // Handle search input change
+    const handleSearchChange = (e) => {
+        const value = e.target.value;
+        setLocalSearch(value);
+        debouncedSearch(value);
+    };
+
+    // Clear search
+    const handleClearSearch = () => {
+        setLocalSearch('');
+        setSearchTerm('');
+    };
+
     return (
-        <div className="card p-6">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                {/* Search */}
-                <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                        <Search className="h-4 w-4 text-gray-400" />
-                    </div>
-                    <input
-                        type="text"
-                        placeholder="Search destinations..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="input-field pl-10"
-                    />
-                </div>
-
-                {/* Status Filter */}
-                <select
-                    value={filters.isActive}
-                    onChange={(e) => setFilters(prev => ({ ...prev, isActive: e.target.value }))}
-                    className="input-field"
+        <div className="bg-white rounded-lg shadow border p-6">
+            <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-gray-900">Search Destinations</h3>
+                <button
+                    onClick={onRefresh}
+                    className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-700 transition-colors flex items-center"
                 >
-                    <option value="all">All Status</option>
-                    <option value="true">Active</option>
-                    <option value="false">Inactive</option>
-                </select>
-
-                {/* Start Station Filter */}
-                <select
-                    value={filters.startStation}
-                    onChange={(e) => setFilters(prev => ({ ...prev, startStation: e.target.value }))}
-                    className="input-field"
-                >
-                    <option value="all">All Start Stations</option>
-                    {stations.map(station => (
-                        <option key={station.id} value={station.id}>
-                            {station.name} - {station.city}
-                        </option>
-                    ))}
-                </select>
-
-                {/* End Station Filter */}
-                <select
-                    value={filters.endStation}
-                    onChange={(e) => setFilters(prev => ({ ...prev, endStation: e.target.value }))}
-                    className="input-field"
-                >
-                    <option value="all">All End Stations</option>
-                    {stations.map(station => (
-                        <option key={station.id} value={station.id}>
-                            {station.name} - {station.city}
-                        </option>
-                    ))}
-                </select>
+                    <RefreshCw className="w-4 h-4 mr-2" />
+                    Refresh
+                </button>
             </div>
+
+            {/* Search Bar Only */}
+            <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                <input
+                    type="text"
+                    placeholder="Search destinations by route, station names..."
+                    value={localSearch}
+                    onChange={handleSearchChange}
+                    className="w-full pl-10 pr-10 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                />
+                {localSearch && (
+                    <button
+                        onClick={handleClearSearch}
+                        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                        title="Clear search"
+                    >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                )}
+            </div>
+
+            {/* Search Status Indicator */}
+            {localSearch !== searchTerm && localSearch.length > 0 && (
+                <div className="mt-2 text-xs text-blue-600 flex items-center">
+                    <div className="w-3 h-3 border border-blue-600 border-t-transparent rounded-full animate-spin mr-2"></div>
+                    Searching...
+                </div>
+            )}
+
+            {/* Search Results Info */}
+            {searchTerm && (
+                <div className="mt-3 text-sm text-gray-600">
+                    <span>
+                        Searching for: <strong>"{searchTerm}"</strong>
+                    </span>
+                </div>
+            )}
         </div>
     );
 };

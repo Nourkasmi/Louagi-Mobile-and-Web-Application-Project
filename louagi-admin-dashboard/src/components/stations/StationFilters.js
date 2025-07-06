@@ -1,4 +1,4 @@
-// src/components/stations/StationFilters.js - Fixed with search-only and proper debouncing
+// src/components/stations/StationFilters.js - Updated with onRefresh support
 import React, { useState, useEffect, useCallback } from 'react';
 import { Search, RefreshCw } from 'lucide-react';
 

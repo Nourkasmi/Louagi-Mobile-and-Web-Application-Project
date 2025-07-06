@@ -1,4 +1,4 @@
-// src/components/schedules/ScheduleCard.js
+// src/components/schedules/ScheduleCard.js - Updated with working Details button
 import React from 'react';
 import {
     Calendar,
@@ -12,7 +12,7 @@ import {
     Users
 } from 'lucide-react';
 
-const ScheduleCard = ({ schedule, daysOfWeek, onEdit, onDelete }) => {
+const ScheduleCard = ({ schedule, daysOfWeek, onEdit, onDelete, onViewDetails }) => {
     const getDayName = (dayNumber) => {
         return daysOfWeek.find(day => day.value === dayNumber)?.label || 'Unknown';
     };
@@ -109,19 +109,27 @@ const ScheduleCard = ({ schedule, daysOfWeek, onEdit, onDelete }) => {
                 <div className="flex flex-col space-y-2 ml-4">
                     <button
                         onClick={() => onEdit(schedule)}
-                        className="inline-flex items-center px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
+                        className="inline-flex items-center px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 transition-colors"
+                        title="Edit Schedule"
                     >
                         <Edit className="w-3 h-3 mr-1" />
                         Edit
                     </button>
+                    
                     <button
                         onClick={() => onDelete(schedule.id, schedule.station?.name)}
-                        className="inline-flex items-center px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700"
+                        className="inline-flex items-center px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700 transition-colors"
+                        title="Delete Schedule"
                     >
                         <Trash2 className="w-3 h-3 mr-1" />
                         Delete
                     </button>
-                    <button className="inline-flex items-center px-3 py-1 bg-gray-100 text-gray-700 text-sm rounded hover:bg-gray-200">
+                    
+                    <button 
+                        onClick={() => onViewDetails(schedule)}
+                        className="inline-flex items-center px-3 py-1 bg-gray-100 text-gray-700 text-sm rounded hover:bg-gray-200 transition-colors"
+                        title="View Details"
+                    >
                         <Eye className="w-3 h-3 mr-1" />
                         Details
                     </button>

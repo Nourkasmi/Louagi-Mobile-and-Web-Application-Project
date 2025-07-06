@@ -1,41 +1,40 @@
-// src/components/stations/StationQuickActions.js
+// src/components/stations/StationQuickActions.js - CLEANED VERSION
 import React from 'react';
+import { Download, RefreshCw } from 'lucide-react';
 
-const StationQuickActions = ({ stats }) => {
+const StationQuickActions = ({ stats, onExport, onRefresh }) => {
     return (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Export Data */}
             <div className="bg-white rounded-lg shadow border p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Capacity Management</h3>
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Export Data</h3>
                 <div className="space-y-3">
                     <div className="text-sm text-gray-600">
-                        <span className="font-medium">{stats.totalCapacity}</span> total slots available
+                        Download station data for external analysis
                     </div>
-                    <button className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors">
-                        Optimize Capacity
+                    <button 
+                        onClick={onExport}
+                        className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center"
+                    >
+                        <Download className="w-4 h-4 mr-2" />
+                        Export Stations
                     </button>
                 </div>
             </div>
 
+            {/* System Actions */}
             <div className="bg-white rounded-lg shadow border p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Operations</h3>
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">System Actions</h3>
                 <div className="space-y-3">
-                    <button className="w-full bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 transition-colors">
-                        Live Queue Status
-                    </button>
-                    <button className="w-full bg-gray-100 text-gray-700 py-2 px-4 rounded-lg hover:bg-gray-200 transition-colors">
-                        Schedule Management
-                    </button>
-                </div>
-            </div>
-
-            <div className="bg-white rounded-lg shadow border p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Reports</h3>
-                <div className="space-y-3">
-                    <button className="w-full bg-purple-600 text-white py-2 px-4 rounded-lg hover:bg-purple-700 transition-colors">
-                        Usage Analytics
-                    </button>
-                    <button className="w-full bg-gray-100 text-gray-700 py-2 px-4 rounded-lg hover:bg-gray-200 transition-colors">
-                        Performance Report
+                    <div className="text-sm text-gray-600">
+                        Refresh and sync station data
+                    </div>
+                    <button 
+                        onClick={onRefresh}
+                        className="w-full bg-gray-600 text-white py-2 px-4 rounded-lg hover:bg-gray-700 transition-colors flex items-center justify-center"
+                    >
+                        <RefreshCw className="w-4 h-4 mr-2" />
+                        Refresh Data
                     </button>
                 </div>
             </div>

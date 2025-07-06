@@ -1,4 +1,4 @@
-// src/components/drivers/index.js - Complete with all components
+// src/components/drivers/index.js - Updated with DriverVerificationModal
 export { default as DriversStatistics } from './DriversStatistics';
 export { default as DriversFilters } from './DriversFilters';
 export { default as DriversTable } from './DriversTable';
@@ -10,3 +10,4 @@ export { default as DriversLoadingState } from './DriversLoadingState';
 export { default as DriverDetailsModal } from './DriverDetailsModal';
 export { default as EditDriverModal } from './EditDriverModal';
 export { default as DeleteDriverModal } from './DeleteDriverModal';
+export { default as DriverVerificationModal } from './DriverVerificationModal';

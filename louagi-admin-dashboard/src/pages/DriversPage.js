@@ -1,4 +1,4 @@
-// src/pages/DriversPage.js - Complete File with Enhanced Modals
+// src/pages/DriversPage.js - Updated to support verification workflow
 import React, { useState } from 'react';
 import { useDriversData } from '../hooks/useDriversData';
 import {
@@ -68,6 +68,17 @@ const DriversPage = () => {
         setSelectedDriver(null);
     };
 
+    // Enhanced refresh function for verification workflow
+    const handleRefreshDrivers = async () => {
+        try {
+            console.log('🔄 Refreshing drivers data...');
+            await fetchDrivers();
+            console.log('✅ Drivers data refreshed successfully');
+        } catch (error) {
+            console.error('❌ Error refreshing drivers:', error);
+        }
+    };
+
     // API Actions with enhanced error handling
     const updateDriver = async (driverId, updateData) => {
         if (!driverId) {
@@ -102,7 +113,7 @@ const DriversPage = () => {
 
             if (data.success) {
                 // Refresh drivers list
-                await fetchDrivers();
+                await handleRefreshDrivers();
                 alert('Driver updated successfully!');
                 return { success: true };
             } else {
@@ -150,7 +161,7 @@ const DriversPage = () => {
 
             if (data.success) {
                 // Refresh drivers list
-                await fetchDrivers();
+                await handleRefreshDrivers();
                 alert('Driver deleted successfully!');
                 return { success: true };
             } else {
@@ -199,7 +210,7 @@ const DriversPage = () => {
 
             if (data.success) {
                 // Refresh drivers list
-                await fetchDrivers();
+                await handleRefreshDrivers();
                 alert(`Driver ${!currentStatus ? 'activated' : 'deactivated'} successfully!`);
                 return { success: true };
             } else {
@@ -223,7 +234,7 @@ const DriversPage = () => {
             }
 
             const csvContent = [
-                ['Name', 'Email', 'Phone', 'License', 'Vehicle Type', 'Rating', 'Status'].join(','),
+                ['Name', 'Email', 'Phone', 'License', 'Vehicle Type', 'Rating', 'Verified', 'Status'].join(','),
                 ...drivers.map(driver => [
                     driver.name || 'Unknown',
                     driver.email || 'N/A',
@@ -231,6 +242,7 @@ const DriversPage = () => {
                     driver.licenseNo || 'N/A',
                     driver.vehicleType || 'Unknown',
                     driver.rating || '0',
+                    driver.isVerified ? 'Yes' : 'No',
                     driver.isActive ? 'Active' : 'Inactive'
                 ].join(','))
             ].join('\n');
@@ -281,7 +293,7 @@ const DriversPage = () => {
             <DriversFilters
                 filters={filters}
                 setFilters={setFilters}
-                onRefresh={fetchDrivers}
+                onRefresh={handleRefreshDrivers}
                 onExport={handleExport}
             />
 
@@ -297,8 +309,8 @@ const DriversPage = () => {
                 actionLoading={actionLoading}
             />
 
-            {/* Quick Actions */}
-            <DriversQuickActions />
+            {/* Quick Actions with Verification Support */}
+            <DriversQuickActions refreshDrivers={handleRefreshDrivers} />
 
             {/* Enhanced Modals */}
             {showDetailsModal && selectedDriver && (

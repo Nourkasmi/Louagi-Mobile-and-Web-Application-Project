@@ -2,11 +2,14 @@
 import React from 'react';
 import PageHeader from '../components/common/PageHeader';
 import LoadingSpinner from '../components/common/LoadingSpinner';
-import QueueFilters from '../components/queue/QueueFilters';
-import QueueTable from '../components/queue/QueueTable';
-import QueueStatistics from '../components/queue/QueueStatistics';
-import QueueEmptyState from '../components/queue/QueueEmptyState';
-import { QueueErrorState } from '../components/queue/QueueErrorState';
+import {
+    QueueFilters,
+    QueueTable,
+    QueueStatistics,
+    QueueQuickActions,
+    QueueEmptyState,
+    QueueErrorState
+} from '../components/queue';
 import { useQueueData } from '../hooks/useQueueData';
 
 const QueuePage = () => {
@@ -63,6 +66,38 @@ const QueuePage = () => {
         setSelectedDestination(destinationId);
     };
 
+    // Queue action handlers
+    const handleViewLiveQueue = () => {
+        // Auto-scroll to queue table or open modal with live updates
+        const queueTable = document.querySelector('[data-queue-table]');
+        if (queueTable) {
+            queueTable.scrollIntoView({ behavior: 'smooth' });
+        }
+        // Could also trigger real-time updates here
+        fetchQueueData();
+    };
+
+    const handleReorderQueue = () => {
+        // Open reorder modal or enable drag-and-drop mode
+        alert('Queue reordering feature - Coming Soon!\n\nThis will allow you to:\n• Drag and drop drivers to reorder\n• Bulk position changes\n• Priority adjustments');
+    };
+
+    const handleViewAnalytics = () => {
+        // Navigate to queue analytics or open modal
+        alert('Queue Analytics - Coming Soon!\n\nThis will show:\n• Average wait times\n• Queue efficiency metrics\n• Driver utilization stats\n• Peak hours analysis');
+    };
+
+    const handleRefreshAll = async () => {
+        // Refresh all queue data
+        try {
+            await fetchQueueData();
+            // You could also refresh stations, schedules, destinations here
+            alert('All queue data refreshed successfully!');
+        } catch (error) {
+            alert('Failed to refresh queue data');
+        }
+    };
+
     // Loading state
     if (loading) {
         return (
@@ -95,6 +130,15 @@ const QueuePage = () => {
                 subtitle="Manage driver queues and waiting times"
             />
 
+            {/* Queue Quick Actions */}
+            <QueueQuickActions
+                onViewLiveQueue={handleViewLiveQueue}
+                onReorderQueue={handleReorderQueue}
+                onViewAnalytics={handleViewAnalytics}
+                onRefreshAll={handleRefreshAll}
+                hasActiveQueue={hasFiltersSelected && queues.length > 0}
+            />
+
             {/* Queue Filters */}
             <QueueFilters
                 stations={stations}
@@ -123,15 +167,17 @@ const QueuePage = () => {
                     )}
 
                     {/* Queue Table */}
-                    <QueueTable
-                        queues={queues}
-                        actionLoading={actionLoading}
-                        onMoveUp={moveDriverUp}
-                        onMoveDown={moveDriverDown}
-                        onMarkCalled={markDriverCalled}
-                        onMarkDone={markDriverDone}
-                        onSkipDriver={skipDriver}
-                    />
+                    <div data-queue-table>
+                        <QueueTable
+                            queues={queues}
+                            actionLoading={actionLoading}
+                            onMoveUp={moveDriverUp}
+                            onMoveDown={moveDriverDown}
+                            onMarkCalled={markDriverCalled}
+                            onMarkDone={markDriverDone}
+                            onSkipDriver={skipDriver}
+                        />
+                    </div>
 
                     {/* Error state for queue operations */}
                     {error && hasFiltersSelected && (

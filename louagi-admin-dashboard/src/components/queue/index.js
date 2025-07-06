@@ -2,5 +2,6 @@
 export { default as QueueFilters } from './QueueFilters';
 export { default as QueueTable } from './QueueTable';
 export { default as QueueStatistics } from './QueueStatistics';
+export { default as QueueQuickActions } from './QueueQuickActions';
 export { QueueErrorState } from './QueueErrorState';
 export { default as QueueEmptyState } from './QueueEmptyState';

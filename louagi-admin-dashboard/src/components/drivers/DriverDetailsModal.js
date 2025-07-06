@@ -15,12 +15,11 @@ import {
     FileText,
     CheckCircle,
     XCircle,
-    Edit,
     ToggleLeft,
     ToggleRight
 } from 'lucide-react';
 
-const DriverDetailsModal = ({ driver, onClose, onEdit, onToggleStatus }) => {
+const DriverDetailsModal = ({ driver, onClose, onToggleStatus }) => {
     const formatDate = (dateString) => {
         try {
             return new Date(dateString).toLocaleDateString('en-US', {
@@ -301,16 +300,8 @@ const DriverDetailsModal = ({ driver, onClose, onEdit, onToggleStatus }) => {
                         </button>
                         
                         <button
-                            onClick={onEdit}
-                            className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                        >
-                            <Edit className="w-4 h-4 mr-2" />
-                            Edit Driver
-                        </button>
-                        
-                        <button
                             onClick={onClose}
-                            className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+                            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
                         >
                             Close
                         </button>

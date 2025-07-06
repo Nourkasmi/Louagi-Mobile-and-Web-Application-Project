@@ -1,4 +1,4 @@
-// src/pages/DriversPage.js - Fixed with proper error handling
+// src/pages/DriversPage.js - Complete File with Enhanced Modals
 import React, { useState } from 'react';
 import { useDriversData } from '../hooks/useDriversData';
 import {
@@ -7,7 +7,10 @@ import {
     DriversTable,
     DriversQuickActions,
     DriversErrorState,
-    DriversLoadingState
+    DriversLoadingState,
+    DriverDetailsModal,
+    EditDriverModal,
+    DeleteDriverModal
 } from '../components/drivers';
 
 const DriversPage = () => {
@@ -20,8 +23,7 @@ const DriversPage = () => {
         pagination,
         fetchDrivers,
         setFilters,
-        handlePageChange,
-        handleExport
+        handlePageChange
     } = useDriversData();
 
     // Modal states
@@ -122,10 +124,6 @@ const DriversPage = () => {
             return { success: false, error: 'Invalid driver ID' };
         }
 
-        if (!window.confirm(`Are you sure you want to delete driver "${driverName || 'Unknown'}"? This action cannot be undone.`)) {
-            return { success: false, error: 'Cancelled by user' };
-        }
-
         try {
             setActionLoading(prev => ({ ...prev, [driverId]: true }));
 
@@ -217,6 +215,41 @@ const DriversPage = () => {
         }
     };
 
+    const handleExport = () => {
+        try {
+            if (drivers.length === 0) {
+                alert('No drivers to export');
+                return;
+            }
+
+            const csvContent = [
+                ['Name', 'Email', 'Phone', 'License', 'Vehicle Type', 'Rating', 'Status'].join(','),
+                ...drivers.map(driver => [
+                    driver.name || 'Unknown',
+                    driver.email || 'N/A',
+                    driver.phone || 'N/A',
+                    driver.licenseNo || 'N/A',
+                    driver.vehicleType || 'Unknown',
+                    driver.rating || '0',
+                    driver.isActive ? 'Active' : 'Inactive'
+                ].join(','))
+            ].join('\n');
+
+            const blob = new Blob([csvContent], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `drivers-${new Date().toISOString().split('T')[0]}.csv`;
+            a.click();
+            window.URL.revokeObjectURL(url);
+
+            alert('Drivers exported successfully!');
+        } catch (error) {
+            console.error('Export error:', error);
+            alert('Failed to export drivers');
+        }
+    };
+
     // Loading state
     if (loading) {
         return <DriversLoadingState />;
@@ -267,84 +300,31 @@ const DriversPage = () => {
             {/* Quick Actions */}
             <DriversQuickActions />
 
-            {/* Simple modals for now - will work on complex ones after basic functionality is confirmed */}
+            {/* Enhanced Modals */}
             {showDetailsModal && selectedDriver && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-lg max-w-2xl w-full p-6">
-                        <h2 className="text-xl font-bold mb-4">Driver Details</h2>
-                        <div className="space-y-2">
-                            <p><strong>Name:</strong> {selectedDriver.name || 'N/A'}</p>
-                            <p><strong>Email:</strong> {selectedDriver.email || 'N/A'}</p>
-                            <p><strong>Phone:</strong> {selectedDriver.phone || 'N/A'}</p>
-                            <p><strong>License:</strong> {selectedDriver.licenseNo || 'N/A'}</p>
-                            <p><strong>Status:</strong> {selectedDriver.isActive ? 'Active' : 'Inactive'}</p>
-                        </div>
-                        <div className="mt-6 flex space-x-3">
-                            <button
-                                onClick={() => {
-                                    setShowDetailsModal(false);
-                                    setShowEditModal(true);
-                                }}
-                                className="bg-blue-600 text-white px-4 py-2 rounded"
-                            >
-                                Edit
-                            </button>
-                            <button
-                                onClick={handleCloseModals}
-                                className="bg-gray-300 text-gray-700 px-4 py-2 rounded"
-                            >
-                                Close
-                            </button>
-                        </div>
-                    </div>
-                </div>
+                <DriverDetailsModal
+                    driver={selectedDriver}
+                    onClose={handleCloseModals}
+                    onToggleStatus={toggleDriverStatus}
+                />
             )}
 
             {showEditModal && selectedDriver && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-lg max-w-md w-full p-6">
-                        <h2 className="text-xl font-bold mb-4">Edit Driver</h2>
-                        <p>Edit functionality for {selectedDriver.name || 'Unknown Driver'}</p>
-                        <p className="text-sm text-gray-600 mt-2">
-                            Advanced edit modal will be implemented once basic functionality is confirmed.
-                        </p>
-                        <div className="mt-6 flex space-x-3">
-                            <button
-                                onClick={handleCloseModals}
-                                className="bg-gray-300 text-gray-700 px-4 py-2 rounded"
-                            >
-                                Close
-                            </button>
-                        </div>
-                    </div>
-                </div>
+                <EditDriverModal
+                    driver={selectedDriver}
+                    onClose={handleCloseModals}
+                    onSave={updateDriver}
+                    actionLoading={actionLoading[selectedDriver.id]}
+                />
             )}
 
             {showDeleteModal && selectedDriver && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-lg max-w-md w-full p-6">
-                        <h2 className="text-xl font-bold mb-4 text-red-600">Delete Driver</h2>
-                        <p>Are you sure you want to delete {selectedDriver.name || 'this driver'}?</p>
-                        <div className="mt-6 flex space-x-3">
-                            <button
-                                onClick={() => {
-                                    deleteDriver(selectedDriver.id, selectedDriver.name);
-                                    handleCloseModals();
-                                }}
-                                className="bg-red-600 text-white px-4 py-2 rounded"
-                                disabled={actionLoading[selectedDriver.id]}
-                            >
-                                {actionLoading[selectedDriver.id] ? 'Deleting...' : 'Delete'}
-                            </button>
-                            <button
-                                onClick={handleCloseModals}
-                                className="bg-gray-300 text-gray-700 px-4 py-2 rounded"
-                            >
-                                Cancel
-                            </button>
-                        </div>
-                    </div>
-                </div>
+                <DeleteDriverModal
+                    driver={selectedDriver}
+                    onClose={handleCloseModals}
+                    onConfirm={deleteDriver}
+                    actionLoading={actionLoading[selectedDriver.id]}
+                />
             )}
 
             {/* Connection Status */}

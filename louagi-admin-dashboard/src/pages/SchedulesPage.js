@@ -1,4 +1,9 @@
-// src/pages/SchedulesPage.js - Clean Code Version
+// src/pages/SchedulesPage.js - FIXED VERSION with ScheduleDetailsModal
+
+// ✅ STEP 1: Make sure ScheduleDetailsModal is exported in src/components/schedules/index.js
+// The index.js should include:
+// export { default as ScheduleDetailsModal } from './ScheduleDetailsModal';
+
 import React, { useState } from 'react';
 import { Plus, RefreshCw } from 'lucide-react';
 import { useSchedulesData } from '../hooks/useSchedulesData';
@@ -8,7 +13,8 @@ import {
     ScheduleModal,
     ScheduleEmptyState,
     ScheduleErrorState,
-    SchedulePagination
+    SchedulePagination,
+    ScheduleDetailsModal  // ✅ ADD THIS IMPORT
 } from '../components/schedules';
 import { LoadingSpinner } from '../components/common';
 
@@ -31,6 +37,8 @@ const SchedulesPage = () => {
 
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [editingSchedule, setEditingSchedule] = useState(null);
+    const [showDetailsModal, setShowDetailsModal] = useState(false);  // ✅ ADD THIS STATE
+    const [selectedSchedule, setSelectedSchedule] = useState(null);   // ✅ ADD THIS STATE
 
     const handleCreateSchedule = () => {
         setShowCreateModal(true);
@@ -40,9 +48,17 @@ const SchedulesPage = () => {
         setEditingSchedule(schedule);
     };
 
+    // ✅ ADD THIS FUNCTION
+    const handleViewDetails = (schedule) => {
+        setSelectedSchedule(schedule);
+        setShowDetailsModal(true);
+    };
+
     const handleModalClose = () => {
         setShowCreateModal(false);
         setEditingSchedule(null);
+        setShowDetailsModal(false);    // ✅ ADD THIS
+        setSelectedSchedule(null);     // ✅ ADD THIS
     };
 
     const handleModalSave = (savedSchedule) => {
@@ -120,6 +136,7 @@ const SchedulesPage = () => {
                             daysOfWeek={daysOfWeek}
                             onEdit={handleEditSchedule}
                             onDelete={deleteSchedule}
+                            onViewDetails={handleViewDetails}  // ✅ PASS THE FUNCTION
                         />
                     ))
                 )}
@@ -139,6 +156,16 @@ const SchedulesPage = () => {
                     daysOfWeek={daysOfWeek}
                     onClose={handleModalClose}
                     onSave={handleModalSave}
+                />
+            )}
+
+            {/* ✅ ADD THE DETAILS MODAL */}
+            {showDetailsModal && selectedSchedule && (
+                <ScheduleDetailsModal
+                    schedule={selectedSchedule}
+                    daysOfWeek={daysOfWeek}
+                    onClose={handleModalClose}
+                    onEdit={handleEditSchedule}
                 />
             )}
 

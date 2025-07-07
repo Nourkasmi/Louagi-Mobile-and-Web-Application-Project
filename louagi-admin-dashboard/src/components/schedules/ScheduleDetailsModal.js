@@ -1,4 +1,4 @@
-// src/components/schedules/ScheduleDetailsModal.js
+// src/components/schedules/ScheduleDetailsModal.js - FIXED SCROLLABLE VERSION
 import React from 'react';
 import {
     X,
@@ -72,9 +72,11 @@ const ScheduleDetailsModal = ({ schedule, daysOfWeek, onClose, onEdit }) => {
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-                {/* Header */}
-                <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-4 rounded-t-2xl">
+            {/* ✅ FIXED: Added proper flex container with overflow handling */}
+            <div className="bg-white rounded-2xl shadow-xl w-full max-w-4xl flex flex-col max-h-[90vh]">
+                
+                {/* ✅ FIXED: Header is fixed (not scrollable) */}
+                <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-4 rounded-t-2xl flex-shrink-0">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center space-x-3">
                             <div className="w-10 h-10 bg-white bg-opacity-20 rounded-full flex items-center justify-center">
@@ -96,8 +98,8 @@ const ScheduleDetailsModal = ({ schedule, daysOfWeek, onClose, onEdit }) => {
                     </div>
                 </div>
 
-                {/* Content */}
-                <div className="p-6">
+                {/* ✅ FIXED: Scrollable content area */}
+                <div className="flex-1 overflow-y-auto p-6">
                     {/* Status Banner */}
                     <div className={`mb-6 p-4 rounded-lg border ${
                         schedule.isActive 
@@ -239,29 +241,29 @@ const ScheduleDetailsModal = ({ schedule, daysOfWeek, onClose, onEdit }) => {
                             </div>
                         </div>
                     </div>
+                </div>
 
-                    {/* Action Buttons */}
-                    <div className="flex items-center justify-end space-x-3 pt-6 border-t border-gray-200">
-                        <button
-                            onClick={() => {
-                                onEdit(schedule);
-                                onClose();
-                            }}
-                            className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                        >
-                            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                            </svg>
-                            Edit Schedule
-                        </button>
-                        
-                        <button
-                            onClick={onClose}
-                            className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
-                        >
-                            Close
-                        </button>
-                    </div>
+                {/* ✅ FIXED: Footer is fixed (not scrollable) */}
+                <div className="flex-shrink-0 flex items-center justify-end space-x-3 p-6 border-t border-gray-200 bg-gray-50 rounded-b-2xl">
+                    <button
+                        onClick={() => {
+                            onEdit(schedule);
+                            onClose();
+                        }}
+                        className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                    >
+                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                        </svg>
+                        Edit Schedule
+                    </button>
+                    
+                    <button
+                        onClick={onClose}
+                        className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+                    >
+                        Close
+                    </button>
                 </div>
             </div>
         </div>

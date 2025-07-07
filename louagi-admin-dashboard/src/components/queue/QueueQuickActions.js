@@ -1,16 +1,15 @@
-// src/components/queue/QueueQuickActions.js
+// src/components/queue/QueueQuickActions.js - Updated without Analytics
 import React from 'react';
-import { Users, ArrowUpDown, BarChart3, RefreshCw } from 'lucide-react';
+import { Users, ArrowUpDown, RefreshCw } from 'lucide-react';
 
 const QueueQuickActions = ({ 
     onViewLiveQueue, 
     onReorderQueue, 
-    onViewAnalytics, 
     onRefreshAll,
     hasActiveQueue = false 
 }) => {
     return (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {/* Live Queue Management */}
             <div className="bg-white rounded-lg shadow border p-6">
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">Live Queue</h3>
@@ -47,24 +46,7 @@ const QueueQuickActions = ({
                 </div>
             </div>
 
-            {/* Queue Analytics */}
-            <div className="bg-white rounded-lg shadow border p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Queue Analytics</h3>
-                <div className="space-y-3">
-                    <button 
-                        onClick={onViewAnalytics}
-                        className="w-full bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 transition-colors flex items-center justify-center"
-                    >
-                        <BarChart3 className="w-4 h-4 mr-2" />
-                        View Analytics
-                    </button>
-                    <div className="text-xs text-gray-500 text-center">
-                        Queue performance data
-                    </div>
-                </div>
-            </div>
-
-            {/* Refresh All */}
+            {/* System Refresh */}
             <div className="bg-white rounded-lg shadow border p-6">
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">System Control</h3>
                 <div className="space-y-3">

@@ -1,7 +1,8 @@
-// src/pages/QueuePage.js
-import React from 'react';
+// src/pages/QueuePage.js - UPDATED WITH LIVE QUEUE MODAL
+import React, { useState } from 'react';
 import PageHeader from '../components/common/PageHeader';
 import LoadingSpinner from '../components/common/LoadingSpinner';
+import LiveQueueModal from '../components/queue/LiveQueueModal';
 import {
     QueueFilters,
     QueueTable,
@@ -50,6 +51,9 @@ const QueuePage = () => {
         hasFiltersSelected
     } = useQueueData();
 
+    // Live Queue Modal state
+    const [showLiveQueueModal, setShowLiveQueueModal] = useState(false);
+
     // Handle filter changes with cleanup
     const handleStationChange = (stationId) => {
         setSelectedStation(stationId);
@@ -68,13 +72,11 @@ const QueuePage = () => {
 
     // Queue action handlers
     const handleViewLiveQueue = () => {
-        // Auto-scroll to queue table or open modal with live updates
-        const queueTable = document.querySelector('[data-queue-table]');
-        if (queueTable) {
-            queueTable.scrollIntoView({ behavior: 'smooth' });
-        }
-        // Could also trigger real-time updates here
-        fetchQueueData();
+        setShowLiveQueueModal(true);
+    };
+
+    const handleCloseLiveQueueModal = () => {
+        setShowLiveQueueModal(false);
     };
 
     const handleReorderQueue = () => {
@@ -82,20 +84,33 @@ const QueuePage = () => {
         alert('Queue reordering feature - Coming Soon!\n\nThis will allow you to:\n• Drag and drop drivers to reorder\n• Bulk position changes\n• Priority adjustments');
     };
 
-    const handleViewAnalytics = () => {
-        // Navigate to queue analytics or open modal
-        alert('Queue Analytics - Coming Soon!\n\nThis will show:\n• Average wait times\n• Queue efficiency metrics\n• Driver utilization stats\n• Peak hours analysis');
-    };
-
     const handleRefreshAll = async () => {
         // Refresh all queue data
         try {
             await fetchQueueData();
-            // You could also refresh stations, schedules, destinations here
             alert('All queue data refreshed successfully!');
         } catch (error) {
             alert('Failed to refresh queue data');
         }
+    };
+
+    // Prepare queue data for LiveQueueModal
+    const getQueueDataForModal = () => {
+        if (!hasFiltersSelected || queues.length === 0) {
+            return null; // Will use mock data
+        }
+
+        // Find the selected station and destination names
+        const station = stations.find(s => s.id === selectedStation);
+        const destination = destinations.find(d => d.id === selectedDestination);
+        const schedule = schedules.find(s => s.id === selectedSchedule);
+
+        return {
+            stationName: station?.name || 'Unknown Station',
+            scheduleTime: schedule ? `${schedule.startTime} - ${schedule.endTime}` : 'Unknown Schedule',
+            destinationName: destination?.description || destination?.endStation?.name || 'Unknown Destination',
+            queues: queues
+        };
     };
 
     // Loading state
@@ -134,9 +149,8 @@ const QueuePage = () => {
             <QueueQuickActions
                 onViewLiveQueue={handleViewLiveQueue}
                 onReorderQueue={handleReorderQueue}
-                onViewAnalytics={handleViewAnalytics}
                 onRefreshAll={handleRefreshAll}
-                hasActiveQueue={hasFiltersSelected && queues.length > 0}
+                hasActiveQueue={hasFiltersSelected}
             />
 
             {/* Queue Filters */}
@@ -188,6 +202,15 @@ const QueuePage = () => {
                     )}
                 </>
             )}
+
+            {/* Live Queue Modal */}
+            <LiveQueueModal
+                isOpen={showLiveQueueModal}
+                onClose={handleCloseLiveQueueModal}
+                queueData={getQueueDataForModal()}
+                onRefresh={fetchQueueData}
+                refreshing={refreshing}
+            />
         </div>
     );
 };

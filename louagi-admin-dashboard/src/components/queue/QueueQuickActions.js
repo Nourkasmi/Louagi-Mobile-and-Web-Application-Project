@@ -1,4 +1,4 @@
-// src/components/queue/QueueQuickActions.js - Updated without Analytics
+// src/components/queue/QueueQuickActions.js
 import React from 'react';
 import { Users, ArrowUpDown, RefreshCw } from 'lucide-react';
 

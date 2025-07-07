@@ -1,4 +1,4 @@
-// src/components/queue/index.js
+// src/components/queue/index.js - UPDATED
 export { default as QueueFilters } from './QueueFilters';
 export { default as QueueTable } from './QueueTable';
 export { default as QueueStatistics } from './QueueStatistics';

@@ -1,4 +1,4 @@
-// app/(passenger)/booking.tsx - ENHANCED with Real-time Database Integration
+// app/(passenger)/booking.tsx - COMPLETE BOOKING INTEGRATION with Real Backend
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
@@ -21,7 +21,8 @@ import {
   createPaymentIntent,
   getTripById,
   type Trip,
-  type Booking
+  type Booking,
+  type ApiResponse
 } from '../../src/services/api';
 
 interface EnhancedTrip extends Trip {
@@ -39,17 +40,22 @@ interface BookingState {
   progress: number;
 }
 
-export default function EnhancedPassengerBookingScreen() {
+interface ValidationErrors {
+  seats?: string;
+  general?: string;
+}
+
+export default function EnhancedBookingScreen() {
   const { tripId, tripData } = useLocalSearchParams<{
     tripId: string;
     tripData: string;
   }>();
 
   const router = useRouter();
-  const initialTrip: Trip = tripData ? JSON.parse(tripData) : null;
+  const initialTrip: Trip | null = tripData ? JSON.parse(tripData) : null;
 
   // Enhanced State Management
-  const [trip, setTrip] = useState<EnhancedTrip>(initialTrip);
+  const [trip, setTrip] = useState<EnhancedTrip | null>(initialTrip);
   const [selectedSeats, setSelectedSeats] = useState(1);
   const [specialRequests, setSpecialRequests] = useState('');
   const [bookingState, setBookingState] = useState<BookingState>({
@@ -62,6 +68,8 @@ export default function EnhancedPassengerBookingScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [bookingAttempts, setBookingAttempts] = useState(0);
   const [capacityHistory, setCapacityHistory] = useState<number[]>([]);
+  const [validationErrors, setValidationErrors] = useState<ValidationErrors>({});
+  const [createdBooking, setCreatedBooking] = useState<Booking | null>(null);
 
   // Animation refs
   const fadeAnim = useRef(new Animated.Value(1)).current;
@@ -81,31 +89,149 @@ export default function EnhancedPassengerBookingScreen() {
         setBookingState(prev => ({ ...prev, message: 'Checking latest availability...' }));
       }
 
-      const response = await getTripById(tripId);
+      console.log('🔄 Fetching trip data for ID:', tripId);
+      const response: ApiResponse<Trip> = await getTripById(tripId);
+      console.log('📡 Raw trip response:', response);
 
-      if (response.success && response.data) {
-        const latestTrip = response.data;
+      // Handle different response structures from your backend
+      let latestTrip: Trip | null = null;
+
+      if (response?.success && response?.data) {
+        // Backend returns { success: true, data: trip }
+        latestTrip = response.data;
+      } else if (response?.trip) {
+        // Backend returns { trip: {...} }
+        latestTrip = response.trip;
+      } else if (response && !response.success && response.data) {
+        // Backend returns { success: false, data: trip } - sometimes happens
+        latestTrip = response.data;
+      } else if (response && typeof response === 'object' && response.id) {
+        // Backend returns trip object directly
+        latestTrip = response as Trip;
+      }
+
+      console.log('🎯 Processed trip data:', latestTrip);
+
+      if (latestTrip && latestTrip.id) {
+
+        // Ensure we have all required trip properties with safe defaults
+        const safeTrip: Trip = {
+          id: latestTrip.id,
+          routeId: latestTrip.routeId || '',
+          scheduleId: latestTrip.scheduleId || '',
+          driverId: latestTrip.driverId || '',
+          queueId: latestTrip.queueId,
+          route: latestTrip.route || {
+            id: '',
+            startId: '',
+            endId: '',
+            startStation: {
+              id: '',
+              name: 'Unknown Station',
+              address: '',
+              city: '',
+              state: '',
+              zipCode: '',
+              capacity: 50,
+              isActive: true,
+              amenities: {}
+            },
+            endStation: {
+              id: '',
+              name: 'Unknown Destination',
+              address: '',
+              city: '',
+              state: '',
+              zipCode: '',
+              capacity: 50,
+              isActive: true,
+              amenities: {}
+            },
+            distance: 0,
+            basePrice: 0,
+            estimatedDuration: 60,
+            isActive: true,
+            description: 'Trip Route'
+          },
+          schedule: latestTrip.schedule || {
+            id: '',
+            stationId: '',
+            station: latestTrip.route?.startStation || {
+              id: '',
+              name: 'Unknown Station',
+              address: '',
+              city: '',
+              state: '',
+              zipCode: '',
+              capacity: 50,
+              isActive: true,
+              amenities: {}
+            },
+            dayOfWeek: 1,
+            startTime: '08:00',
+            endTime: '18:00',
+            isActive: true,
+            maxTrips: 10,
+            notes: ''
+          },
+          driver: latestTrip.driver || {
+            id: '',
+            user: {
+              id: '',
+              username: 'Unknown Driver',
+              email: '',
+              phone: '',
+              role: 'driver' as const,
+              isActive: true,
+              createdAt: '',
+              updatedAt: ''
+            },
+            licenseNo: '',
+            licenseExpiry: '',
+            experience: 5,
+            rating: 5.0,
+            vehicleType: 'Vehicle',
+            vehicleCapacity: 4,
+            isVerified: true,
+            isAvailable: true,
+            documents: {}
+          },
+          capacity: latestTrip.capacity || 4,
+          availableSeats: latestTrip.availableSeats ?? 4,
+          status: latestTrip.status || 'scheduled',
+          departureTime: latestTrip.departureTime || '',
+          estimatedArrivalTime: latestTrip.estimatedArrivalTime || '',
+          actualDepartureTime: latestTrip.actualDepartureTime,
+          actualArrivalTime: latestTrip.actualArrivalTime,
+          basePrice: latestTrip.basePrice || 10,
+          currentPrice: latestTrip.currentPrice || latestTrip.basePrice || 10,
+          notes: latestTrip.notes,
+          bookings: latestTrip.bookings,
+          createdAt: latestTrip.createdAt || '',
+          updatedAt: latestTrip.updatedAt || ''
+        };
 
         // Calculate capacity changes
-        const previousSeats = trip?.availableSeats || latestTrip.availableSeats;
-        const capacityChange = Math.abs(latestTrip.availableSeats - previousSeats);
+        const previousSeats = trip?.availableSeats || safeTrip.availableSeats;
+        const capacityChange = Math.abs(safeTrip.availableSeats - previousSeats);
 
         // Enhanced trip with real-time data
         const enhancedTrip: EnhancedTrip = {
-          ...latestTrip,
+          ...safeTrip,
           realTimeData: {
             lastUpdated: new Date().toISOString(),
             capacityChanges: capacityChange,
-            isPopular: latestTrip.capacity - latestTrip.availableSeats >= Math.ceil(latestTrip.capacity * 0.5),
-            estimatedFillTime: estimateFillTime(latestTrip)
+            isPopular: safeTrip.capacity - safeTrip.availableSeats >= Math.ceil(safeTrip.capacity * 0.5),
+            estimatedFillTime: estimateFillTime(safeTrip)
           }
         };
 
+        console.log('✅ Enhanced trip created:', enhancedTrip);
         setTrip(enhancedTrip);
         setLastUpdate(new Date());
 
         // Update capacity history for trends
-        setCapacityHistory(prev => [...prev.slice(-9), latestTrip.availableSeats]);
+        setCapacityHistory(prev => [...prev.slice(-9), safeTrip.availableSeats]);
 
         // Handle capacity changes
         if (capacityChange > 0 && !silent) {
@@ -118,12 +244,12 @@ export default function EnhancedPassengerBookingScreen() {
         }
 
         // Auto-adjust selected seats if necessary
-        if (selectedSeats > latestTrip.availableSeats) {
-          setSelectedSeats(Math.max(1, latestTrip.availableSeats));
+        if (selectedSeats > safeTrip.availableSeats) {
+          setSelectedSeats(Math.max(1, safeTrip.availableSeats));
           if (!silent) {
             Alert.alert(
               'Seats Adjusted',
-              `Only ${latestTrip.availableSeats} seats are now available. We've adjusted your selection.`,
+              `Only ${safeTrip.availableSeats} seats are now available. We've adjusted your selection.`,
               [{ text: 'OK', style: 'default' }]
             );
           }
@@ -132,17 +258,28 @@ export default function EnhancedPassengerBookingScreen() {
         // Update booking state message
         setBookingState(prev => ({
           ...prev,
-          message: getContextualMessage(latestTrip, selectedSeats)
+          message: getContextualMessage(safeTrip, selectedSeats)
         }));
 
+        // Clear validation errors if trip is valid
+        setValidationErrors({});
+
       } else {
-        throw new Error('Failed to fetch trip data');
+        console.error('❌ Invalid trip data received:', response);
+        throw new Error('Invalid trip data received from server');
       }
-    } catch (error) {
-      console.error('Error fetching trip data:', error);
+    } catch (error: any) {
+      console.error('❌ Error fetching trip data:', error);
+      console.error('❌ Error details:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status
+      });
+
       if (!silent) {
         Alert.alert('Update Failed', 'Could not refresh trip data. Please try again.');
       }
+      setValidationErrors({ general: 'Failed to load latest trip data' });
     } finally {
       setRefreshing(false);
     }
@@ -152,13 +289,17 @@ export default function EnhancedPassengerBookingScreen() {
   useEffect(() => {
     if (!isRealTimeEnabled || !tripId) return;
 
-    // Initial fetch
-    fetchLatestTripData(true);
+    // Initial fetch if no trip data
+    if (!trip) {
+      fetchLatestTripData(false);
+    } else {
+      fetchLatestTripData(true);
+    }
 
-    // Set up polling every 10 seconds
+    // Set up polling every 15 seconds for better UX
     pollInterval.current = setInterval(() => {
       fetchLatestTripData(true);
-    }, 10000);
+    }, 15000);
 
     return () => {
       if (pollInterval.current) {
@@ -173,7 +314,7 @@ export default function EnhancedPassengerBookingScreen() {
       (capacityHistory[0] - capacityHistory[capacityHistory.length - 1]) / capacityHistory.length : 1;
 
     if (fillRate > 0) {
-      const minutesToFill = Math.ceil(tripData.availableSeats / fillRate * 10); // 10 sec intervals
+      const minutesToFill = Math.ceil(tripData.availableSeats / fillRate * 15); // 15 sec intervals
       return minutesToFill < 60 ? `~${minutesToFill} minutes` : `~${Math.ceil(minutesToFill / 60)} hours`;
     }
     return 'Unknown';
@@ -206,22 +347,57 @@ export default function EnhancedPassengerBookingScreen() {
     ]).start();
   };
 
-  // Enhanced booking creation
+  // Validation function
+  const validateBookingData = (): boolean => {
+    const errors: ValidationErrors = {};
+
+    if (!trip) {
+      errors.general = 'Trip information not available';
+    } else {
+      if (selectedSeats > trip.availableSeats) {
+        errors.seats = `Only ${trip.availableSeats} seats available`;
+      }
+      if (selectedSeats < 1) {
+        errors.seats = 'At least 1 seat required';
+      }
+      if (selectedSeats > 4) {
+        errors.seats = 'Maximum 4 seats per booking';
+      }
+      if (trip.status !== 'scheduled') {
+        errors.general = 'This trip is no longer available for booking';
+      }
+      if (trip.departureTime && new Date(trip.departureTime) <= new Date()) {
+        errors.general = 'This trip has already departed';
+      }
+    }
+
+    setValidationErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  // Enhanced booking creation with comprehensive error handling
   const handleBooking = async () => {
     if (!trip) {
       Alert.alert('Error', 'Trip information not available');
       return;
     }
 
-    // Pre-flight checks
-    if (bookingAttempts >= 3) {
-      Alert.alert('Limit Reached', 'You have reached the maximum booking attempts. Please try again later.');
+    // Validation
+    if (!validateBookingData()) {
+      animateError();
       return;
     }
 
-    if (selectedSeats > trip.availableSeats) {
-      Alert.alert('Seats Unavailable', 'Please refresh and select available seats.');
-      await fetchLatestTripData();
+    // Pre-flight checks
+    if (bookingAttempts >= 3) {
+      Alert.alert(
+        'Booking Limit Reached',
+        'You have reached the maximum booking attempts for this session. Please refresh and try again.',
+        [
+          { text: 'Refresh', onPress: () => fetchLatestTripData(false) },
+          { text: 'Cancel', style: 'cancel' }
+        ]
+      );
       return;
     }
 
@@ -241,17 +417,46 @@ export default function EnhancedPassengerBookingScreen() {
       }).start();
 
       // Create booking with enhanced error handling
-      const bookingResponse = await createBooking({
+      console.log('🚀 Creating booking with data:', {
         tripId: trip.id,
         seats: selectedSeats,
         specialRequests: specialRequests.trim() || undefined,
       });
 
-      if (!bookingResponse.success || !bookingResponse.data) {
-        throw new Error(bookingResponse.message || 'Failed to create booking');
+      const bookingResponse: ApiResponse<Booking> = await createBooking({
+        tripId: trip.id,
+        seats: selectedSeats,
+        specialRequests: specialRequests.trim() || undefined,
+      });
+
+      console.log('📡 Raw booking response:', bookingResponse);
+
+      // Handle different booking response structures
+      let booking: Booking | null = null;
+      let wasAutoStarted = false;
+      let autoConfirmedBookings = 0;
+
+      if (bookingResponse?.success && bookingResponse?.data) {
+        // Standard success response
+        booking = bookingResponse.data;
+        wasAutoStarted = bookingResponse.tripAutoStarted || bookingResponse.wasAutoStarted || false;
+        autoConfirmedBookings = bookingResponse.autoConfirmedBookings || 0;
+      } else if (bookingResponse?.booking) {
+        // Alternative response structure
+        booking = bookingResponse.booking;
+        wasAutoStarted = bookingResponse.tripAutoStarted || bookingResponse.wasAutoStarted || false;
+        autoConfirmedBookings = bookingResponse.autoConfirmedBookings || 0;
+      } else if (bookingResponse && bookingResponse.id) {
+        // Direct booking object
+        booking = bookingResponse as Booking;
       }
 
-      const booking = bookingResponse.data;
+      if (!booking || !booking.id) {
+        throw new Error(bookingResponse?.message || 'Failed to create booking - no booking data returned');
+      }
+
+      console.log('✅ Booking created successfully:', booking);
+      setCreatedBooking(booking);
 
       // Update state to completed
       setBookingState({
@@ -273,10 +478,10 @@ export default function EnhancedPassengerBookingScreen() {
       }
 
       // Check if trip was auto-started
-      if (bookingResponse.tripAutoStarted || bookingResponse.wasAutoStarted) {
+      if (wasAutoStarted) {
         Alert.alert(
           'Trip Starting! 🚀',
-          `Great news! Your booking filled the last seats and the trip is starting now.\n\nBooking: ${booking.bookingReference}\nConfirmed bookings: ${bookingResponse.autoConfirmedBookings || 1}`,
+          `Great news! Your booking filled the last seats and the trip is starting now.\n\nBooking: ${booking.bookingReference}\nConfirmed bookings: ${autoConfirmedBookings || 1}`,
           [
             {
               text: 'View Booking',
@@ -290,32 +495,26 @@ export default function EnhancedPassengerBookingScreen() {
         return;
       }
 
-      // Create payment intent
-      setBookingState(prev => ({ ...prev, message: 'Preparing payment...' }));
-
-      const paymentResponse = await createPaymentIntent(booking.id);
-
-      if (!paymentResponse.success) {
-        Alert.alert('Payment Setup Failed', 'Booking created but payment setup failed. You can complete payment later.');
-        router.replace('/(passenger)/bookings');
-        return;
-      }
-
-      // Navigate to payment with enhanced data
-      router.push({
-        pathname: '/(passenger)/payment',
-        params: {
-          bookingId: booking.id,
-          clientSecret: paymentResponse.clientSecret || paymentResponse.data?.clientSecret,
-          amount: (trip.currentPrice / trip.capacity * selectedSeats).toFixed(2),
-          bookingReference: booking.bookingReference,
-          tripData: JSON.stringify({
-            ...trip,
-            booking: booking,
-            autoStarted: bookingResponse.tripAutoStarted
-          })
-        }
-      });
+      // For regular bookings, show payment options
+      Alert.alert(
+        'Booking Created Successfully! ✅',
+        `Booking Reference: ${booking.bookingReference}\nSeats: ${booking.seats}\nAmount: $${booking.amount}\n\nHow would you like to proceed?`,
+        [
+          {
+            text: 'Pay Now',
+            style: 'default',
+            onPress: () => handlePaymentFlow(booking)
+          },
+          {
+            text: 'Pay Later',
+            style: 'cancel',
+            onPress: () => router.replace({
+              pathname: '/(passenger)/bookings/[id]',
+              params: { id: booking.id, bookingData: JSON.stringify(booking) }
+            })
+          }
+        ]
+      );
 
     } catch (error: any) {
       console.error('Enhanced booking error:', error);
@@ -328,31 +527,109 @@ export default function EnhancedPassengerBookingScreen() {
 
       animateError();
 
-      // Enhanced error handling
+      // Enhanced error handling with specific messages
       let errorMessage = 'Something went wrong. Please try again.';
+      let shouldRefresh = false;
 
       if (error.message?.includes('already departed')) {
         errorMessage = 'This trip has already departed. Please select a different trip.';
       } else if (error.message?.includes('available')) {
         errorMessage = 'Not enough seats available. The trip may have filled up.';
-        await fetchLatestTripData(); // Refresh data
+        shouldRefresh = true;
       } else if (error.message?.includes('already have a booking')) {
-        errorMessage = 'You already have a booking for this trip.';
+        errorMessage = 'You already have a booking for this trip. Check "My Bookings".';
+      } else if (error.message?.includes('not available for booking')) {
+        errorMessage = 'This trip is no longer available for booking.';
+        shouldRefresh = true;
       } else if (error.response?.status === 409) {
         errorMessage = 'Booking conflict. Someone may have booked these seats first.';
-        await fetchLatestTripData(); // Refresh data
+        shouldRefresh = true;
+      } else if (error.response?.status === 400) {
+        errorMessage = error.response.data?.message || 'Invalid booking data. Please check your selection.';
+      } else if (error.response?.status === 422) {
+        errorMessage = 'Validation error. Please check your input and try again.';
       }
 
-      Alert.alert('Booking Failed', errorMessage);
+      const alertButtons = [{ text: 'OK', style: 'default' as const }];
+
+      if (shouldRefresh) {
+        alertButtons.unshift({
+          text: 'Refresh Trip',
+          style: 'default' as const,
+          onPress: () => fetchLatestTripData(false)
+        });
+      }
+
+      Alert.alert('Booking Failed', errorMessage, alertButtons);
 
       // Reset state after error
       setTimeout(() => {
-        setBookingState({
-          step: 'selecting',
-          message: getContextualMessage(trip, selectedSeats),
-          progress: 0.25
-        });
+        if (trip) {
+          setBookingState({
+            step: 'selecting',
+            message: getContextualMessage(trip, selectedSeats),
+            progress: 0.25
+          });
+        }
       }, 2000);
+    }
+  };
+
+  // Payment flow handler
+  const handlePaymentFlow = async (booking: Booking) => {
+    try {
+      setBookingState(prev => ({ ...prev, message: 'Preparing payment...' }));
+
+      const paymentResponse = await createPaymentIntent(booking.id);
+
+      if (!paymentResponse.success) {
+        Alert.alert(
+          'Payment Setup Failed',
+          'Booking created but payment setup failed. You can complete payment later from "My Bookings".',
+          [
+            {
+              text: 'View Booking',
+              onPress: () => router.replace({
+                pathname: '/(passenger)/bookings/[id]',
+                params: { id: booking.id, bookingData: JSON.stringify(booking) }
+              })
+            }
+          ]
+        );
+        return;
+      }
+
+      // Navigate to payment with enhanced data
+      router.push({
+        pathname: '/(passenger)/payment',
+        params: {
+          bookingId: booking.id,
+          clientSecret: paymentResponse.clientSecret || paymentResponse.data?.clientSecret,
+          amount: booking.amount.toString(),
+          bookingReference: booking.bookingReference,
+          tripData: JSON.stringify({
+            ...trip,
+            booking: booking,
+            autoStarted: false
+          })
+        }
+      });
+
+    } catch (error: any) {
+      console.error('Payment flow error:', error);
+      Alert.alert(
+        'Payment Setup Error',
+        'Could not set up payment. You can try again from "My Bookings".',
+        [
+          {
+            text: 'View Booking',
+            onPress: () => router.replace({
+              pathname: '/(passenger)/bookings/[id]',
+              params: { id: booking.id, bookingData: JSON.stringify(booking) }
+            })
+          }
+        ]
+      );
     }
   };
 
@@ -365,18 +642,71 @@ export default function EnhancedPassengerBookingScreen() {
       setSelectedSeats(newSeats);
       setBookingState(prev => ({
         ...prev,
-        message: getContextualMessage(trip!, newSeats)
+        message: trip ? getContextualMessage(trip, newSeats) : 'Loading...'
       }));
+      // Clear seat validation errors
+      setValidationErrors(prev => ({ ...prev, seats: undefined }));
     } else if (newSeats > maxSeats) {
       // Provide feedback when hitting limits
       if (Platform.OS !== 'web') {
         Vibration.vibrate(50);
       }
+      setValidationErrors(prev => ({
+        ...prev,
+        seats: newSeats > trip?.availableSeats! ?
+          `Only ${trip?.availableSeats} seats available` :
+          'Maximum 4 seats per booking'
+      }));
     }
   };
 
-  // Calculate total amount
-  const totalAmount = trip ? (trip.currentPrice / trip.capacity) * selectedSeats : 0;
+  // Calculate total amount - REAL PRICING from backend
+  const calculatePricing = () => {
+    if (!trip) return { pricePerSeat: 0, totalAmount: 0 };
+
+    // Backend pricing logic based on your code:
+    // 1. trip.currentPrice is the TOTAL trip price (not per seat)
+    // 2. We need to divide by capacity to get per-seat price
+    // 3. But if there's no currentPrice, use basePrice from route
+
+    let totalTripPrice = 0;
+
+    if (trip.currentPrice) {
+      // Use current price if available (may include dynamic pricing)
+      totalTripPrice = parseFloat(trip.currentPrice.toString());
+    } else if (trip.basePrice) {
+      // Fallback to base price
+      totalTripPrice = parseFloat(trip.basePrice.toString());
+    } else if (trip.route?.basePrice) {
+      // Fallback to route base price
+      totalTripPrice = parseFloat(trip.route.basePrice.toString());
+    } else {
+      // Ultimate fallback
+      totalTripPrice = 10.0; // Default minimum price
+    }
+
+    // Calculate per-seat price
+    const pricePerSeat = totalTripPrice / (trip.capacity || 4);
+    const totalAmount = pricePerSeat * selectedSeats;
+
+    console.log('💰 Real Pricing Calculation:', {
+      tripCurrentPrice: trip.currentPrice,
+      tripBasePrice: trip.basePrice,
+      routeBasePrice: trip.route?.basePrice,
+      capacity: trip.capacity,
+      calculatedPricePerSeat: pricePerSeat,
+      selectedSeats,
+      totalAmount
+    });
+
+    return {
+      pricePerSeat,
+      totalAmount,
+      totalTripPrice
+    };
+  };
+
+  const { pricePerSeat, totalAmount, totalTripPrice } = calculatePricing();
 
   // Format time displays
   const formatTime = (dateString: string | null) => {
@@ -398,12 +728,43 @@ export default function EnhancedPassengerBookingScreen() {
     });
   };
 
+  // Enhanced price source info
+  const priceSource = () => {
+    if (!trip) return '';
+    if (trip.currentPrice) return `Current Price (${trip.currentPrice})`;
+    if (trip.basePrice) return `Base Price (${trip.basePrice})`;
+    if (trip.route?.basePrice) return `Route Price (${trip.route.basePrice})`;
+    return 'Default Price (10.00)';
+  };
+
   // Loading state
   if (!trip) {
     return (
       <View style={styles.centered}>
         <ActivityIndicator size="large" color="#0066cc" />
         <Text style={styles.loadingText}>Loading trip details...</Text>
+      </View>
+    );
+  }
+
+  // Error state
+  if (validationErrors.general) {
+    return (
+      <View style={styles.centered}>
+        <MaterialIcons name="error-outline" size={64} color="#f44336" />
+        <Text style={styles.errorText}>{validationErrors.general}</Text>
+        <TouchableOpacity
+          style={styles.refreshButton}
+          onPress={() => fetchLatestTripData(false)}
+        >
+          <Text style={styles.refreshButtonText}>🔄 Refresh Trip</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.refreshButton, { backgroundColor: '#6c757d', marginTop: 12 }]}
+          onPress={() => router.back()}
+        >
+          <Text style={styles.refreshButtonText}>← Go Back</Text>
+        </TouchableOpacity>
       </View>
     );
   }
@@ -466,7 +827,7 @@ export default function EnhancedPassengerBookingScreen() {
       <Animated.View style={[styles.tripSummary, { opacity: fadeAnim }]}>
         <View style={styles.tripHeader}>
           <Text style={styles.routeText}>
-            {trip.route.startStation.name} → {trip.route.endStation.name}
+            {trip.route.startStation?.name || 'Unknown'} → {trip.route.endStation?.name || 'Unknown'}
           </Text>
           {trip.realTimeData?.isPopular && (
             <View style={styles.popularBadge}>
@@ -602,7 +963,7 @@ export default function EnhancedPassengerBookingScreen() {
             <Text style={styles.seatCount}>{selectedSeats}</Text>
             <Text style={styles.seatLabel}>seat{selectedSeats > 1 ? 's' : ''}</Text>
             <Text style={styles.seatPrice}>
-              ${(totalAmount).toFixed(2)} total
+              ${totalAmount.toFixed(2)} total
             </Text>
           </View>
 
@@ -625,6 +986,14 @@ export default function EnhancedPassengerBookingScreen() {
         <Text style={styles.seatLimitText}>
           Available: {trip.availableSeats} • Max per booking: 4
         </Text>
+
+        {/* Show validation error for seats */}
+        {validationErrors.seats && (
+          <View style={styles.errorContainer}>
+            <MaterialIcons name="error" size={16} color="#f44336" />
+            <Text style={styles.errorMessage}>{validationErrors.seats}</Text>
+          </View>
+        )}
       </View>
 
       {/* Enhanced Special Requests */}
@@ -645,14 +1014,31 @@ export default function EnhancedPassengerBookingScreen() {
         </Text>
       </View>
 
-      {/* Enhanced Price Summary */}
+      {/* Enhanced Price Summary - REAL BACKEND DATA */}
       <View style={styles.priceSummary}>
-        <Text style={styles.priceSummaryTitle}>Price Summary</Text>
+        <Text style={styles.priceSummaryTitle}>Price Summary (Real Backend Data)</Text>
+
+        {/* Show trip pricing breakdown */}
+        {trip.currentPrice && (
+          <View style={styles.priceRow}>
+            <Text style={styles.priceLabel}>Trip Total Price</Text>
+            <Text style={styles.priceValue}>
+              ${parseFloat(trip.currentPrice.toString()).toFixed(2)}
+            </Text>
+          </View>
+        )}
+
+        <View style={styles.priceRow}>
+          <Text style={styles.priceLabel}>Trip Capacity</Text>
+          <Text style={styles.priceValue}>
+            {trip.capacity} seats
+          </Text>
+        </View>
 
         <View style={styles.priceRow}>
           <Text style={styles.priceLabel}>Price per seat</Text>
           <Text style={styles.priceValue}>
-            ${(trip.currentPrice / trip.capacity).toFixed(2)}
+            ${pricePerSeat.toFixed(2)}
           </Text>
         </View>
 
@@ -666,6 +1052,13 @@ export default function EnhancedPassengerBookingScreen() {
         <View style={styles.priceRowTotal}>
           <Text style={styles.totalLabel}>Total Amount</Text>
           <Text style={styles.totalValue}>${totalAmount.toFixed(2)}</Text>
+        </View>
+
+        {/* Show backend data source */}
+        <View style={styles.priceSource}>
+          <Text style={styles.priceSourceText}>
+            💡 Source: {priceSource()}
+          </Text>
         </View>
       </View>
 
@@ -712,10 +1105,10 @@ export default function EnhancedPassengerBookingScreen() {
       <TouchableOpacity
         style={[
           styles.bookButton,
-          (bookingState.step === 'processing' || trip.availableSeats === 0) && styles.bookButtonDisabled
+          (bookingState.step === 'processing' || trip.availableSeats === 0 || Object.keys(validationErrors).length > 0) && styles.bookButtonDisabled
         ]}
         onPress={handleBooking}
-        disabled={bookingState.step === 'processing' || trip.availableSeats === 0}
+        disabled={bookingState.step === 'processing' || trip.availableSeats === 0 || Object.keys(validationErrors).length > 0}
       >
         {bookingState.step === 'processing' ? (
           <View style={styles.loadingContainer}>
@@ -730,11 +1123,35 @@ export default function EnhancedPassengerBookingScreen() {
               color="white"
             />
             <Text style={styles.bookButtonText}>
-              {trip.availableSeats === 0 ? 'Trip Full' : `Book Trip - $${totalAmount.toFixed(2)}`}
+              {trip.availableSeats === 0 ? 'Trip Full' : `Book Trip - ${totalAmount.toFixed(2)}`}
             </Text>
           </View>
         )}
       </TouchableOpacity>
+
+      {/* Booking Success Actions */}
+      {bookingState.step === 'completed' && createdBooking && (
+        <View style={styles.successActions}>
+          <TouchableOpacity
+            style={styles.successButton}
+            onPress={() => router.push({
+              pathname: '/(passenger)/bookings/[id]',
+              params: { id: createdBooking.id, bookingData: JSON.stringify(createdBooking) }
+            })}
+          >
+            <MaterialIcons name="visibility" size={20} color="#0066cc" />
+            <Text style={styles.successButtonText}>View Booking Details</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.successButton, styles.paymentButton]}
+            onPress={() => handlePaymentFlow(createdBooking)}
+          >
+            <MaterialIcons name="payment" size={20} color="white" />
+            <Text style={[styles.successButtonText, { color: 'white' }]}>Complete Payment</Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
       {/* Enhanced Important Notes */}
       <View style={styles.notesSection}>
@@ -755,14 +1172,39 @@ export default function EnhancedPassengerBookingScreen() {
           <MaterialIcons name="email" size={16} color="#0066cc" />
           <Text style={styles.notesText}>Confirmation sent via email and SMS</Text>
         </View>
+        <View style={styles.noteItem}>
+          <MaterialIcons name="refresh" size={16} color="#0066cc" />
+          <Text style={styles.notesText}>Real-time updates ensure accurate availability</Text>
+        </View>
       </View>
 
       {/* Enhanced Terms */}
       <Text style={styles.termsText}>
         By booking this trip, you agree to our terms and conditions.
         Your booking will be confirmed after successful payment processing.
-        Real-time updates ensure accurate availability.
+        Real-time updates ensure accurate availability and prevent overbooking.
       </Text>
+
+      {/* Debug Info (Development Only) - REAL BACKEND DATA */}
+      {__DEV__ && (
+        <View style={styles.debugInfo}>
+          <Text style={styles.debugTitle}>Debug Info (Real Backend Data):</Text>
+          <Text style={styles.debugText}>Trip ID: {trip.id}</Text>
+          <Text style={styles.debugText}>Available Seats: {trip.availableSeats}</Text>
+          <Text style={styles.debugText}>Total Capacity: {trip.capacity}</Text>
+          <Text style={styles.debugText}>Current Price: ${trip.currentPrice || 'Not Set'}</Text>
+          <Text style={styles.debugText}>Base Price: ${trip.basePrice || 'Not Set'}</Text>
+          <Text style={styles.debugText}>Route Base Price: ${trip.route?.basePrice || 'Not Set'}</Text>
+          <Text style={styles.debugText}>Calculated Per Seat: ${pricePerSeat.toFixed(2)}</Text>
+          <Text style={styles.debugText}>Total for {selectedSeats} seats: ${totalAmount.toFixed(2)}</Text>
+          <Text style={styles.debugText}>Booking Attempts: {bookingAttempts}</Text>
+          <Text style={styles.debugText}>Last Update: {lastUpdate.toLocaleTimeString()}</Text>
+          <Text style={styles.debugText}>Status: {trip.status}</Text>
+          <Text style={styles.debugText}>Departure: {trip.departureTime || 'When full'}</Text>
+          <Text style={styles.debugText}>Driver: {trip.driver?.user?.username || 'Unknown'}</Text>
+          <Text style={styles.debugText}>Route: {trip.route?.description || 'Unknown Route'}</Text>
+        </View>
+      )}
     </ScrollView>
   );
 }
@@ -776,11 +1218,32 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    padding: 20,
   },
   loadingText: {
     marginTop: 12,
     fontSize: 16,
     color: '#666',
+    textAlign: 'center',
+  },
+  errorText: {
+    fontSize: 18,
+    color: '#f44336',
+    marginBottom: 20,
+    textAlign: 'center',
+    paddingHorizontal: 20,
+  },
+  refreshButton: {
+    backgroundColor: '#0066cc',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 8,
+    marginBottom: 8,
+  },
+  refreshButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
   },
   header: {
     backgroundColor: 'white',
@@ -1097,6 +1560,21 @@ const styles = StyleSheet.create({
     color: '#888',
     textAlign: 'center',
   },
+  errorContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    backgroundColor: '#ffebee',
+    borderRadius: 6,
+  },
+  errorMessage: {
+    fontSize: 14,
+    color: '#f44336',
+    marginLeft: 8,
+    flex: 1,
+  },
   textInput: {
     borderWidth: 1,
     borderColor: '#ddd',
@@ -1164,6 +1642,17 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#0066cc',
   },
+  priceSource: {
+    marginTop: 8,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#f0f0f0',
+  },
+  priceSourceText: {
+    fontSize: 12,
+    color: '#666',
+    fontStyle: 'italic',
+  },
   statusMessage: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1208,6 +1697,34 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     marginLeft: 8,
   },
+  successActions: {
+    flexDirection: 'row',
+    marginHorizontal: 16,
+    marginBottom: 16,
+    gap: 12,
+  },
+  successButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#0066cc',
+    backgroundColor: 'white',
+  },
+  paymentButton: {
+    backgroundColor: '#0066cc',
+    borderColor: '#0066cc',
+  },
+  successButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#0066cc',
+    marginLeft: 8,
+  },
   notesSection: {
     backgroundColor: '#fff3cd',
     marginHorizontal: 16,
@@ -1241,5 +1758,25 @@ const styles = StyleSheet.create({
     marginHorizontal: 16,
     marginBottom: 32,
     lineHeight: 18,
+  },
+  debugInfo: {
+    backgroundColor: '#f8f9fa',
+    marginHorizontal: 16,
+    marginBottom: 32,
+    padding: 16,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#dee2e6',
+  },
+  debugTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#495057',
+    marginBottom: 8,
+  },
+  debugText: {
+    fontSize: 12,
+    color: '#6c757d',
+    marginBottom: 4,
   },
 });

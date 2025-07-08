@@ -1,3 +1,4 @@
+// src/hooks/useTripCreation.js - FIXED VERSION
 import { useState, useCallback } from 'react';
 import { showToast } from '../utils/toast';
 
@@ -34,48 +35,124 @@ export const useTripCreation = () => {
         try {
             setLoading(true);
 
+            console.log('🔄 Fetching trip creation data...');
+
+            // Fetch data in parallel
             const [destinationsRes, schedulesRes, driversRes] = await Promise.all([
                 apiCall('/destinations'),
                 apiCall('/schedules'),
-                apiCall('/users?role=driver&is_verified=true&isActive=true&limit=100')
+                // ✅ FIX: Get all drivers without filtering by verification status in the API call
+                apiCall('/users?role=driver&limit=100')
             ]);
 
             // Process destinations data
             if (destinationsRes.success) {
+                console.log('📍 Destinations loaded:', destinationsRes.destinations?.length || 0);
                 setDestinations(destinationsRes.destinations || []);
             }
 
             // Process schedules data
             if (schedulesRes.success) {
+                console.log('📅 Schedules loaded:', schedulesRes.schedules?.length || 0);
                 setSchedules(schedulesRes.schedules || []);
             }
 
-            // Process drivers data
+            // ✅ FIX: Improved driver data processing
             if (driversRes.success) {
+                console.log('👥 Raw driver users:', driversRes.users?.length || 0);
+                
+                // Process all driver users and create enhanced driver objects
                 const processedDrivers = driversRes.users
-                    .filter(user => user.role === 'driver')
-                    .map(user => {
-                        const driver = user.driverProfile;
-                        return {
-                            id: user.driverProfile?.id || user.id,
-                            name: user.username,
-                            email: user.email,
-                            vehicleType: driver?.vehicle_type || 'Unknown',
-                            vehicleCapacity: driver?.vehicle_capacity || 4,
-                            isActive: user.isActive,
-                            isVerified: driver?.is_verified || false,
-                            rating: driver?.rating || 0,
-                            experience: driver?.experience || 0
-                        };
+                    .filter(user => {
+                        // Only include users with driver role
+                        const isDriver = user.role === 'driver';
+                        if (!isDriver) {
+                            console.log('⚠️ Skipping non-driver user:', user.username);
+                        }
+                        return isDriver;
                     })
-                    .filter(driver => driver.isActive && driver.isVerified);
+                    .map(user => {
+                        const driverProfile = user.driverProfile || {};
+                        
+                        // Create comprehensive driver object
+                        const processedDriver = {
+                            // ✅ FIX: Use the user ID, not the driver profile ID
+                            id: user.id,
+                            driverId: user.id,
+                            
+                            // Basic info
+                            name: user.username || 'Unknown Driver',
+                            email: user.email || '',
+                            phone: user.phone || '',
+                            
+                            // Driver specific info
+                            licenseNo: driverProfile.license_no || 'N/A',
+                            vehicleType: driverProfile.vehicle_type || 'Standard',
+                            vehicleCapacity: driverProfile.vehicle_capacity || 4,
+                            
+                            // Status info
+                            isActive: user.isActive || false,
+                            isVerified: driverProfile.is_verified || false,
+                            
+                            // Additional info
+                            rating: driverProfile.rating || 0,
+                            experience: driverProfile.experience || 0,
+                            licenseExpiry: driverProfile.license_expiry || null,
+                            
+                            // For debugging
+                            _userId: user.id,
+                            _hasDriverProfile: !!user.driverProfile
+                        };
+                        
+                        console.log('👤 Processed driver:', processedDriver.name, {
+                            id: processedDriver.id,
+                            isActive: processedDriver.isActive,
+                            isVerified: processedDriver.isVerified,
+                            vehicleType: processedDriver.vehicleType
+                        });
+                        
+                        return processedDriver;
+                    })
+                    // ✅ FIX: Filter for available drivers but include unverified ones
+                    .filter(driver => {
+                        // Only exclude inactive drivers
+                        const isAvailable = driver.isActive;
+                        if (!isAvailable) {
+                            console.log('⚠️ Skipping inactive driver:', driver.name);
+                        }
+                        return isAvailable;
+                    })
+                    // Sort by verification status and name
+                    .sort((a, b) => {
+                        // Verified drivers first
+                        if (a.isVerified && !b.isVerified) return -1;
+                        if (!a.isVerified && b.isVerified) return 1;
+                        // Then by name
+                        return a.name.localeCompare(b.name);
+                    });
+
+                console.log('✅ Final processed drivers:', processedDrivers.length);
+                console.log('📊 Driver breakdown:', {
+                    total: processedDrivers.length,
+                    verified: processedDrivers.filter(d => d.isVerified).length,
+                    unverified: processedDrivers.filter(d => !d.isVerified).length,
+                    active: processedDrivers.filter(d => d.isActive).length
+                });
 
                 setDrivers(processedDrivers);
+            } else {
+                console.warn('⚠️ No drivers data received');
+                setDrivers([]);
             }
 
         } catch (error) {
-            console.error('Error fetching trip creation data:', error);
+            console.error('❌ Error fetching trip creation data:', error);
             showToast('Failed to load trip creation data: ' + error.message, 'error');
+            
+            // Set empty arrays on error
+            setDestinations([]);
+            setSchedules([]);
+            setDrivers([]);
         } finally {
             setLoading(false);
         }
@@ -85,6 +162,11 @@ export const useTripCreation = () => {
     const createTrip = async (tripData) => {
         try {
             setSubmitting(true);
+
+            // ✅ FIX: Validate required fields
+            if (!tripData.driverId) {
+                throw new Error('Please select a driver');
+            }
 
             const requestData = {
                 routeId: tripData.routeId,
@@ -114,7 +196,7 @@ export const useTripCreation = () => {
             }
 
         } catch (error) {
-            console.error('Error creating trip:', error);
+            console.error('❌ Error creating trip:', error);
             showToast('Error creating trip: ' + error.message, 'error');
             return { success: false, error: error.message };
         } finally {
@@ -126,6 +208,11 @@ export const useTripCreation = () => {
     const updateTrip = async (tripId, tripData) => {
         try {
             setSubmitting(true);
+
+            // ✅ FIX: Validate required fields
+            if (!tripData.driverId) {
+                throw new Error('Please select a driver');
+            }
 
             const requestData = {
                 routeId: tripData.routeId,
@@ -155,7 +242,7 @@ export const useTripCreation = () => {
             }
 
         } catch (error) {
-            console.error('Error updating trip:', error);
+            console.error('❌ Error updating trip:', error);
             showToast('Error updating trip: ' + error.message, 'error');
             return { success: false, error: error.message };
         } finally {

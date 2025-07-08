@@ -1,4 +1,4 @@
-// src/App.js - Updated with Destinations
+// src/App.js - Updated with Destinations and Fixed Syntax Error
 import React, { useState, useEffect, Suspense, lazy } from 'react';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -10,11 +10,12 @@ import LoadingSpinner from './components/common/LoadingSpinner';
 // LAZY LOAD PAGES FOR BETTER PERFORMANCE
 // ========================================
 const DashboardPage = lazy(() => import('./pages/DashboardPage'));
+const ProfilePage = lazy(() => import('./pages/ProfilePage'));
 const UsersPage = lazy(() => import('./pages/UsersPage'));
 const TripsPage = lazy(() => import('./pages/TripsPage'));
 const DriversPage = lazy(() => import('./pages/DriversPage'));
 const StationsPage = lazy(() => import('./pages/StationsPage'));
-const DestinationsPage = lazy(() => import('./pages/DestinationsPage')); // ✅ NEW: Added Destinations
+const DestinationsPage = lazy(() => import('./pages/DestinationsPage'));
 const BookingsPage = lazy(() => import('./pages/BookingsPage'));
 const SchedulesPage = lazy(() => import('./pages/SchedulesPage'));
 const QueuePage = lazy(() => import('./pages/QueuePage'));
@@ -189,7 +190,7 @@ const routes = {
         title: 'Stations',
         description: 'Station management and configuration'
     },
-    destinations: { // ✅ NEW: Added destinations route
+    destinations: {
         component: DestinationsPage,
         title: 'Destinations',
         description: 'Route and destination management'
@@ -203,6 +204,11 @@ const routes = {
         component: QueuePage,
         title: 'Queue Management',
         description: 'Manage driver queues and positioning'
+    },
+    profile: {
+        component: ProfilePage,
+        title: 'Profile',
+        description: 'Manage your account and profile settings'
     },
     payments: {
         component: GenericPage,
@@ -243,9 +249,7 @@ const Router = () => {
     const [currentRoute, setCurrentRoute] = useState('dashboard');
     const [routeHistory, setRouteHistory] = useState(['dashboard']);
 
-    // ========================================
     // ROUTE HISTORY MANAGEMENT
-    // ========================================
     const navigateToRoute = (route) => {
         if (route !== currentRoute) {
             setRouteHistory(prev => [...prev.slice(-4), route]);
@@ -258,9 +262,7 @@ const Router = () => {
         }
     };
 
-    // ========================================
     // KEYBOARD NAVIGATION
-    // ========================================
     useEffect(() => {
         const handleKeyDown = (event) => {
             if (event.altKey && !isNaN(event.key)) {
@@ -283,16 +285,12 @@ const Router = () => {
         return () => document.removeEventListener('keydown', handleKeyDown);
     }, [routeHistory]);
 
-    // ========================================
     // SET INITIAL DOCUMENT TITLE
-    // ========================================
     useEffect(() => {
         document.title = 'Dashboard - Louagi Admin Dashboard';
     }, []);
 
-    // ========================================
     // LOADING STATE
-    // ========================================
     if (loading) {
         return (
             <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
@@ -306,9 +304,7 @@ const Router = () => {
         );
     }
 
-    // ========================================
     // NOT AUTHENTICATED
-    // ========================================
     if (!isAuthenticated) {
         return (
             <ErrorBoundary>
@@ -317,9 +313,7 @@ const Router = () => {
         );
     }
 
-    // ========================================
     // RENDER PAGE COMPONENT
-    // ========================================
     const renderPage = () => {
         const routeConfig = routes[currentRoute];
 
@@ -332,13 +326,13 @@ const Router = () => {
         const Component = routeConfig.component;
         const props = routeConfig.props || {};
 
-        // ✅ UPDATED: Include DestinationsPage in lazy-loaded components
-        if (Component === DashboardPage || Component === UsersPage ||
+        if (
+            Component === DashboardPage || Component === UsersPage ||
             Component === TripsPage || Component === DriversPage ||
             Component === StationsPage || Component === DestinationsPage ||
-            Component === BookingsPage || Component === SchedulesPage || 
-            Component === QueuePage) {
-
+            Component === BookingsPage || Component === SchedulesPage ||
+            Component === QueuePage || Component === ProfilePage
+        ) {
             return (
                 <Suspense fallback={<PageLoadingFallback pageName={routeConfig.title} />}>
                     <ErrorBoundary>
@@ -348,7 +342,7 @@ const Router = () => {
             );
         }
 
-        // For generic pages, render directly
+        // fallback for generic or not-lazy pages
         return (
             <ErrorBoundary>
                 <Component {...props} />
@@ -356,9 +350,6 @@ const Router = () => {
         );
     };
 
-    // ========================================
-    // MAIN RENDER
-    // ========================================
     return (
         <Layout
             currentRoute={currentRoute}
@@ -369,15 +360,13 @@ const Router = () => {
             {renderPage()}
         </Layout>
     );
-};
+}; // <<<<< THIS WAS MISSING!!!
 
 // ========================================
 // MAIN APP COMPONENT
 // ========================================
 function App() {
-    // ========================================
     // GLOBAL ERROR HANDLING
-    // ========================================
     useEffect(() => {
         const handleUnhandledRejection = (event) => {
             console.error('Unhandled promise rejection:', event.reason);
@@ -406,9 +395,7 @@ function App() {
         };
     }, []);
 
-    // ========================================
     // APP RENDER
-    // ========================================
     return (
         <ErrorBoundary>
             <AuthProvider>

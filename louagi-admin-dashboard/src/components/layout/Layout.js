@@ -1,3 +1,4 @@
+// src/components/layout/Layout.js - Updated to pass navigation props
 import React, { useState } from 'react';
 import Sidebar from './Sidebar';
 import Header from './Header';
@@ -25,8 +26,12 @@ const Layout = ({ children, currentRoute, setCurrentRoute }) => {
 
             {/* Main content */}
             <div className="flex-1 flex flex-col overflow-hidden lg:ml-0">
-                {/* Header */}
-                <Header onMenuClick={toggleSidebar} />
+                {/* Header - Updated to pass navigation props */}
+                <Header 
+                    onMenuClick={toggleSidebar}
+                    currentRoute={currentRoute}
+                    setCurrentRoute={setCurrentRoute}
+                />
 
                 {/* Page content */}
                 <main className="flex-1 overflow-auto">

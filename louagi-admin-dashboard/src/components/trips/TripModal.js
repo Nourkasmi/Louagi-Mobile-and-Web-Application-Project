@@ -32,7 +32,6 @@ const TripModal = ({
     useEffect(() => {
         if (isOpen) {
             if (initialData) {
-                // Populate form with existing trip data
                 setFormData({
                     routeId: initialData.routeId || '',
                     scheduleId: initialData.scheduleId || '',
@@ -46,7 +45,6 @@ const TripModal = ({
                     status: initialData.status || 'scheduled'
                 });
             } else {
-                // Reset form for new trip
                 setFormData({
                     routeId: '',
                     scheduleId: '',
@@ -196,10 +194,8 @@ const TripModal = ({
     // Get filtered schedules based on selected destination
     const getFilteredSchedules = () => {
         if (!formData.routeId) return schedules;
-        
         const destination = destinations.find(d => d.id === formData.routeId);
         if (!destination) return schedules;
-        
         return schedules.filter(s => s.stationId === destination.startId);
     };
 
@@ -214,8 +210,28 @@ const TripModal = ({
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-            <div className="relative top-10 mx-auto p-5 border w-full max-w-4xl shadow-lg rounded-md bg-white">
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 z-50 flex items-end md:items-center justify-center">
+            {/* Key: Add scroll and max height to the modal content box */}
+            <div
+                className="
+                    relative
+                    w-full
+                    max-w-4xl
+                    bg-white
+                    rounded-t-2xl
+                    md:rounded-2xl
+                    shadow-lg
+                    p-5
+                    max-h-[95vh]
+                    overflow-y-auto
+                    mx-auto
+                "
+                style={{
+                    boxSizing: 'border-box',
+                    maxHeight: '95vh',
+                    overflowY: 'auto',
+                }}
+            >
                 <div className="mt-3">
                     {/* Header */}
                     <div className="flex items-center justify-between mb-6">

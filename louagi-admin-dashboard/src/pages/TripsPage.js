@@ -1,20 +1,27 @@
-// src/pages/TripsPage.js - ENHANCED VERSION
+// src/pages/TripsPage.js - Enhanced with Create Trip functionality
 import React, { useState, useEffect } from 'react';
 import { useTripsData } from '../hooks/useTripsData';
+import { useTripCreation } from '../hooks/useTripCreation';
 import {
     TripStatistics,
     TripFilters,
-    TripTable
+    TripTable,
+    TripModal
 } from '../components/trips';
 import { Pagination } from '../components/common';
 import PageHeader from '../components/common/PageHeader';
 import TripLoadingState from '../components/trips/TripLoadingState';
 import TripErrorState from '../components/trips/TripErrorState';
-import { RefreshCw, Wifi, WifiOff, AlertTriangle } from 'lucide-react';
+import { RefreshCw, Wifi, WifiOff, AlertTriangle, Plus } from 'lucide-react';
 
 const TripsPage = () => {
     const [debugMode, setDebugMode] = useState(false);
     const [connectionTest, setConnectionTest] = useState(null);
+
+    // Trip creation modal states
+    const [showCreateModal, setShowCreateModal] = useState(false);
+    const [showEditModal, setShowEditModal] = useState(false);
+    const [selectedTrip, setSelectedTrip] = useState(null);
 
     const {
         // Data
@@ -42,6 +49,25 @@ const TripsPage = () => {
         apiUrl,
         connectionStatus
     } = useTripsData();
+
+    // Trip creation hook
+    const {
+        destinations,
+        schedules,
+        drivers,
+        loading: creationLoading,
+        submitting,
+        fetchTripCreationData,
+        createTrip,
+        updateTrip
+    } = useTripCreation();
+
+    // Load trip creation data when modal opens
+    useEffect(() => {
+        if (showCreateModal || showEditModal) {
+            fetchTripCreationData();
+        }
+    }, [showCreateModal, showEditModal, fetchTripCreationData]);
 
     // Test backend connection
     const testConnection = async () => {
@@ -97,6 +123,55 @@ const TripsPage = () => {
         setConnectionTest(null);
         await testConnection();
         await refreshData();
+    };
+
+    // Trip Modal Handlers
+    const handleCreateTrip = () => {
+        setShowCreateModal(true);
+    };
+
+    const handleEditTrip = (trip) => {
+        setSelectedTrip(trip);
+        setShowEditModal(true);
+    };
+
+    const handleCloseModals = () => {
+        setShowCreateModal(false);
+        setShowEditModal(false);
+        setSelectedTrip(null);
+    };
+
+    const handleCreateSubmit = async (formData) => {
+        const result = await createTrip(formData);
+        if (result && result.success) {
+            setShowCreateModal(false);
+            await refreshData(); // Refresh trips list
+        }
+        return result;
+    };
+
+    const handleEditSubmit = async (formData) => {
+        if (!selectedTrip) return { success: false };
+
+        const result = await updateTrip(selectedTrip.id, formData);
+        if (result && result.success) {
+            setShowEditModal(false);
+            setSelectedTrip(null);
+            await refreshData(); // Refresh trips list
+        }
+        return result;
+    };
+
+    // Enhanced view trip details with edit option
+    const handleViewTripDetails = (trip) => {
+        // You can either show a details modal or redirect to edit
+        const action = window.confirm(
+            `Trip Details:\nID: ${trip.id}\nRoute: ${trip.route?.description || 'Unknown'}\nStatus: ${trip.status}\n\nDo you want to edit this trip?`
+        );
+        
+        if (action) {
+            handleEditTrip(trip);
+        }
     };
 
     // Connection Status Indicator
@@ -158,7 +233,8 @@ const TripsPage = () => {
                         <div>Total Trips: {pagination.total}</div>
                         <div>Current Page: {pagination.currentPage}</div>
                         <div>Active Filters: {Object.values(filters).filter(Boolean).length}</div>
-                        <div>Last Update: {new Date().toLocaleTimeString()}</div>
+                        <div>Destinations: {destinations.length}</div>
+                        <div>Drivers: {drivers.length}</div>
                     </div>
                 </div>
 
@@ -311,6 +387,31 @@ const TripsPage = () => {
                                         </span>
                                     </div>
                                 }
+                                action={
+                                    <div className="flex items-center space-x-3">
+                                        <button
+                                            onClick={exportTrips}
+                                            className="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200 transition-colors flex items-center space-x-2"
+                                        >
+                                            <span>Export</span>
+                                        </button>
+                                        <button
+                                            onClick={refreshData}
+                                            disabled={refreshing}
+                                            className="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200 transition-colors flex items-center space-x-2"
+                                        >
+                                            <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+                                            <span>Refresh</span>
+                                        </button>
+                                        <button
+                                            onClick={handleCreateTrip}
+                                            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2"
+                                        >
+                                            <Plus className="h-4 w-4" />
+                                            <span>Create Trip</span>
+                                        </button>
+                                    </div>
+                                }
                             />
                             <TripStatistics stats={stats} />
                             <TripFilters
@@ -324,7 +425,7 @@ const TripsPage = () => {
                                 trips={trips}
                                 loading={loading}
                                 onUpdateStatus={updateTripStatus}
-                                onViewDetails={viewTripDetails}
+                                onViewDetails={handleViewTripDetails}
                             />
                             {pagination.totalPages > 1 && (
                                 <Pagination
@@ -361,6 +462,31 @@ const TripsPage = () => {
                         </span>
                     </div>
                 }
+                action={
+                    <div className="flex items-center space-x-3">
+                        <button
+                            onClick={exportTrips}
+                            className="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200 transition-colors flex items-center space-x-2"
+                        >
+                            <span>Export</span>
+                        </button>
+                        <button
+                            onClick={refreshData}
+                            disabled={refreshing}
+                            className="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200 transition-colors flex items-center space-x-2"
+                        >
+                            <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+                            <span>Refresh</span>
+                        </button>
+                        <button
+                            onClick={handleCreateTrip}
+                            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2"
+                        >
+                            <Plus className="h-4 w-4" />
+                            <span>Create Trip</span>
+                        </button>
+                    </div>
+                }
             />
 
             <TripStatistics stats={stats} />
@@ -377,7 +503,7 @@ const TripsPage = () => {
                 trips={trips}
                 loading={loading}
                 onUpdateStatus={updateTripStatus}
-                onViewDetails={viewTripDetails}
+                onViewDetails={handleViewTripDetails}
             />
 
             {pagination.totalPages > 1 && (
@@ -387,6 +513,28 @@ const TripsPage = () => {
                     itemName="trips"
                 />
             )}
+
+            {/* Trip Creation/Edit Modals */}
+            <TripModal
+                isOpen={showCreateModal}
+                onClose={handleCloseModals}
+                onSubmit={handleCreateSubmit}
+                destinations={destinations}
+                schedules={schedules}
+                drivers={drivers}
+                submitting={submitting}
+            />
+
+            <TripModal
+                isOpen={showEditModal}
+                onClose={handleCloseModals}
+                onSubmit={handleEditSubmit}
+                destinations={destinations}
+                schedules={schedules}
+                drivers={drivers}
+                initialData={selectedTrip}
+                submitting={submitting}
+            />
 
             {/* Connection Status Footer */}
             <div className="text-xs text-gray-500 text-center py-2 border-t">

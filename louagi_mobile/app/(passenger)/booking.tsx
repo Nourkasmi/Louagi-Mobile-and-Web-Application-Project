@@ -1,4 +1,4 @@
-// app/(passenger)/booking.tsx - COMPLETE BOOKING INTEGRATION with Real Backend
+// app/(passenger)/booking.tsx - FIXED TouchableOpacity Issues
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
@@ -45,7 +45,7 @@ interface ValidationErrors {
   general?: string;
 }
 
-export default function EnhancedBookingScreen() {
+export default function FixedBookingScreen() {
   const { tripId, tripData } = useLocalSearchParams<{
     tripId: string;
     tripData: string;
@@ -97,23 +97,18 @@ export default function EnhancedBookingScreen() {
       let latestTrip: Trip | null = null;
 
       if (response?.success && response?.data) {
-        // Backend returns { success: true, data: trip }
         latestTrip = response.data;
       } else if (response?.trip) {
-        // Backend returns { trip: {...} }
         latestTrip = response.trip;
       } else if (response && !response.success && response.data) {
-        // Backend returns { success: false, data: trip } - sometimes happens
         latestTrip = response.data;
       } else if (response && typeof response === 'object' && response.id) {
-        // Backend returns trip object directly
         latestTrip = response as Trip;
       }
 
       console.log('🎯 Processed trip data:', latestTrip);
 
       if (latestTrip && latestTrip.id) {
-
         // Ensure we have all required trip properties with safe defaults
         const safeTrip: Trip = {
           id: latestTrip.id,
@@ -633,8 +628,8 @@ export default function EnhancedBookingScreen() {
     }
   };
 
-  // Handle seat selection with validation
-  const handleSeatChange = (change: number) => {
+  // FIXED: Handle seat selection with proper event handling
+  const handleSeatChange = useCallback((change: number) => {
     const newSeats = selectedSeats + change;
     const maxSeats = Math.min(trip?.availableSeats || 0, 4);
 
@@ -658,31 +653,22 @@ export default function EnhancedBookingScreen() {
           'Maximum 4 seats per booking'
       }));
     }
-  };
+  }, [selectedSeats, trip]);
 
   // Calculate total amount - REAL PRICING from backend
   const calculatePricing = () => {
     if (!trip) return { pricePerSeat: 0, totalAmount: 0 };
 
-    // Backend pricing logic based on your code:
-    // 1. trip.currentPrice is the TOTAL trip price (not per seat)
-    // 2. We need to divide by capacity to get per-seat price
-    // 3. But if there's no currentPrice, use basePrice from route
-
     let totalTripPrice = 0;
 
     if (trip.currentPrice) {
-      // Use current price if available (may include dynamic pricing)
       totalTripPrice = parseFloat(trip.currentPrice.toString());
     } else if (trip.basePrice) {
-      // Fallback to base price
       totalTripPrice = parseFloat(trip.basePrice.toString());
     } else if (trip.route?.basePrice) {
-      // Fallback to route base price
       totalTripPrice = parseFloat(trip.route.basePrice.toString());
     } else {
-      // Ultimate fallback
-      totalTripPrice = 10.0; // Default minimum price
+      totalTripPrice = 10.0;
     }
 
     // Calculate per-seat price
@@ -756,12 +742,14 @@ export default function EnhancedBookingScreen() {
         <TouchableOpacity
           style={styles.refreshButton}
           onPress={() => fetchLatestTripData(false)}
+          activeOpacity={0.7}
         >
           <Text style={styles.refreshButtonText}>🔄 Refresh Trip</Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.refreshButton, { backgroundColor: '#6c757d', marginTop: 12 }]}
           onPress={() => router.back()}
+          activeOpacity={0.7}
         >
           <Text style={styles.refreshButtonText}>← Go Back</Text>
         </TouchableOpacity>
@@ -782,9 +770,14 @@ export default function EnhancedBookingScreen() {
         />
       }
     >
-      {/* Enhanced Header */}
+      {/* Enhanced Header - FIXED: Added proper press handling */}
       <Animated.View style={[styles.header, { transform: [{ translateX: shakeAnim }] }]}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+        <TouchableOpacity
+          onPress={() => router.back()}
+          style={styles.backButton}
+          activeOpacity={0.7}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        >
           <MaterialIcons name="arrow-back" size={24} color="#0066cc" />
           <Text style={styles.backButtonText}>Back</Text>
         </TouchableOpacity>
@@ -947,16 +940,25 @@ export default function EnhancedBookingScreen() {
         </View>
       </Animated.View>
 
-      {/* Enhanced Seat Selection */}
+      {/* FIXED: Enhanced Seat Selection with proper button handling */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Select Seats</Text>
         <View style={styles.seatSelector}>
           <TouchableOpacity
-            style={[styles.seatButton, selectedSeats === 1 && styles.seatButtonDisabled]}
+            style={[
+              styles.seatButton,
+              selectedSeats === 1 && styles.seatButtonDisabled
+            ]}
             onPress={() => handleSeatChange(-1)}
             disabled={selectedSeats === 1 || bookingState.step === 'processing'}
+            activeOpacity={0.7}
+            hitSlop={{ top: 5, bottom: 5, left: 5, right: 5 }}
           >
-            <MaterialIcons name="remove" size={20} color={selectedSeats === 1 ? '#ccc' : '#fff'} />
+            <MaterialIcons
+              name="remove"
+              size={20}
+              color={selectedSeats === 1 ? '#ccc' : '#fff'}
+            />
           </TouchableOpacity>
 
           <View style={styles.seatDisplay}>
@@ -974,6 +976,8 @@ export default function EnhancedBookingScreen() {
             ]}
             onPress={() => handleSeatChange(1)}
             disabled={selectedSeats >= Math.min(trip.availableSeats, 4) || bookingState.step === 'processing'}
+            activeOpacity={0.7}
+            hitSlop={{ top: 5, bottom: 5, left: 5, right: 5 }}
           >
             <MaterialIcons
               name="add"
@@ -1101,7 +1105,7 @@ export default function EnhancedBookingScreen() {
         </Text>
       </View>
 
-      {/* Enhanced Book Button */}
+      {/* FIXED: Enhanced Book Button with proper press handling */}
       <TouchableOpacity
         style={[
           styles.bookButton,
@@ -1109,6 +1113,8 @@ export default function EnhancedBookingScreen() {
         ]}
         onPress={handleBooking}
         disabled={bookingState.step === 'processing' || trip.availableSeats === 0 || Object.keys(validationErrors).length > 0}
+        activeOpacity={0.8}
+        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
       >
         {bookingState.step === 'processing' ? (
           <View style={styles.loadingContainer}>
@@ -1129,7 +1135,7 @@ export default function EnhancedBookingScreen() {
         )}
       </TouchableOpacity>
 
-      {/* Booking Success Actions */}
+      {/* FIXED: Booking Success Actions with proper press handling */}
       {bookingState.step === 'completed' && createdBooking && (
         <View style={styles.successActions}>
           <TouchableOpacity
@@ -1138,6 +1144,8 @@ export default function EnhancedBookingScreen() {
               pathname: '/(passenger)/bookings/[id]',
               params: { id: createdBooking.id, bookingData: JSON.stringify(createdBooking) }
             })}
+            activeOpacity={0.7}
+            hitSlop={{ top: 5, bottom: 5, left: 5, right: 5 }}
           >
             <MaterialIcons name="visibility" size={20} color="#0066cc" />
             <Text style={styles.successButtonText}>View Booking Details</Text>
@@ -1146,6 +1154,8 @@ export default function EnhancedBookingScreen() {
           <TouchableOpacity
             style={[styles.successButton, styles.paymentButton]}
             onPress={() => handlePaymentFlow(createdBooking)}
+            activeOpacity={0.7}
+            hitSlop={{ top: 5, bottom: 5, left: 5, right: 5 }}
           >
             <MaterialIcons name="payment" size={20} color="white" />
             <Text style={[styles.successButtonText, { color: 'white' }]}>Complete Payment</Text>
@@ -1209,6 +1219,7 @@ export default function EnhancedBookingScreen() {
   );
 }
 
+// FIXED: Enhanced StyleSheet with better button handling
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -1239,11 +1250,13 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderRadius: 8,
     marginBottom: 8,
+    minHeight: 44, // Ensure proper touch target
   },
   refreshButtonText: {
     color: 'white',
     fontSize: 16,
     fontWeight: '600',
+    textAlign: 'center',
   },
   header: {
     backgroundColor: 'white',
@@ -1258,6 +1271,10 @@ const styles = StyleSheet.create({
   backButton: {
     flexDirection: 'row',
     alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 8,
+    minHeight: 44, // Ensure proper touch target
+    minWidth: 60,
   },
   backButtonText: {
     fontSize: 16,
@@ -1524,13 +1541,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginBottom: 12,
   },
+  // FIXED: Enhanced seat button with proper touch targets
   seatButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 50,
+    height: 50,
+    borderRadius: 25,
     backgroundColor: '#0066cc',
     justifyContent: 'center',
     alignItems: 'center',
+    minHeight: 44, // Accessibility minimum
+    minWidth: 44,
   },
   seatButtonDisabled: {
     backgroundColor: '#ccc',
@@ -1667,6 +1687,7 @@ const styles = StyleSheet.create({
     marginLeft: 8,
     flex: 1,
   },
+  // FIXED: Enhanced book button with proper touch handling
   bookButton: {
     backgroundColor: '#0066cc',
     marginHorizontal: 16,
@@ -1679,6 +1700,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
+    minHeight: 56, // Proper touch target
   },
   bookButtonDisabled: {
     backgroundColor: '#ccc',
@@ -1697,6 +1719,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     marginLeft: 8,
   },
+  // FIXED: Enhanced success actions with proper touch handling
   successActions: {
     flexDirection: 'row',
     marginHorizontal: 16,
@@ -1714,6 +1737,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#0066cc',
     backgroundColor: 'white',
+    minHeight: 48, // Proper touch target
   },
   paymentButton: {
     backgroundColor: '#0066cc',

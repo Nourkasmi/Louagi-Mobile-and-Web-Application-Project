@@ -128,11 +128,6 @@ const BookingsPage = () => {
                 itemName="bookings"
             />
 
-            {/* Quick Actions */}
-            <BookingQuickActions
-                stats={stats}
-                onExport={exportBookings}
-            />
 
             {/* Booking Details Modal */}
             {showDetailsModal && selectedBooking && (

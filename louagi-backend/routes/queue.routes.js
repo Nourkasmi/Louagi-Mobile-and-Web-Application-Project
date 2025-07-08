@@ -45,4 +45,5 @@ router.get(
   queueController.getAllQueuesByStation
 );
 
+
 module.exports = router;

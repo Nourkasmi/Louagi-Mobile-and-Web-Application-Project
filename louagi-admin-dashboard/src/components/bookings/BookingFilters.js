@@ -1,14 +1,35 @@
 // src/components/bookings/BookingFilters.js
-import React from 'react';
-import { Search, Filter, Download, RefreshCw } from 'lucide-react';
+import React, { useRef, useEffect, useState } from 'react';
+import { Search, Filter, RefreshCw } from 'lucide-react';
 
 const BookingFilters = ({
     filters,
     setFilters,
-    onExport,
     onRefresh,
     refreshing
 }) => {
+    const [searchValue, setSearchValue] = useState(filters.search || '');
+    const debounceTimeout = useRef(null);
+
+    // Keep local input value in sync if parent changes filters
+    useEffect(() => {
+        setSearchValue(filters.search || '');
+    }, [filters.search]);
+
+    // Debounce the search filter update
+    useEffect(() => {
+        if (debounceTimeout.current) clearTimeout(debounceTimeout.current);
+
+        debounceTimeout.current = setTimeout(() => {
+            // Only update if the value changed
+            if (filters.search !== searchValue) {
+                setFilters(prev => ({ ...prev, search: searchValue, page: 1 }));
+            }
+        }, 400); // 400ms debounce, adjust as you like
+
+        return () => clearTimeout(debounceTimeout.current);
+    }, [searchValue]);
+
     const handleClearFilters = () => {
         setFilters(prev => ({
             ...prev,
@@ -27,13 +48,6 @@ const BookingFilters = ({
                 <h3 className="text-lg font-semibold text-gray-900">Filters & Actions</h3>
                 <div className="flex space-x-3">
                     <button
-                        onClick={onExport}
-                        className="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg text-sm hover:bg-gray-200 transition-colors flex items-center"
-                    >
-                        <Download className="w-4 h-4 mr-2" />
-                        Export
-                    </button>
-                    <button
                         onClick={onRefresh}
                         disabled={refreshing}
                         className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-700 transition-colors flex items-center disabled:opacity-50"
@@ -50,8 +64,8 @@ const BookingFilters = ({
                     <input
                         type="text"
                         placeholder="Search bookings..."
-                        value={filters.search}
-                        onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value, page: 1 }))}
+                        value={searchValue}
+                        onChange={(e) => setSearchValue(e.target.value)}
                         className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                 </div>

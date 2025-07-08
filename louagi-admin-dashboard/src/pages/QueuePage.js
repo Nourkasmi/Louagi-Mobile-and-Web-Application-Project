@@ -1,7 +1,8 @@
-// src/pages/QueuePage.js - UPDATED WITH LIVE QUEUE MODAL
+// src/pages/QueuePage.js - FIXED VERSION
 import React, { useState } from 'react';
 import PageHeader from '../components/common/PageHeader';
 import LoadingSpinner from '../components/common/LoadingSpinner';
+// ✅ FIX: Import LiveQueueModal directly instead of from index
 import LiveQueueModal from '../components/queue/LiveQueueModal';
 import {
     QueueFilters,

@@ -1,4 +1,4 @@
-// app/(tabs)/passenger-bookings/[id].tsx - Booking Details Screen
+// app/(passenger)/bookings/[id].tsx - FIXED Booking Details Screen
 import React, { useEffect, useState } from 'react';
 import {
   View,
@@ -12,25 +12,31 @@ import {
   Linking,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { 
-  getBookingById, 
-  cancelBooking, 
+import {
+  getBookingById,
+  cancelBooking,
   getPaymentById,
   type Booking,
-  type Payment 
+  type Payment
 } from '../../../src/services/api';
 
 export default function BookingDetailsScreen() {
-  const { id, bookingData } = useLocalSearchParams<{
-    id: string;
-    bookingData?: string;
-  }>();
-  
+  // FIXED: Safely destructure params with fallback
+  const params = useLocalSearchParams();
+  const id = typeof params.id === 'string' ? params.id : '';
+  const bookingData = typeof params.bookingData === 'string' ? params.bookingData : undefined;
+
   const router = useRouter();
-  
+
   // State management
   const [booking, setBooking] = useState<Booking | null>(
-    bookingData ? JSON.parse(bookingData) : null
+    bookingData ? (() => {
+      try {
+        return JSON.parse(bookingData);
+      } catch {
+        return null;
+      }
+    })() : null
   );
   const [payment, setPayment] = useState<Payment | null>(null);
   const [loading, setLoading] = useState(!bookingData);
@@ -39,6 +45,12 @@ export default function BookingDetailsScreen() {
 
   // Fetch booking details
   const fetchBookingDetails = async (isRefresh = false) => {
+    if (!id) {
+      Alert.alert('Error', 'Invalid booking ID');
+      router.back();
+      return;
+    }
+
     try {
       if (isRefresh) {
         setRefreshing(true);
@@ -46,11 +58,12 @@ export default function BookingDetailsScreen() {
         setLoading(true);
       }
 
+      console.log('Fetching booking details for ID:', id);
       const response = await getBookingById(id);
-      
+
       if (response.success && response.data) {
         setBooking(response.data);
-        
+
         // Fetch payment details if available
         if (response.data.paymentId) {
           try {
@@ -59,10 +72,11 @@ export default function BookingDetailsScreen() {
               setPayment(paymentResponse.data);
             }
           } catch (paymentError) {
-            console.log('Payment details not available');
+            console.log('Payment details not available:', paymentError);
           }
         }
       } else {
+        console.error('Failed to fetch booking:', response);
         Alert.alert('Error', 'Booking not found');
         router.back();
       }
@@ -77,10 +91,10 @@ export default function BookingDetailsScreen() {
 
   // Initial load
   useEffect(() => {
-    if (!booking) {
+    if (!booking && id) {
       fetchBookingDetails();
     }
-  }, [id]);
+  }, [id, booking]);
 
   // Handle cancel booking
   const handleCancelBooking = async () => {
@@ -97,9 +111,9 @@ export default function BookingDetailsScreen() {
           onPress: async () => {
             try {
               setActionLoading(true);
-              
+
               const response = await cancelBooking(booking.id, 'Cancelled by passenger');
-              
+
               if (response.success) {
                 Alert.alert(
                   'Booking Cancelled',
@@ -173,11 +187,11 @@ export default function BookingDetailsScreen() {
     if (booking.status !== 'pending' && booking.status !== 'confirmed') {
       return false;
     }
-    
+
     const departureTime = new Date(booking.trip.departureTime);
     const now = new Date();
     const hoursUntilDeparture = (departureTime.getTime() - now.getTime()) / (1000 * 60 * 60);
-    
+
     return hoursUntilDeparture > 1;
   };
 
@@ -192,7 +206,6 @@ export default function BookingDetailsScreen() {
         {
           text: 'Call',
           onPress: () => {
-            // In a real app, you'd get the phone number from the driver profile
             Alert.alert('Feature Coming Soon', 'Phone contact will be available soon');
           },
         },
@@ -213,14 +226,30 @@ export default function BookingDetailsScreen() {
 
     const startStation = booking.trip.route.startStation;
     const endStation = booking.trip.route.endStation;
-    
+
     const url = `https://maps.google.com/maps?daddr=${endStation.address}, ${endStation.city}&saddr=${startStation.address}, ${startStation.city}`;
-    
+
     Linking.openURL(url).catch(() => {
       Alert.alert('Error', 'Could not open maps application');
     });
   };
 
+  // Error state - invalid params
+  if (!id) {
+    return (
+      <View style={styles.centered}>
+        <Text style={styles.errorText}>Invalid booking ID</Text>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => router.back()}
+        >
+          <Text style={styles.backButtonText}>← Go Back</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  // Loading state
   if (loading) {
     return (
       <View style={styles.centered}>
@@ -230,6 +259,7 @@ export default function BookingDetailsScreen() {
     );
   }
 
+  // Error state - booking not found
   if (!booking) {
     return (
       <View style={styles.centered}>
@@ -287,10 +317,10 @@ export default function BookingDetailsScreen() {
       {/* Trip Information */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Trip Information</Text>
-        
+
         <View style={styles.tripCard}>
           <Text style={styles.routeTitle}>{booking.trip.route.description}</Text>
-          
+
           <View style={styles.routeDetails}>
             <View style={styles.routePoint}>
               <Text style={styles.routeLabel}>From</Text>
@@ -299,11 +329,11 @@ export default function BookingDetailsScreen() {
                 {booking.trip.route.startStation.address}, {booking.trip.route.startStation.city}
               </Text>
             </View>
-            
+
             <View style={styles.routeArrow}>
               <Text style={styles.arrowText}>→</Text>
             </View>
-            
+
             <View style={styles.routePoint}>
               <Text style={styles.routeLabel}>To</Text>
               <Text style={styles.routeValue}>{booking.trip.route.endStation.name}</Text>
@@ -312,7 +342,7 @@ export default function BookingDetailsScreen() {
               </Text>
             </View>
           </View>
-          
+
           <View style={styles.tripMeta}>
             <View style={styles.metaItem}>
               <Text style={styles.metaLabel}>Date</Text>
@@ -333,18 +363,18 @@ export default function BookingDetailsScreen() {
       {/* Booking Details */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Booking Details</Text>
-        
+
         <View style={styles.detailsCard}>
           <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>Seats</Text>
             <Text style={styles.detailValue}>{booking.seats}</Text>
           </View>
-          
+
           <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>Amount</Text>
             <Text style={styles.detailValue}>${booking.amount}</Text>
           </View>
-          
+
           <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>Payment Status</Text>
             <Text style={[
@@ -354,21 +384,21 @@ export default function BookingDetailsScreen() {
               {booking.paymentStatus.charAt(0).toUpperCase() + booking.paymentStatus.slice(1)}
             </Text>
           </View>
-          
+
           <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>Booked On</Text>
             <Text style={styles.detailValue}>
-              {new Date(booking.bookedAt).toLocaleDateString()}
+              {new Date(booking.bookedAt || booking.createdAt).toLocaleDateString()}
             </Text>
           </View>
-          
+
           {booking.specialRequests && (
             <View style={styles.detailRow}>
               <Text style={styles.detailLabel}>Special Requests</Text>
               <Text style={styles.detailValue}>{booking.specialRequests}</Text>
             </View>
           )}
-          
+
           {booking.cancellationReason && (
             <View style={styles.detailRow}>
               <Text style={styles.detailLabel}>Cancellation Reason</Text>
@@ -384,7 +414,7 @@ export default function BookingDetailsScreen() {
       {booking.trip.driver && (
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Driver Information</Text>
-          
+
           <View style={styles.driverCard}>
             <View style={styles.driverHeader}>
               <View style={styles.driverAvatar}>
@@ -402,7 +432,7 @@ export default function BookingDetailsScreen() {
                 </Text>
               </View>
             </View>
-            
+
             <TouchableOpacity
               style={styles.contactDriverButton}
               onPress={handleContactDriver}
@@ -417,7 +447,7 @@ export default function BookingDetailsScreen() {
       {payment && (
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Payment Information</Text>
-          
+
           <View style={styles.paymentCard}>
             <View style={styles.detailRow}>
               <Text style={styles.detailLabel}>Payment Method</Text>
@@ -425,19 +455,19 @@ export default function BookingDetailsScreen() {
                 {payment.paymentMethod.charAt(0).toUpperCase() + payment.paymentMethod.slice(1)}
               </Text>
             </View>
-            
+
             <View style={styles.detailRow}>
               <Text style={styles.detailLabel}>Amount Paid</Text>
               <Text style={styles.detailValue}>${payment.amount}</Text>
             </View>
-            
+
             {payment.processingFee && (
               <View style={styles.detailRow}>
                 <Text style={styles.detailLabel}>Processing Fee</Text>
                 <Text style={styles.detailValue}>${payment.processingFee}</Text>
               </View>
             )}
-            
+
             {payment.paidAt && (
               <View style={styles.detailRow}>
                 <Text style={styles.detailLabel}>Paid On</Text>
@@ -458,7 +488,7 @@ export default function BookingDetailsScreen() {
         >
           <Text style={styles.actionButtonText}>🗺️ Get Directions</Text>
         </TouchableOpacity>
-        
+
         {booking.status === 'confirmed' && (
           <TouchableOpacity
             style={[styles.actionButton, styles.primaryAction]}
@@ -471,7 +501,7 @@ export default function BookingDetailsScreen() {
             </Text>
           </TouchableOpacity>
         )}
-        
+
         {canCancel && (
           <TouchableOpacity
             style={[styles.actionButton, styles.cancelAction]}

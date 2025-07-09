@@ -1,4 +1,4 @@
-// src/hooks/useTripsData.js - FIXED VERSION
+// src/hooks/useTripsData.js - FIXED VERSION with Real Statistics
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { showToast } from '../utils/toast';
 
@@ -174,45 +174,73 @@ export const useTripsData = () => {
         }
     }, [filters.search, filters.status, filters.page, filters.limit, apiRequest]);
 
-    // ✅ FIX: Separate stats fetching with proper dependencies
+    // ✅ FIX: Enhanced stats fetching with real total count
     const fetchStats = useCallback(async () => {
         try {
             console.log('📊 Fetching trip stats...');
 
-            const data = await apiRequest('/trips/stats');
-
-            if (data.success && data.stats) {
-                setStats({
-                    totalTrips: data.stats.total || 0,
-                    activeTrips: data.stats.active || 0,
-                    completedTrips: data.stats.completed || 0,
-                    totalPassengers: data.stats.totalPassengers || 0
-                });
-            } else {
-                console.warn('⚠️ Stats endpoint returned unexpected format');
-                // Calculate stats from current trips data as fallback
-                setStats(prev => ({
-                    totalTrips: trips.length || prev.totalTrips,
-                    activeTrips: trips.filter(t => t.status === 'in_progress').length || prev.activeTrips,
-                    completedTrips: trips.filter(t => t.status === 'completed').length || prev.completedTrips,
-                    totalPassengers: trips.reduce((sum, t) => sum + (t.passengerCount || 0), 0) || prev.totalPassengers
-                }));
+            // ✅ NEW: Fetch stats from dedicated endpoint first
+            let statsFromEndpoint = null;
+            try {
+                const statsData = await apiRequest('/trips/stats');
+                if (statsData.success && statsData.stats) {
+                    statsFromEndpoint = statsData.stats;
+                    console.log('✅ Got stats from dedicated endpoint:', statsFromEndpoint);
+                }
+            } catch (error) {
+                console.warn('⚠️ Stats endpoint failed, will calculate from pagination data');
             }
+
+            // ✅ NEW: Get total count from a separate request to get accurate total
+            let totalTripsCount = pagination.total || 0;
+            try {
+                const totalData = await apiRequest('/trips?limit=1&page=1');
+                if (totalData.success) {
+                    totalTripsCount = totalData.total || totalData.totalCount || pagination.total || 0;
+                    console.log('✅ Got total trips count:', totalTripsCount);
+                }
+            } catch (error) {
+                console.warn('⚠️ Could not fetch total trips count, using pagination total');
+            }
+
+            // ✅ FIX: Calculate stats properly
+            const calculatedStats = {
+                // Use real total from backend, not just current page
+                totalTrips: statsFromEndpoint?.total || totalTripsCount,
+                
+                // Calculate from current trips data or use backend stats
+                activeTrips: statsFromEndpoint?.active || 
+                           trips.filter(t => t.status === 'in_progress' || t.status === 'scheduled').length,
+                
+                completedTrips: statsFromEndpoint?.completed || 
+                              trips.filter(t => t.status === 'completed').length,
+                
+                totalPassengers: statsFromEndpoint?.totalPassengers || 
+                               trips.reduce((sum, t) => sum + (t.passengerCount || t.seatsBooked || 0), 0)
+            };
+
+            setStats(calculatedStats);
+            console.log('✅ Updated stats:', calculatedStats);
+
         } catch (error) {
             if (error.message === 'Request cancelled') {
                 return; // Don't update state for cancelled requests
             }
 
             console.warn('⚠️ Could not fetch trip stats:', error.message);
-            // Use calculated stats as fallback
-            setStats({
-                totalTrips: trips.length,
-                activeTrips: trips.filter(t => t.status === 'in_progress').length,
+            
+            // ✅ FIX: Use pagination total for accurate count
+            const fallbackStats = {
+                totalTrips: pagination.total || trips.length,
+                activeTrips: trips.filter(t => t.status === 'in_progress' || t.status === 'scheduled').length,
                 completedTrips: trips.filter(t => t.status === 'completed').length,
-                totalPassengers: trips.reduce((sum, t) => sum + (t.passengerCount || 0), 0)
-            });
+                totalPassengers: trips.reduce((sum, t) => sum + (t.passengerCount || t.seatsBooked || 0), 0)
+            };
+            
+            setStats(fallbackStats);
+            console.log('📊 Using fallback stats:', fallbackStats);
         }
-    }, [trips, apiRequest]);
+    }, [trips, pagination.total, apiRequest]);
 
     // ✅ FIX: Update trip status with optimistic updates
     const updateTripStatus = async (tripId, newStatus) => {
@@ -357,10 +385,10 @@ export const useTripsData = () => {
         }
     }, [filters.search, filters.status, filters.page, filters.limit, fetchTrips, loading]);
 
-    // ✅ FIX: Stats update effect - runs when trips change
+    // ✅ FIX: Stats update effect - runs when trips or pagination changes
     useEffect(() => {
-        if (!isInitialLoad.current && trips.length > 0) {
-            console.log('📊 Trips updated, refreshing stats');
+        if (!isInitialLoad.current && (trips.length >= 0 || pagination.total > 0)) {
+            console.log('📊 Trips/pagination updated, refreshing stats');
 
             const updateStatsWithDelay = setTimeout(() => {
                 fetchStats();
@@ -368,7 +396,7 @@ export const useTripsData = () => {
 
             return () => clearTimeout(updateStatsWithDelay);
         }
-    }, [trips.length, fetchStats]);
+    }, [trips.length, pagination.total, fetchStats]);
 
     // ✅ FIX: Network reconnection handler
     useEffect(() => {

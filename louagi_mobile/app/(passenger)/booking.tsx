@@ -1,4 +1,4 @@
-// app/(passenger)/booking.tsx - FIXED TouchableOpacity Issues
+// app/(passenger)/booking.tsx - COMPLETE Payment Integration
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
@@ -16,6 +16,7 @@ import {
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
+import { StripeProvider, useStripe, usePaymentSheet } from '@stripe/stripe-react-native';
 import {
   createBooking,
   createPaymentIntent,
@@ -24,6 +25,7 @@ import {
   type Booking,
   type ApiResponse
 } from '../../src/services/api';
+import Config from '../../src/config';
 
 interface EnhancedTrip extends Trip {
   realTimeData?: {
@@ -35,7 +37,7 @@ interface EnhancedTrip extends Trip {
 }
 
 interface BookingState {
-  step: 'selecting' | 'confirming' | 'processing' | 'completed' | 'failed';
+  step: 'selecting' | 'confirming' | 'processing' | 'payment' | 'completed' | 'failed';
   message: string;
   progress: number;
 }
@@ -45,7 +47,8 @@ interface ValidationErrors {
   general?: string;
 }
 
-export default function FixedBookingScreen() {
+// Payment Component with Stripe
+function PaymentBookingContent() {
   const { tripId, tripData } = useLocalSearchParams<{
     tripId: string;
     tripData: string;
@@ -53,6 +56,7 @@ export default function FixedBookingScreen() {
 
   const router = useRouter();
   const initialTrip: Trip | null = tripData ? JSON.parse(tripData) : null;
+  const { initPaymentSheet, presentPaymentSheet, loading: stripeLoading } = usePaymentSheet();
 
   // Enhanced State Management
   const [trip, setTrip] = useState<EnhancedTrip | null>(initialTrip);
@@ -61,20 +65,20 @@ export default function FixedBookingScreen() {
   const [bookingState, setBookingState] = useState<BookingState>({
     step: 'selecting',
     message: 'Select your seats and preferences',
-    progress: 0.25
+    progress: 0.2
   });
   const [isRealTimeEnabled, setIsRealTimeEnabled] = useState(true);
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
   const [refreshing, setRefreshing] = useState(false);
   const [bookingAttempts, setBookingAttempts] = useState(0);
-  const [capacityHistory, setCapacityHistory] = useState<number[]>([]);
   const [validationErrors, setValidationErrors] = useState<ValidationErrors>({});
   const [createdBooking, setCreatedBooking] = useState<Booking | null>(null);
+  const [paymentClientSecret, setPaymentClientSecret] = useState<string>('');
 
   // Animation refs
   const fadeAnim = useRef(new Animated.Value(1)).current;
   const shakeAnim = useRef(new Animated.Value(0)).current;
-  const progressAnim = useRef(new Animated.Value(0.25)).current;
+  const progressAnim = useRef(new Animated.Value(0.2)).current;
 
   // Real-time polling
   const pollInterval = useRef<NodeJS.Timeout>();
@@ -91,9 +95,7 @@ export default function FixedBookingScreen() {
 
       console.log('🔄 Fetching trip data for ID:', tripId);
       const response: ApiResponse<Trip> = await getTripById(tripId);
-      console.log('📡 Raw trip response:', response);
 
-      // Handle different response structures from your backend
       let latestTrip: Trip | null = null;
 
       if (response?.success && response?.data) {
@@ -106,10 +108,8 @@ export default function FixedBookingScreen() {
         latestTrip = response as Trip;
       }
 
-      console.log('🎯 Processed trip data:', latestTrip);
-
       if (latestTrip && latestTrip.id) {
-        // Ensure we have all required trip properties with safe defaults
+        // Ensure we have all required trip properties
         const safeTrip: Trip = {
           id: latestTrip.id,
           routeId: latestTrip.routeId || '',
@@ -221,18 +221,12 @@ export default function FixedBookingScreen() {
           }
         };
 
-        console.log('✅ Enhanced trip created:', enhancedTrip);
         setTrip(enhancedTrip);
         setLastUpdate(new Date());
-
-        // Update capacity history for trends
-        setCapacityHistory(prev => [...prev.slice(-9), safeTrip.availableSeats]);
 
         // Handle capacity changes
         if (capacityChange > 0 && !silent) {
           animateCapacityChange();
-
-          // Haptic feedback for significant changes
           if (Platform.OS !== 'web' && capacityChange >= 2) {
             Vibration.vibrate([50, 50, 50]);
           }
@@ -256,21 +250,13 @@ export default function FixedBookingScreen() {
           message: getContextualMessage(safeTrip, selectedSeats)
         }));
 
-        // Clear validation errors if trip is valid
         setValidationErrors({});
 
       } else {
-        console.error('❌ Invalid trip data received:', response);
         throw new Error('Invalid trip data received from server');
       }
     } catch (error: any) {
       console.error('❌ Error fetching trip data:', error);
-      console.error('❌ Error details:', {
-        message: error.message,
-        response: error.response?.data,
-        status: error.response?.status
-      });
-
       if (!silent) {
         Alert.alert('Update Failed', 'Could not refresh trip data. Please try again.');
       }
@@ -284,14 +270,12 @@ export default function FixedBookingScreen() {
   useEffect(() => {
     if (!isRealTimeEnabled || !tripId) return;
 
-    // Initial fetch if no trip data
     if (!trip) {
       fetchLatestTripData(false);
     } else {
       fetchLatestTripData(true);
     }
 
-    // Set up polling every 15 seconds for better UX
     pollInterval.current = setInterval(() => {
       fetchLatestTripData(true);
     }, 15000);
@@ -305,14 +289,9 @@ export default function FixedBookingScreen() {
 
   // Helper functions
   const estimateFillTime = (tripData: Trip): string => {
-    const fillRate = capacityHistory.length > 1 ?
-      (capacityHistory[0] - capacityHistory[capacityHistory.length - 1]) / capacityHistory.length : 1;
-
-    if (fillRate > 0) {
-      const minutesToFill = Math.ceil(tripData.availableSeats / fillRate * 15); // 15 sec intervals
-      return minutesToFill < 60 ? `~${minutesToFill} minutes` : `~${Math.ceil(minutesToFill / 60)} hours`;
-    }
-    return 'Unknown';
+    if (tripData.availableSeats <= 2) return '~5 minutes';
+    if (tripData.availableSeats <= 4) return '~15 minutes';
+    return '~30 minutes';
   };
 
   const getContextualMessage = (tripData: Trip, seats: number): string => {
@@ -370,7 +349,134 @@ export default function FixedBookingScreen() {
     return Object.keys(errors).length === 0;
   };
 
-  // Enhanced booking creation with comprehensive error handling
+  // Initialize Payment Sheet
+  const initializePaymentSheet = async (booking: Booking) => {
+    try {
+      console.log('💳 Initializing payment sheet for booking:', booking.id);
+
+      const response = await createPaymentIntent(booking.id);
+      console.log('💳 Payment intent response:', response);
+
+      if (!response.success || !response.clientSecret) {
+        throw new Error('Failed to create payment intent');
+      }
+
+      setPaymentClientSecret(response.clientSecret);
+
+      const { error } = await initPaymentSheet({
+        merchantDisplayName: Config.APP_NAME || 'Louagi',
+        paymentIntentClientSecret: response.clientSecret,
+        defaultBillingDetails: {
+          name: 'Customer',
+        },
+        allowsDelayedPaymentMethods: false,
+        returnURL: 'louagi://payment-success',
+      });
+
+      if (error) {
+        console.error('❌ Payment sheet initialization error:', error);
+        throw new Error(`Payment initialization failed: ${error.message}`);
+      }
+
+      console.log('✅ Payment sheet initialized successfully');
+      return true;
+    } catch (error: any) {
+      console.error('❌ Payment sheet initialization failed:', error);
+      throw error;
+    }
+  };
+
+  // Present Payment Sheet
+  const openPaymentSheet = async () => {
+    try {
+      setBookingState(prev => ({
+        ...prev,
+        step: 'payment',
+        message: 'Processing payment...',
+        progress: 0.9
+      }));
+
+      const { error } = await presentPaymentSheet();
+
+      if (error) {
+        console.error('❌ Payment sheet error:', error);
+
+        if (error.code === 'Canceled') {
+          // User cancelled payment
+          setBookingState(prev => ({
+            ...prev,
+            step: 'confirming',
+            message: 'Payment cancelled. You can try again.',
+            progress: 0.6
+          }));
+          return;
+        }
+
+        throw new Error(`Payment failed: ${error.message}`);
+      }
+
+      // Payment completed successfully
+      console.log('✅ Payment completed successfully!');
+
+      setBookingState({
+        step: 'completed',
+        message: 'Payment successful! Booking confirmed.',
+        progress: 1.0
+      });
+
+      // Animate completion
+      Animated.timing(progressAnim, {
+        toValue: 1.0,
+        duration: 300,
+        useNativeDriver: false,
+      }).start();
+
+      // Success haptic feedback
+      if (Platform.OS !== 'web') {
+        Vibration.vibrate([100, 50, 100]);
+      }
+
+      // Show success alert
+      Alert.alert(
+        'Payment Successful! ✅',
+        `Your booking has been confirmed and paid.\n\nBooking Reference: ${createdBooking?.bookingReference}\nAmount Paid: $${createdBooking?.amount}`,
+        [
+          {
+            text: 'View Booking',
+            onPress: () => router.replace({
+              pathname: '/(passenger)/bookings/[id]',
+              params: {
+                id: createdBooking?.id,
+                bookingData: JSON.stringify(createdBooking)
+              }
+            })
+          }
+        ]
+      );
+
+    } catch (error: any) {
+      console.error('❌ Payment error:', error);
+
+      setBookingState({
+        step: 'failed',
+        message: 'Payment failed',
+        progress: 0.6
+      });
+
+      animateError();
+
+      Alert.alert(
+        'Payment Failed',
+        error.message || 'Payment could not be processed. Please try again.',
+        [
+          { text: 'Try Again', onPress: () => openPaymentSheet() },
+          { text: 'Cancel', style: 'cancel' }
+        ]
+      );
+    }
+  };
+
+  // Enhanced booking creation with payment flow
   const handleBooking = async () => {
     if (!trip) {
       Alert.alert('Error', 'Trip information not available');
@@ -401,17 +507,16 @@ export default function FixedBookingScreen() {
       setBookingState({
         step: 'processing',
         message: 'Creating your booking...',
-        progress: 0.75
+        progress: 0.5
       });
 
       // Animate progress
       Animated.timing(progressAnim, {
-        toValue: 0.75,
+        toValue: 0.5,
         duration: 500,
         useNativeDriver: false,
       }).start();
 
-      // Create booking with enhanced error handling
       console.log('🚀 Creating booking with data:', {
         tripId: trip.id,
         seats: selectedSeats,
@@ -432,17 +537,14 @@ export default function FixedBookingScreen() {
       let autoConfirmedBookings = 0;
 
       if (bookingResponse?.success && bookingResponse?.data) {
-        // Standard success response
         booking = bookingResponse.data;
         wasAutoStarted = bookingResponse.tripAutoStarted || bookingResponse.wasAutoStarted || false;
         autoConfirmedBookings = bookingResponse.autoConfirmedBookings || 0;
       } else if (bookingResponse?.booking) {
-        // Alternative response structure
         booking = bookingResponse.booking;
         wasAutoStarted = bookingResponse.tripAutoStarted || bookingResponse.wasAutoStarted || false;
         autoConfirmedBookings = bookingResponse.autoConfirmedBookings || 0;
       } else if (bookingResponse && bookingResponse.id) {
-        // Direct booking object
         booking = bookingResponse as Booking;
       }
 
@@ -453,27 +555,21 @@ export default function FixedBookingScreen() {
       console.log('✅ Booking created successfully:', booking);
       setCreatedBooking(booking);
 
-      // Update state to completed
+      // Update state to confirming (before payment)
       setBookingState({
-        step: 'completed',
-        message: 'Booking created successfully!',
-        progress: 1.0
+        step: 'confirming',
+        message: 'Booking created! Preparing payment...',
+        progress: 0.6
       });
 
-      // Animate completion
-      Animated.timing(progressAnim, {
-        toValue: 1.0,
-        duration: 300,
-        useNativeDriver: false,
-      }).start();
-
-      // Success haptic feedback
-      if (Platform.OS !== 'web') {
-        Vibration.vibrate([100, 50, 100]);
-      }
-
-      // Check if trip was auto-started
+      // Check if trip was auto-started (no payment needed)
       if (wasAutoStarted) {
+        setBookingState({
+          step: 'completed',
+          message: 'Trip starting! No payment needed.',
+          progress: 1.0
+        });
+
         Alert.alert(
           'Trip Starting! 🚀',
           `Great news! Your booking filled the last seats and the trip is starting now.\n\nBooking: ${booking.bookingReference}\nConfirmed bookings: ${autoConfirmedBookings || 1}`,
@@ -490,39 +586,53 @@ export default function FixedBookingScreen() {
         return;
       }
 
-      // For regular bookings, show payment options
-      Alert.alert(
-        'Booking Created Successfully! ✅',
-        `Booking Reference: ${booking.bookingReference}\nSeats: ${booking.seats}\nAmount: $${booking.amount}\n\nHow would you like to proceed?`,
-        [
-          {
-            text: 'Pay Now',
-            style: 'default',
-            onPress: () => handlePaymentFlow(booking)
-          },
-          {
-            text: 'Pay Later',
-            style: 'cancel',
-            onPress: () => router.replace({
-              pathname: '/(passenger)/bookings/[id]',
-              params: { id: booking.id, bookingData: JSON.stringify(booking) }
-            })
-          }
-        ]
-      );
+      // For regular bookings, initialize and show payment
+      try {
+        await initializePaymentSheet(booking);
+
+        // Move to payment step
+        setBookingState({
+          step: 'payment',
+          message: 'Ready for payment. Tap to pay.',
+          progress: 0.8
+        });
+
+        // Auto-open payment sheet after a brief delay
+        setTimeout(() => {
+          openPaymentSheet();
+        }, 500);
+
+      } catch (paymentError: any) {
+        console.error('❌ Payment initialization error:', paymentError);
+
+        // Booking created but payment failed to initialize
+        Alert.alert(
+          'Booking Created Successfully! ✅',
+          `Your booking has been created but payment setup failed.\n\nBooking Reference: ${booking.bookingReference}\n\nYou can complete payment later from "My Bookings".`,
+          [
+            {
+              text: 'View Booking',
+              onPress: () => router.replace({
+                pathname: '/(passenger)/bookings/[id]',
+                params: { id: booking.id, bookingData: JSON.stringify(booking) }
+              })
+            }
+          ]
+        );
+      }
 
     } catch (error: any) {
-      console.error('Enhanced booking error:', error);
+      console.error('❌ Enhanced booking error:', error);
 
       setBookingState({
         step: 'failed',
         message: 'Booking failed',
-        progress: 0.25
+        progress: 0.2
       });
 
       animateError();
 
-      // Enhanced error handling with specific messages
+      // Enhanced error handling
       let errorMessage = 'Something went wrong. Please try again.';
       let shouldRefresh = false;
 
@@ -541,8 +651,6 @@ export default function FixedBookingScreen() {
         shouldRefresh = true;
       } else if (error.response?.status === 400) {
         errorMessage = error.response.data?.message || 'Invalid booking data. Please check your selection.';
-      } else if (error.response?.status === 422) {
-        errorMessage = 'Validation error. Please check your input and try again.';
       }
 
       const alertButtons = [{ text: 'OK', style: 'default' as const }];
@@ -563,72 +671,14 @@ export default function FixedBookingScreen() {
           setBookingState({
             step: 'selecting',
             message: getContextualMessage(trip, selectedSeats),
-            progress: 0.25
+            progress: 0.2
           });
         }
       }, 2000);
     }
   };
 
-  // Payment flow handler
-  const handlePaymentFlow = async (booking: Booking) => {
-    try {
-      setBookingState(prev => ({ ...prev, message: 'Preparing payment...' }));
-
-      const paymentResponse = await createPaymentIntent(booking.id);
-
-      if (!paymentResponse.success) {
-        Alert.alert(
-          'Payment Setup Failed',
-          'Booking created but payment setup failed. You can complete payment later from "My Bookings".',
-          [
-            {
-              text: 'View Booking',
-              onPress: () => router.replace({
-                pathname: '/(passenger)/bookings/[id]',
-                params: { id: booking.id, bookingData: JSON.stringify(booking) }
-              })
-            }
-          ]
-        );
-        return;
-      }
-
-      // Navigate to payment with enhanced data
-      router.push({
-        pathname: '/(passenger)/payment',
-        params: {
-          bookingId: booking.id,
-          clientSecret: paymentResponse.clientSecret || paymentResponse.data?.clientSecret,
-          amount: booking.amount.toString(),
-          bookingReference: booking.bookingReference,
-          tripData: JSON.stringify({
-            ...trip,
-            booking: booking,
-            autoStarted: false
-          })
-        }
-      });
-
-    } catch (error: any) {
-      console.error('Payment flow error:', error);
-      Alert.alert(
-        'Payment Setup Error',
-        'Could not set up payment. You can try again from "My Bookings".',
-        [
-          {
-            text: 'View Booking',
-            onPress: () => router.replace({
-              pathname: '/(passenger)/bookings/[id]',
-              params: { id: booking.id, bookingData: JSON.stringify(booking) }
-            })
-          }
-        ]
-      );
-    }
-  };
-
-  // FIXED: Handle seat selection with proper event handling
+  // Handle seat selection
   const handleSeatChange = useCallback((change: number) => {
     const newSeats = selectedSeats + change;
     const maxSeats = Math.min(trip?.availableSeats || 0, 4);
@@ -639,10 +689,8 @@ export default function FixedBookingScreen() {
         ...prev,
         message: trip ? getContextualMessage(trip, newSeats) : 'Loading...'
       }));
-      // Clear seat validation errors
       setValidationErrors(prev => ({ ...prev, seats: undefined }));
     } else if (newSeats > maxSeats) {
-      // Provide feedback when hitting limits
       if (Platform.OS !== 'web') {
         Vibration.vibrate(50);
       }
@@ -655,7 +703,7 @@ export default function FixedBookingScreen() {
     }
   }, [selectedSeats, trip]);
 
-  // Calculate total amount - REAL PRICING from backend
+  // Calculate pricing
   const calculatePricing = () => {
     if (!trip) return { pricePerSeat: 0, totalAmount: 0 };
 
@@ -671,28 +719,13 @@ export default function FixedBookingScreen() {
       totalTripPrice = 10.0;
     }
 
-    // Calculate per-seat price
     const pricePerSeat = totalTripPrice / (trip.capacity || 4);
     const totalAmount = pricePerSeat * selectedSeats;
 
-    console.log('💰 Real Pricing Calculation:', {
-      tripCurrentPrice: trip.currentPrice,
-      tripBasePrice: trip.basePrice,
-      routeBasePrice: trip.route?.basePrice,
-      capacity: trip.capacity,
-      calculatedPricePerSeat: pricePerSeat,
-      selectedSeats,
-      totalAmount
-    });
-
-    return {
-      pricePerSeat,
-      totalAmount,
-      totalTripPrice
-    };
+    return { pricePerSeat, totalAmount, totalTripPrice };
   };
 
-  const { pricePerSeat, totalAmount, totalTripPrice } = calculatePricing();
+  const { pricePerSeat, totalAmount } = calculatePricing();
 
   // Format time displays
   const formatTime = (dateString: string | null) => {
@@ -712,15 +745,6 @@ export default function FixedBookingScreen() {
       month: 'long',
       day: 'numeric'
     });
-  };
-
-  // Enhanced price source info
-  const priceSource = () => {
-    if (!trip) return '';
-    if (trip.currentPrice) return `Current Price (${trip.currentPrice})`;
-    if (trip.basePrice) return `Base Price (${trip.basePrice})`;
-    if (trip.route?.basePrice) return `Route Price (${trip.route.basePrice})`;
-    return 'Default Price (10.00)';
   };
 
   // Loading state
@@ -770,7 +794,7 @@ export default function FixedBookingScreen() {
         />
       }
     >
-      {/* Enhanced Header - FIXED: Added proper press handling */}
+      {/* Enhanced Header */}
       <Animated.View style={[styles.header, { transform: [{ translateX: shakeAnim }] }]}>
         <TouchableOpacity
           onPress={() => router.back()}
@@ -811,6 +835,7 @@ export default function FixedBookingScreen() {
           {bookingState.step === 'selecting' && 'Step 1: Select Seats'}
           {bookingState.step === 'confirming' && 'Step 2: Confirm Details'}
           {bookingState.step === 'processing' && 'Step 3: Processing...'}
+          {bookingState.step === 'payment' && 'Step 4: Payment'}
           {bookingState.step === 'completed' && 'Completed!'}
           {bookingState.step === 'failed' && 'Please Try Again'}
         </Text>
@@ -940,7 +965,7 @@ export default function FixedBookingScreen() {
         </View>
       </Animated.View>
 
-      {/* FIXED: Enhanced Seat Selection with proper button handling */}
+      {/* Enhanced Seat Selection */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Select Seats</Text>
         <View style={styles.seatSelector}>
@@ -1018,11 +1043,10 @@ export default function FixedBookingScreen() {
         </Text>
       </View>
 
-      {/* Enhanced Price Summary - REAL BACKEND DATA */}
+      {/* Enhanced Price Summary */}
       <View style={styles.priceSummary}>
-        <Text style={styles.priceSummaryTitle}>Price Summary (Real Backend Data)</Text>
+        <Text style={styles.priceSummaryTitle}>Price Summary</Text>
 
-        {/* Show trip pricing breakdown */}
         {trip.currentPrice && (
           <View style={styles.priceRow}>
             <Text style={styles.priceLabel}>Trip Total Price</Text>
@@ -1057,13 +1081,6 @@ export default function FixedBookingScreen() {
           <Text style={styles.totalLabel}>Total Amount</Text>
           <Text style={styles.totalValue}>${totalAmount.toFixed(2)}</Text>
         </View>
-
-        {/* Show backend data source */}
-        <View style={styles.priceSource}>
-          <Text style={styles.priceSourceText}>
-            💡 Source: {priceSource()}
-          </Text>
-        </View>
       </View>
 
       {/* Enhanced Status Message */}
@@ -1073,7 +1090,8 @@ export default function FixedBookingScreen() {
           backgroundColor:
             bookingState.step === 'failed' ? '#ffebee' :
               bookingState.step === 'completed' ? '#e8f5e9' :
-                trip.availableSeats <= 2 ? '#fff3cd' : '#e3f2fd'
+                bookingState.step === 'payment' ? '#e3f2fd' :
+                  trip.availableSeats <= 2 ? '#fff3cd' : '#e3f2fd'
         }
       ]}>
         <MaterialIcons
@@ -1081,14 +1099,16 @@ export default function FixedBookingScreen() {
             bookingState.step === 'failed' ? 'error' :
               bookingState.step === 'completed' ? 'check-circle' :
                 bookingState.step === 'processing' ? 'hourglass-empty' :
-                  trip.availableSeats <= 2 ? 'warning' : 'info'
+                  bookingState.step === 'payment' ? 'payment' :
+                    trip.availableSeats <= 2 ? 'warning' : 'info'
           }
           size={20}
           color={
             bookingState.step === 'failed' ? '#d32f2f' :
               bookingState.step === 'completed' ? '#2e7d32' :
                 bookingState.step === 'processing' ? '#1976d2' :
-                  trip.availableSeats <= 2 ? '#f57c00' : '#1976d2'
+                  bookingState.step === 'payment' ? '#1976d2' :
+                    trip.availableSeats <= 2 ? '#f57c00' : '#1976d2'
           }
         />
         <Text style={[
@@ -1098,44 +1118,69 @@ export default function FixedBookingScreen() {
               bookingState.step === 'failed' ? '#d32f2f' :
                 bookingState.step === 'completed' ? '#2e7d32' :
                   bookingState.step === 'processing' ? '#1976d2' :
-                    trip.availableSeats <= 2 ? '#f57c00' : '#1976d2'
+                    bookingState.step === 'payment' ? '#1976d2' :
+                      trip.availableSeats <= 2 ? '#f57c00' : '#1976d2'
           }
         ]}>
           {bookingState.message}
         </Text>
       </View>
 
-      {/* FIXED: Enhanced Book Button with proper press handling */}
-      <TouchableOpacity
-        style={[
-          styles.bookButton,
-          (bookingState.step === 'processing' || trip.availableSeats === 0 || Object.keys(validationErrors).length > 0) && styles.bookButtonDisabled
-        ]}
-        onPress={handleBooking}
-        disabled={bookingState.step === 'processing' || trip.availableSeats === 0 || Object.keys(validationErrors).length > 0}
-        activeOpacity={0.8}
-        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-      >
-        {bookingState.step === 'processing' ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator color="white" size="small" />
-            <Text style={styles.bookButtonText}>Processing...</Text>
-          </View>
-        ) : (
-          <View style={styles.buttonContent}>
-            <MaterialIcons
-              name={trip.availableSeats === 0 ? 'block' : 'confirmation-number'}
-              size={20}
-              color="white"
-            />
-            <Text style={styles.bookButtonText}>
-              {trip.availableSeats === 0 ? 'Trip Full' : `Book Trip - ${totalAmount.toFixed(2)}`}
-            </Text>
-          </View>
-        )}
-      </TouchableOpacity>
+      {/* Enhanced Book/Pay Button */}
+      {bookingState.step === 'payment' ? (
+        <TouchableOpacity
+          style={[styles.bookButton, styles.payButton]}
+          onPress={openPaymentSheet}
+          disabled={stripeLoading}
+          activeOpacity={0.8}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        >
+          {stripeLoading ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator color="white" size="small" />
+              <Text style={styles.bookButtonText}>Preparing Payment...</Text>
+            </View>
+          ) : (
+            <View style={styles.buttonContent}>
+              <MaterialIcons name="payment" size={20} color="white" />
+              <Text style={styles.bookButtonText}>
+                Pay ${totalAmount.toFixed(2)}
+              </Text>
+            </View>
+          )}
+        </TouchableOpacity>
+      ) : (
+        <TouchableOpacity
+          style={[
+            styles.bookButton,
+            (bookingState.step === 'processing' || trip.availableSeats === 0 || Object.keys(validationErrors).length > 0) && styles.bookButtonDisabled
+          ]}
+          onPress={handleBooking}
+          disabled={bookingState.step === 'processing' || trip.availableSeats === 0 || Object.keys(validationErrors).length > 0}
+          activeOpacity={0.8}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        >
+          {bookingState.step === 'processing' ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator color="white" size="small" />
+              <Text style={styles.bookButtonText}>Processing...</Text>
+            </View>
+          ) : (
+            <View style={styles.buttonContent}>
+              <MaterialIcons
+                name={trip.availableSeats === 0 ? 'block' : 'confirmation-number'}
+                size={20}
+                color="white"
+              />
+              <Text style={styles.bookButtonText}>
+                {trip.availableSeats === 0 ? 'Trip Full' : `Book Trip - ${totalAmount.toFixed(2)}`}
+              </Text>
+            </View>
+          )}
+        </TouchableOpacity>
+      )}
 
-      {/* FIXED: Booking Success Actions with proper press handling */}
+      {/* Booking Success Actions */}
       {bookingState.step === 'completed' && createdBooking && (
         <View style={styles.successActions}>
           <TouchableOpacity
@@ -1152,13 +1197,13 @@ export default function FixedBookingScreen() {
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.successButton, styles.paymentButton]}
-            onPress={() => handlePaymentFlow(createdBooking)}
+            style={[styles.successButton, styles.homeButton]}
+            onPress={() => router.push('/(passenger)/home')}
             activeOpacity={0.7}
             hitSlop={{ top: 5, bottom: 5, left: 5, right: 5 }}
           >
-            <MaterialIcons name="payment" size={20} color="white" />
-            <Text style={[styles.successButtonText, { color: 'white' }]}>Complete Payment</Text>
+            <MaterialIcons name="home" size={20} color="white" />
+            <Text style={[styles.successButtonText, { color: 'white' }]}>Go Home</Text>
           </TouchableOpacity>
         </View>
       )}
@@ -1168,7 +1213,7 @@ export default function FixedBookingScreen() {
         <Text style={styles.notesTitle}>Important Information:</Text>
         <View style={styles.noteItem}>
           <MaterialIcons name="payment" size={16} color="#0066cc" />
-          <Text style={styles.notesText}>Secure payment processing after booking confirmation</Text>
+          <Text style={styles.notesText}>Secure payment processing with Stripe</Text>
         </View>
         <View style={styles.noteItem}>
           <MaterialIcons name="schedule" size={16} color="#0066cc" />
@@ -1194,32 +1239,20 @@ export default function FixedBookingScreen() {
         Your booking will be confirmed after successful payment processing.
         Real-time updates ensure accurate availability and prevent overbooking.
       </Text>
-
-      {/* Debug Info (Development Only) - REAL BACKEND DATA */}
-      {__DEV__ && (
-        <View style={styles.debugInfo}>
-          <Text style={styles.debugTitle}>Debug Info (Real Backend Data):</Text>
-          <Text style={styles.debugText}>Trip ID: {trip.id}</Text>
-          <Text style={styles.debugText}>Available Seats: {trip.availableSeats}</Text>
-          <Text style={styles.debugText}>Total Capacity: {trip.capacity}</Text>
-          <Text style={styles.debugText}>Current Price: ${trip.currentPrice || 'Not Set'}</Text>
-          <Text style={styles.debugText}>Base Price: ${trip.basePrice || 'Not Set'}</Text>
-          <Text style={styles.debugText}>Route Base Price: ${trip.route?.basePrice || 'Not Set'}</Text>
-          <Text style={styles.debugText}>Calculated Per Seat: ${pricePerSeat.toFixed(2)}</Text>
-          <Text style={styles.debugText}>Total for {selectedSeats} seats: ${totalAmount.toFixed(2)}</Text>
-          <Text style={styles.debugText}>Booking Attempts: {bookingAttempts}</Text>
-          <Text style={styles.debugText}>Last Update: {lastUpdate.toLocaleTimeString()}</Text>
-          <Text style={styles.debugText}>Status: {trip.status}</Text>
-          <Text style={styles.debugText}>Departure: {trip.departureTime || 'When full'}</Text>
-          <Text style={styles.debugText}>Driver: {trip.driver?.user?.username || 'Unknown'}</Text>
-          <Text style={styles.debugText}>Route: {trip.route?.description || 'Unknown Route'}</Text>
-        </View>
-      )}
     </ScrollView>
   );
 }
 
-// FIXED: Enhanced StyleSheet with better button handling
+// Main component with Stripe Provider
+export default function EnhancedBookingScreen() {
+  return (
+    <StripeProvider publishableKey={Config.STRIPE_PUBLISHABLE_KEY}>
+      <PaymentBookingContent />
+    </StripeProvider>
+  );
+}
+
+// Enhanced StyleSheet
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -1250,7 +1283,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderRadius: 8,
     marginBottom: 8,
-    minHeight: 44, // Ensure proper touch target
+    minHeight: 44,
   },
   refreshButtonText: {
     color: 'white',
@@ -1273,7 +1306,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 8,
     paddingHorizontal: 8,
-    minHeight: 44, // Ensure proper touch target
+    minHeight: 44,
     minWidth: 60,
   },
   backButtonText: {
@@ -1541,7 +1574,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginBottom: 12,
   },
-  // FIXED: Enhanced seat button with proper touch targets
   seatButton: {
     width: 50,
     height: 50,
@@ -1549,7 +1581,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#0066cc',
     justifyContent: 'center',
     alignItems: 'center',
-    minHeight: 44, // Accessibility minimum
+    minHeight: 44,
     minWidth: 44,
   },
   seatButtonDisabled: {
@@ -1662,17 +1694,6 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#0066cc',
   },
-  priceSource: {
-    marginTop: 8,
-    paddingTop: 8,
-    borderTopWidth: 1,
-    borderTopColor: '#f0f0f0',
-  },
-  priceSourceText: {
-    fontSize: 12,
-    color: '#666',
-    fontStyle: 'italic',
-  },
   statusMessage: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1687,7 +1708,6 @@ const styles = StyleSheet.create({
     marginLeft: 8,
     flex: 1,
   },
-  // FIXED: Enhanced book button with proper touch handling
   bookButton: {
     backgroundColor: '#0066cc',
     marginHorizontal: 16,
@@ -1700,7 +1720,10 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
-    minHeight: 56, // Proper touch target
+    minHeight: 56,
+  },
+  payButton: {
+    backgroundColor: '#28a745',
   },
   bookButtonDisabled: {
     backgroundColor: '#ccc',
@@ -1719,7 +1742,6 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     marginLeft: 8,
   },
-  // FIXED: Enhanced success actions with proper touch handling
   successActions: {
     flexDirection: 'row',
     marginHorizontal: 16,
@@ -1737,9 +1759,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#0066cc',
     backgroundColor: 'white',
-    minHeight: 48, // Proper touch target
+    minHeight: 48,
   },
-  paymentButton: {
+  homeButton: {
     backgroundColor: '#0066cc',
     borderColor: '#0066cc',
   },
@@ -1782,25 +1804,5 @@ const styles = StyleSheet.create({
     marginHorizontal: 16,
     marginBottom: 32,
     lineHeight: 18,
-  },
-  debugInfo: {
-    backgroundColor: '#f8f9fa',
-    marginHorizontal: 16,
-    marginBottom: 32,
-    padding: 16,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#dee2e6',
-  },
-  debugTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#495057',
-    marginBottom: 8,
-  },
-  debugText: {
-    fontSize: 12,
-    color: '#6c757d',
-    marginBottom: 4,
   },
 });

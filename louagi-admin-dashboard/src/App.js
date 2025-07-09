@@ -19,6 +19,8 @@ const DestinationsPage = lazy(() => import('./pages/DestinationsPage'));
 const BookingsPage = lazy(() => import('./pages/BookingsPage'));
 const SchedulesPage = lazy(() => import('./pages/SchedulesPage'));
 const QueuePage = lazy(() => import('./pages/QueuePage'));
+const PaymentsPage = lazy(() => import('./pages/PaymentsPage'));
+
 
 // ========================================
 // ERROR BOUNDARY COMPONENT
@@ -210,20 +212,11 @@ const routes = {
         title: 'Profile',
         description: 'Manage your account and profile settings'
     },
-    payments: {
-        component: GenericPage,
-        title: 'Payments',
-        description: 'Payment processing and transaction management',
-        props: {
-            title: 'Payments Management',
-            subtitle: 'Manage payments and transactions',
-            icon: () => (
-                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
-                </svg>
-            )
-        }
-    },
+payments: {
+    component: PaymentsPage,
+    title: 'Payments',
+    description: 'Payment processing and transaction management',
+},
     settings: {
         component: GenericPage,
         title: 'Settings',

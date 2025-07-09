@@ -1,4 +1,3 @@
-// src/hooks/usePayments.js
 import { useState, useEffect, useCallback } from 'react';
 
 export const usePayments = () => {
@@ -40,9 +39,13 @@ export const usePayments = () => {
                 setPayments(data.payments || []);
                 setTotalPages(data.totalPages || 1);
             } else {
+                setPayments([]);
+                setTotalPages(1);
                 console.error('Failed to fetch payments');
             }
         } catch (error) {
+            setPayments([]);
+            setTotalPages(1);
             console.error('Error fetching payments:', error);
         } finally {
             setLoading(false);
@@ -62,8 +65,11 @@ export const usePayments = () => {
             if (response.ok) {
                 const data = await response.json();
                 setStats(data.stats || {});
+            } else {
+                setStats({});
             }
         } catch (error) {
+            setStats({});
             console.error('Error fetching payment stats:', error);
         }
     }, []);
@@ -110,9 +116,12 @@ export const usePayments = () => {
     };
 
     useEffect(() => {
-        fetchPayments();
-        fetchPaymentStats();
-    }, [currentPage, searchTerm, filters]);
+        let isMounted = true;
+        setLoading(true);
+        Promise.all([fetchPayments(), fetchPaymentStats()])
+            .then(() => isMounted && setLoading(false));
+        return () => { isMounted = false; };
+    }, [currentPage, searchTerm, filters, fetchPayments, fetchPaymentStats]);
 
     return {
         loading,

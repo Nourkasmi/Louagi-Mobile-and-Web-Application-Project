@@ -1,10 +1,9 @@
-// src/components/payments/PaymentStatistics.js
 import React from 'react';
 import { DollarSign, CreditCard, ArrowDownRight, TrendingUp } from 'lucide-react';
 import StatCard from '../common/StatCard';
 
-const PaymentStatistics = ({ stats, formatCurrency }) => (
-    <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+const PaymentStatistics = ({ stats = {}, formatCurrency }) => (
+    <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-4">
         <StatCard
             title="Total Revenue"
             value={formatCurrency(stats.totalRevenue || 0)}

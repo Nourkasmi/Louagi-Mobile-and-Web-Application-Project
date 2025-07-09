@@ -1,4 +1,4 @@
-// app/(passenger)/booking.tsx - COMPLETE Payment Integration
+// app/(passenger)/booking.tsx - UPDATED with Mock Payment Integration
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
@@ -16,10 +16,16 @@ import {
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
-import { StripeProvider, useStripe, usePaymentSheet } from '@stripe/stripe-react-native';
+
+// 🎭 UPDATED: Import mock payment service instead of real Stripe
+import {
+  MockStripeProvider,
+  useMockPaymentSheet,
+  mockPaymentService
+} from '../../src/services/mockPaymentService';
+
 import {
   createBooking,
-  createPaymentIntent,
   getTripById,
   type Trip,
   type Booking,
@@ -47,8 +53,8 @@ interface ValidationErrors {
   general?: string;
 }
 
-// Payment Component with Stripe
-function PaymentBookingContent() {
+// Payment Component with Mock Stripe
+function MockPaymentBookingContent() {
   const { tripId, tripData } = useLocalSearchParams<{
     tripId: string;
     tripData: string;
@@ -56,7 +62,9 @@ function PaymentBookingContent() {
 
   const router = useRouter();
   const initialTrip: Trip | null = tripData ? JSON.parse(tripData) : null;
-  const { initPaymentSheet, presentPaymentSheet, loading: stripeLoading } = usePaymentSheet();
+
+  // 🎭 UPDATED: Use mock payment sheet instead of real one
+  const { initPaymentSheet, presentPaymentSheet, loading: stripeLoading } = useMockPaymentSheet();
 
   // Enhanced State Management
   const [trip, setTrip] = useState<EnhancedTrip | null>(initialTrip);
@@ -349,16 +357,17 @@ function PaymentBookingContent() {
     return Object.keys(errors).length === 0;
   };
 
-  // Initialize Payment Sheet
+  // 🎭 UPDATED: Initialize Mock Payment Sheet
   const initializePaymentSheet = async (booking: Booking) => {
     try {
-      console.log('💳 Initializing payment sheet for booking:', booking.id);
+      console.log('🎭 Initializing mock payment sheet for booking:', booking.id);
 
-      const response = await createPaymentIntent(booking.id);
-      console.log('💳 Payment intent response:', response);
+      // Create mock payment intent
+      const response = await mockPaymentService.createMockPaymentIntent(booking.id);
+      console.log('🎭 Mock payment intent response:', response);
 
       if (!response.success || !response.clientSecret) {
-        throw new Error('Failed to create payment intent');
+        throw new Error('Failed to create mock payment intent');
       }
 
       setPaymentClientSecret(response.clientSecret);
@@ -367,39 +376,39 @@ function PaymentBookingContent() {
         merchantDisplayName: Config.APP_NAME || 'Louagi',
         paymentIntentClientSecret: response.clientSecret,
         defaultBillingDetails: {
-          name: 'Customer',
+          name: 'Test Customer',
         },
         allowsDelayedPaymentMethods: false,
         returnURL: 'louagi://payment-success',
       });
 
       if (error) {
-        console.error('❌ Payment sheet initialization error:', error);
-        throw new Error(`Payment initialization failed: ${error.message}`);
+        console.error('❌ Mock payment sheet initialization error:', error);
+        throw new Error(`Mock payment initialization failed: ${error.message}`);
       }
 
-      console.log('✅ Payment sheet initialized successfully');
+      console.log('✅ Mock payment sheet initialized successfully');
       return true;
     } catch (error: any) {
-      console.error('❌ Payment sheet initialization failed:', error);
+      console.error('❌ Mock payment sheet initialization failed:', error);
       throw error;
     }
   };
 
-  // Present Payment Sheet
+  // 🎭 UPDATED: Present Mock Payment Sheet
   const openPaymentSheet = async () => {
     try {
       setBookingState(prev => ({
         ...prev,
         step: 'payment',
-        message: 'Processing payment...',
+        message: 'Processing mock payment...',
         progress: 0.9
       }));
 
       const { error } = await presentPaymentSheet();
 
       if (error) {
-        console.error('❌ Payment sheet error:', error);
+        console.error('❌ Mock payment sheet error:', error);
 
         if (error.code === 'Canceled') {
           // User cancelled payment
@@ -412,15 +421,15 @@ function PaymentBookingContent() {
           return;
         }
 
-        throw new Error(`Payment failed: ${error.message}`);
+        throw new Error(`Mock payment failed: ${error.message}`);
       }
 
       // Payment completed successfully
-      console.log('✅ Payment completed successfully!');
+      console.log('✅ Mock payment completed successfully!');
 
       setBookingState({
         step: 'completed',
-        message: 'Payment successful! Booking confirmed.',
+        message: 'Mock payment successful! Booking confirmed.',
         progress: 1.0
       });
 
@@ -438,8 +447,8 @@ function PaymentBookingContent() {
 
       // Show success alert
       Alert.alert(
-        'Payment Successful! ✅',
-        `Your booking has been confirmed and paid.\n\nBooking Reference: ${createdBooking?.bookingReference}\nAmount Paid: $${createdBooking?.amount}`,
+        '🎭 Mock Payment Successful! ✅',
+        `Your booking has been confirmed with mock payment.\n\nBooking Reference: ${createdBooking?.bookingReference}\nAmount: $${createdBooking?.amount}\n\n⚠️ This was a test payment - no real money was charged!`,
         [
           {
             text: 'View Booking',
@@ -455,19 +464,19 @@ function PaymentBookingContent() {
       );
 
     } catch (error: any) {
-      console.error('❌ Payment error:', error);
+      console.error('❌ Mock payment error:', error);
 
       setBookingState({
         step: 'failed',
-        message: 'Payment failed',
+        message: 'Mock payment failed',
         progress: 0.6
       });
 
       animateError();
 
       Alert.alert(
-        'Payment Failed',
-        error.message || 'Payment could not be processed. Please try again.',
+        'Mock Payment Failed',
+        `${error.message || 'Mock payment could not be processed.'}\n\n🎭 This is just a test - try again with a different mock card!`,
         [
           { text: 'Try Again', onPress: () => openPaymentSheet() },
           { text: 'Cancel', style: 'cancel' }
@@ -476,7 +485,7 @@ function PaymentBookingContent() {
     }
   };
 
-  // Enhanced booking creation with payment flow
+  // Enhanced booking creation with mock payment flow
   const handleBooking = async () => {
     if (!trip) {
       Alert.alert('Error', 'Trip information not available');
@@ -558,7 +567,7 @@ function PaymentBookingContent() {
       // Update state to confirming (before payment)
       setBookingState({
         step: 'confirming',
-        message: 'Booking created! Preparing payment...',
+        message: 'Booking created! Preparing mock payment...',
         progress: 0.6
       });
 
@@ -586,14 +595,14 @@ function PaymentBookingContent() {
         return;
       }
 
-      // For regular bookings, initialize and show payment
+      // For regular bookings, initialize and show mock payment
       try {
         await initializePaymentSheet(booking);
 
         // Move to payment step
         setBookingState({
           step: 'payment',
-          message: 'Ready for payment. Tap to pay.',
+          message: 'Ready for mock payment. Tap to pay.',
           progress: 0.8
         });
 
@@ -603,12 +612,12 @@ function PaymentBookingContent() {
         }, 500);
 
       } catch (paymentError: any) {
-        console.error('❌ Payment initialization error:', paymentError);
+        console.error('❌ Mock payment initialization error:', paymentError);
 
         // Booking created but payment failed to initialize
         Alert.alert(
           'Booking Created Successfully! ✅',
-          `Your booking has been created but payment setup failed.\n\nBooking Reference: ${booking.bookingReference}\n\nYou can complete payment later from "My Bookings".`,
+          `Your booking has been created but mock payment setup failed.\n\nBooking Reference: ${booking.bookingReference}\n\n🎭 You can complete mock payment later from "My Bookings".`,
           [
             {
               text: 'View Booking',
@@ -807,12 +816,10 @@ function PaymentBookingContent() {
         </TouchableOpacity>
         <Text style={styles.title}>Book Your Trip</Text>
 
-        {/* Real-time indicator */}
-        <View style={styles.realTimeIndicator}>
-          <View style={[styles.statusDot, { backgroundColor: isRealTimeEnabled ? '#28a745' : '#6c757d' }]} />
-          <Text style={styles.realTimeText}>
-            {isRealTimeEnabled ? 'Live' : 'Offline'}
-          </Text>
+        {/* Mock payment indicator */}
+        <View style={styles.mockIndicator}>
+          <View style={[styles.statusDot, { backgroundColor: '#ff9800' }]} />
+          <Text style={styles.mockText}>Mock Pay</Text>
         </View>
       </Animated.View>
 
@@ -835,9 +842,17 @@ function PaymentBookingContent() {
           {bookingState.step === 'selecting' && 'Step 1: Select Seats'}
           {bookingState.step === 'confirming' && 'Step 2: Confirm Details'}
           {bookingState.step === 'processing' && 'Step 3: Processing...'}
-          {bookingState.step === 'payment' && 'Step 4: Payment'}
+          {bookingState.step === 'payment' && 'Step 4: Mock Payment'}
           {bookingState.step === 'completed' && 'Completed!'}
           {bookingState.step === 'failed' && 'Please Try Again'}
+        </Text>
+      </View>
+
+      {/* Mock Payment Notice */}
+      <View style={styles.mockNotice}>
+        <MaterialIcons name="info" size={20} color="#ff9800" />
+        <Text style={styles.mockNoticeText}>
+          🎭 Mock Payment Mode: No real money will be charged during testing!
         </Text>
       </View>
 
@@ -1138,13 +1153,13 @@ function PaymentBookingContent() {
           {stripeLoading ? (
             <View style={styles.loadingContainer}>
               <ActivityIndicator color="white" size="small" />
-              <Text style={styles.bookButtonText}>Preparing Payment...</Text>
+              <Text style={styles.bookButtonText}>Preparing Mock Payment...</Text>
             </View>
           ) : (
             <View style={styles.buttonContent}>
               <MaterialIcons name="payment" size={20} color="white" />
               <Text style={styles.bookButtonText}>
-                Pay ${totalAmount.toFixed(2)}
+                🎭 Mock Pay ${totalAmount.toFixed(2)}
               </Text>
             </View>
           )}
@@ -1210,49 +1225,48 @@ function PaymentBookingContent() {
 
       {/* Enhanced Important Notes */}
       <View style={styles.notesSection}>
-        <Text style={styles.notesTitle}>Important Information:</Text>
+        <Text style={styles.notesTitle}>🎭 Mock Payment Information:</Text>
         <View style={styles.noteItem}>
-          <MaterialIcons name="payment" size={16} color="#0066cc" />
-          <Text style={styles.notesText}>Secure payment processing with Stripe</Text>
+          <MaterialIcons name="info" size={16} color="#ff9800" />
+          <Text style={styles.notesText}>This is a test environment - no real payments</Text>
         </View>
         <View style={styles.noteItem}>
-          <MaterialIcons name="schedule" size={16} color="#0066cc" />
-          <Text style={styles.notesText}>Cancellations allowed up to 1 hour before departure</Text>
+          <MaterialIcons name="credit-card" size={16} color="#ff9800" />
+          <Text style={styles.notesText}>Try different mock cards to test scenarios</Text>
         </View>
         <View style={styles.noteItem}>
-          <MaterialIcons name="flash-on" size={16} color="#0066cc" />
+          <MaterialIcons name="check-circle" size={16} color="#ff9800" />
+          <Text style={styles.notesText}>Visa •••• 4242 and MasterCard •••• 5555 succeed</Text>
+        </View>
+        <View style={styles.noteItem}>
+          <MaterialIcons name="error" size={16} color="#ff9800" />
+          <Text style={styles.notesText}>Amex •••• 1234 and Visa •••• 0000 fail for testing</Text>
+        </View>
+        <View style={styles.noteItem}>
+          <MaterialIcons name="flash-on" size={16} color="#ff9800" />
           <Text style={styles.notesText}>Trip starts automatically when capacity is full</Text>
-        </View>
-        <View style={styles.noteItem}>
-          <MaterialIcons name="email" size={16} color="#0066cc" />
-          <Text style={styles.notesText}>Confirmation sent via email and SMS</Text>
-        </View>
-        <View style={styles.noteItem}>
-          <MaterialIcons name="refresh" size={16} color="#0066cc" />
-          <Text style={styles.notesText}>Real-time updates ensure accurate availability</Text>
         </View>
       </View>
 
       {/* Enhanced Terms */}
       <Text style={styles.termsText}>
-        By booking this trip, you agree to our terms and conditions.
-        Your booking will be confirmed after successful payment processing.
-        Real-time updates ensure accurate availability and prevent overbooking.
+        🎭 MOCK PAYMENT MODE: This is a development environment using fake payments for testing purposes.
+        No real money will be charged. All transactions are simulated for demonstration only.
       </Text>
     </ScrollView>
   );
 }
 
-// Main component with Stripe Provider
+// 🎭 UPDATED: Main component with Mock Stripe Provider
 export default function EnhancedBookingScreen() {
   return (
-    <StripeProvider publishableKey={Config.STRIPE_PUBLISHABLE_KEY}>
-      <PaymentBookingContent />
-    </StripeProvider>
+    <MockStripeProvider publishableKey="mock_key">
+      <MockPaymentBookingContent />
+    </MockStripeProvider>
   );
 }
 
-// Enhanced StyleSheet
+// Enhanced StyleSheet with Mock Payment additions
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -1322,9 +1336,15 @@ const styles = StyleSheet.create({
     flex: 1,
     textAlign: 'center',
   },
-  realTimeIndicator: {
+
+  // 🎭 NEW: Mock payment indicator styles
+  mockIndicator: {
     flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: '#fff3cd',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
   },
   statusDot: {
     width: 8,
@@ -1332,11 +1352,31 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     marginRight: 4,
   },
-  realTimeText: {
+  mockText: {
     fontSize: 12,
-    color: '#666',
-    fontWeight: '500',
+    color: '#856404',
+    fontWeight: '600',
   },
+
+  // 🎭 NEW: Mock payment notice
+  mockNotice: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff3cd',
+    padding: 12,
+    margin: 16,
+    borderRadius: 8,
+    borderLeftWidth: 4,
+    borderLeftColor: '#ff9800',
+  },
+  mockNoticeText: {
+    fontSize: 14,
+    color: '#856404',
+    fontWeight: '500',
+    marginLeft: 8,
+    flex: 1,
+  },
+
   progressContainer: {
     backgroundColor: 'white',
     padding: 16,
@@ -1723,7 +1763,7 @@ const styles = StyleSheet.create({
     minHeight: 56,
   },
   payButton: {
-    backgroundColor: '#28a745',
+    backgroundColor: '#ff9800', // Orange for mock payment
   },
   bookButtonDisabled: {
     backgroundColor: '#ccc',
@@ -1778,7 +1818,7 @@ const styles = StyleSheet.create({
     padding: 16,
     borderRadius: 8,
     borderLeftWidth: 4,
-    borderLeftColor: '#ffc107',
+    borderLeftColor: '#ff9800', // Orange for mock payment
   },
   notesTitle: {
     fontSize: 16,
@@ -1799,10 +1839,14 @@ const styles = StyleSheet.create({
   },
   termsText: {
     fontSize: 12,
-    color: '#888',
+    color: '#856404', // Orange for mock payment
     textAlign: 'center',
     marginHorizontal: 16,
     marginBottom: 32,
     lineHeight: 18,
+    fontWeight: '600',
+    backgroundColor: '#fff3cd',
+    padding: 16,
+    borderRadius: 8,
   },
 });

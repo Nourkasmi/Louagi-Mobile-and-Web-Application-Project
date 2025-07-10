@@ -1,32 +1,32 @@
-// 📁 app/(passenger)/search/index.tsx - CLEAN (Logic Only with Theme)
+// 📁 app/(passenger)/search/index.tsx - COMPLETE FIXED VERSION
 import React, { useEffect, useState, useCallback } from 'react';
-import { 
-  View, 
-  Text, 
-  FlatList, 
-  TouchableOpacity, 
-  ActivityIndicator, 
+import {
+  View,
+  Text,
+  FlatList,
+  TouchableOpacity,
+  ActivityIndicator,
   Alert,
   RefreshControl,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { 
-  getDestinations, 
-  getTrips, 
-  type Destination, 
-  type Trip 
+import {
+  getDestinations,
+  getTrips,
+  type Destination,
+  type Trip
 } from '../../../src/services/api';
-import { styles } from './index.style'; // 🎨 Import clean theme-based styles
+import { styles } from './index.style';
 import { theme } from '../../../src/styles/theme';
 
 export default function PassengerSearchScreen() {
-  const { stationId, stationName } = useLocalSearchParams<{ 
-    stationId: string; 
-    stationName: string; 
+  const { stationId, stationName } = useLocalSearchParams<{
+    stationId: string;
+    stationName: string;
   }>();
-  
+
   const router = useRouter();
-  
+
   // State management
   const [destinations, setDestinations] = useState<Destination[]>([]);
   const [trips, setTrips] = useState<Trip[]>([]);
@@ -40,9 +40,9 @@ export default function PassengerSearchScreen() {
     const fetchDestinations = async () => {
       try {
         setLoading(true);
-        
+
         const response = await getDestinations(stationId, { limit: 50 });
-        
+
         let dests = [];
         if (response.success) {
           if (response.data?.destinations) {
@@ -51,7 +51,7 @@ export default function PassengerSearchScreen() {
             dests = response.destinations;
           }
         }
-        
+
         setDestinations(dests);
 
         if (!response.success || dests.length === 0) {
@@ -78,9 +78,9 @@ export default function PassengerSearchScreen() {
       } else {
         setSearchingTrips(true);
       }
-      
+
       setSelectedDestination(destination);
-      
+
       // API call with destinationId
       const response = await getTrips({
         destinationId: destination.id,
@@ -88,9 +88,9 @@ export default function PassengerSearchScreen() {
         page: 1,
         limit: 20
       });
-      
+
       let tripList = [];
-      
+
       // Handle multiple possible response structures
       if (response.success) {
         if (response.data?.trips) {
@@ -102,21 +102,21 @@ export default function PassengerSearchScreen() {
         } else if (Array.isArray(response.data)) {
           tripList = response.data;
         }
-        
+
         // Filter for available seats
-        const availableTrips = Array.isArray(tripList) ? 
+        const availableTrips = Array.isArray(tripList) ?
           tripList.filter(trip => trip.availableSeats > 0) : [];
-        
+
         setTrips(availableTrips);
-        
+
         if (availableTrips.length === 0 && tripList.length > 0) {
           Alert.alert(
-            'Trips Found But Full', 
+            'Trips Found But Full',
             `Found ${tripList.length} trip(s), but all seats are booked. New trips are created when drivers declare availability.`
           );
         } else if (availableTrips.length === 0) {
           Alert.alert(
-            'No Available Trips', 
+            'No Available Trips',
             'No trips with available seats found for this route. New trips are created automatically when drivers declare availability.'
           );
         }
@@ -168,73 +168,167 @@ export default function PassengerSearchScreen() {
   const getTripStatusInfo = (trip: Trip) => {
     const bookedSeats = trip.capacity - trip.availableSeats;
     const percentageFull = Math.round((bookedSeats / trip.capacity) * 100);
-    
+
     if (percentageFull === 100) {
-      return { 
-        text: 'Starting Soon! 🚀', 
-        color: theme.colors.status.completed, 
-        urgent: true 
+      return {
+        text: 'Starting Soon! 🚀',
+        color: theme.colors.status.completed,
+        urgent: true
       };
     } else if (percentageFull >= 75) {
-      return { 
-        text: 'Almost Full!', 
-        color: theme.colors.status.pending, 
-        urgent: true 
+      return {
+        text: 'Almost Full!',
+        color: theme.colors.status.pending,
+        urgent: true
       };
     } else if (percentageFull >= 50) {
-      return { 
-        text: 'Filling Up', 
-        color: theme.colors.status.inProgress, 
-        urgent: false 
+      return {
+        text: 'Filling Up',
+        color: theme.colors.status.inProgress,
+        urgent: false
       };
     } else {
-      return { 
-        text: 'Available', 
-        color: theme.colors.status.noShow, 
-        urgent: false 
+      return {
+        text: 'Available',
+        color: theme.colors.status.noShow,
+        urgent: false
       };
     }
   };
 
-  // Navigate to booking screen with error handling
+  // 🔧 FIXED: Navigate to booking screen with complete data validation
   const selectTrip = (trip: Trip) => {
     try {
-      console.log('🚗 Selecting trip:', trip.id);
-      
-      // Validate trip data before navigation
+      console.log('🚗 Selecting trip for booking:', {
+        tripId: trip.id,
+        stationId,
+        stationName,
+        selectedDestination: selectedDestination?.id
+      });
+
+      // 🔧 FIXED: Validate trip data before navigation
       if (!trip || !trip.id) {
         Alert.alert('Error', 'Invalid trip data. Please try again.');
         return;
       }
 
-      // Create safe trip object with required properties
-      const safeTrip = {
+      if (!trip.route) {
+        Alert.alert('Error', 'Trip route information is missing. Please try again.');
+        return;
+      }
+
+      // 🔧 FIXED: Ensure route data is complete with all required fields
+      const completeTrip = {
         ...trip,
+        // Ensure all required trip fields
+        id: trip.id,
+        capacity: trip.capacity || 4,
+        availableSeats: trip.availableSeats || 0,
+        status: trip.status || 'scheduled',
+        basePrice: trip.basePrice || '10.00',
+        currentPrice: trip.currentPrice || trip.basePrice || '10.00',
+        departureTime: trip.departureTime,
+        estimatedArrivalTime: trip.estimatedArrivalTime,
+        notes: trip.notes || '',
+        createdAt: trip.createdAt || new Date().toISOString(),
+        updatedAt: trip.updatedAt || new Date().toISOString(),
+
+        // Complete route information
         route: {
-          ...trip.route,
+          id: trip.route?.id || `route_${trip.id}`,
+          startId: trip.route?.startId || stationId || '',
+          endId: trip.route?.endId || selectedDestination?.endStation?.id || selectedDestination?.id || '',
+          distance: trip.route?.distance || 0,
+          basePrice: trip.route?.basePrice || trip.basePrice || '10.00',
+          estimatedDuration: trip.route?.estimatedDuration || 60,
+          isActive: trip.route?.isActive ?? true,
+          description: trip.route?.description || selectedDestination?.description || `${stationName} to ${selectedDestination?.endStation?.name || 'Destination'}`,
+          createdAt: trip.route?.createdAt || new Date().toISOString(),
+          updatedAt: trip.route?.updatedAt || new Date().toISOString(),
+
+          // Complete start station
           startStation: {
-            ...trip.route.startStation,
-            id: trip.route.startStation?.id || stationId || '',
-            name: trip.route.startStation?.name || stationName || 'Departure Station',
+            id: trip.route?.startStation?.id || stationId || '',
+            name: trip.route?.startStation?.name || stationName || 'Departure Station',
+            address: trip.route?.startStation?.address || '',
+            city: trip.route?.startStation?.city || '',
+            state: trip.route?.startStation?.state || '',
+            zipCode: trip.route?.startStation?.zipCode || '',
+            capacity: trip.route?.startStation?.capacity || 100,
+            isActive: trip.route?.startStation?.isActive ?? true,
+            contactPhone: trip.route?.startStation?.contactPhone || '',
+            contactEmail: trip.route?.startStation?.contactEmail || '',
+            amenities: trip.route?.startStation?.amenities || {},
           },
+
+          // Complete end station
           endStation: {
-            ...trip.route.endStation,
-            id: trip.route.endStation?.id || selectedDestination?.endStation?.id || '',
-            name: trip.route.endStation?.name || selectedDestination?.endStation?.name || 'Destination Station',
-          }
-        }
+            id: trip.route?.endStation?.id || selectedDestination?.endStation?.id || selectedDestination?.id || '',
+            name: trip.route?.endStation?.name || selectedDestination?.endStation?.name || selectedDestination?.description || 'Destination Station',
+            address: trip.route?.endStation?.address || selectedDestination?.endStation?.address || '',
+            city: trip.route?.endStation?.city || selectedDestination?.endStation?.city || '',
+            state: trip.route?.endStation?.state || selectedDestination?.endStation?.state || '',
+            zipCode: trip.route?.endStation?.zipCode || selectedDestination?.endStation?.zipCode || '',
+            capacity: trip.route?.endStation?.capacity || 100,
+            isActive: trip.route?.endStation?.isActive ?? true,
+            contactPhone: trip.route?.endStation?.contactPhone || '',
+            contactEmail: trip.route?.endStation?.contactEmail || '',
+            amenities: trip.route?.endStation?.amenities || {},
+          },
+        },
+
+        // Include driver info if available
+        driver: trip.driver || null,
+        schedule: trip.schedule || null,
+        queueEntry: trip.queueEntry || null,
+        bookings: trip.bookings || [],
       };
 
+      // 🔧 FIXED: Validate complete trip before navigation
+      if (!completeTrip.route.startStation.name || !completeTrip.route.endStation.name) {
+        Alert.alert('Error', 'Trip route information is incomplete. Please try again.');
+        return;
+      }
+
+      // 🔧 FIXED: Convert to string safely with error handling
+      let tripDataString: string;
+      try {
+        tripDataString = JSON.stringify(completeTrip);
+      } catch (stringifyError) {
+        console.error('❌ Error stringifying trip data:', stringifyError);
+        Alert.alert('Error', 'Unable to process trip data. Please try again.');
+        return;
+      }
+
+      console.log('✅ Complete trip data prepared for booking:', {
+        tripId: completeTrip.id,
+        route: `${completeTrip.route.startStation.name} → ${completeTrip.route.endStation.name}`,
+        capacity: completeTrip.capacity,
+        availableSeats: completeTrip.availableSeats,
+        price: completeTrip.currentPrice,
+        dataSize: tripDataString.length,
+        hasDriver: !!completeTrip.driver,
+        hasSchedule: !!completeTrip.schedule
+      });
+
+      // 🔧 FIXED: Navigate with complete and validated data
       router.push({
         pathname: '/(passenger)/booking',
-        params: { 
-          tripId: safeTrip.id,
-          tripData: JSON.stringify(safeTrip)
+        params: {
+          tripId: completeTrip.id,
+          tripData: tripDataString
         }
       });
+
     } catch (error) {
-      console.error('Error navigating to booking:', error);
-      Alert.alert('Navigation Error', 'Unable to open booking screen. Please try again.');
+      console.error('❌ Error navigating to booking:', error);
+      Alert.alert(
+        'Navigation Error',
+        'Unable to open booking screen. Please try selecting the trip again.',
+        [
+          { text: 'OK', style: 'default' }
+        ]
+      );
     }
   };
 
@@ -280,12 +374,12 @@ export default function PassengerSearchScreen() {
               {formatDate(item.departureTime)}
             </Text>
           </View>
-          
+
           <View style={[styles.statusBadge, { backgroundColor: statusInfo.color }]}>
             <Text style={styles.statusText}>{statusInfo.text}</Text>
           </View>
         </View>
-        
+
         {/* Capacity Visual */}
         <View style={styles.capacitySection}>
           <View style={styles.capacityHeader}>
@@ -294,19 +388,19 @@ export default function PassengerSearchScreen() {
               {bookedSeats}/{item.capacity} filled
             </Text>
           </View>
-          
+
           <View style={styles.capacityBar}>
-            <View 
+            <View
               style={[
-                styles.capacityFill, 
-                { 
+                styles.capacityFill,
+                {
                   width: `${(bookedSeats / item.capacity) * 100}%`,
                   backgroundColor: statusInfo.color
                 }
-              ]} 
+              ]}
             />
           </View>
-          
+
           <View style={styles.seatIndicators}>
             {Array.from({ length: item.capacity }, (_, index) => (
               <View
@@ -330,7 +424,7 @@ export default function PassengerSearchScreen() {
               {item.driver?.vehicleType || 'Vehicle'} • ⭐ {item.driver?.rating?.toFixed(1) || '5.0'}
             </Text>
           </View>
-          
+
           <Text style={styles.durationText}>
             ⏱️ {item.route?.estimatedDuration || 90} min trip
           </Text>
@@ -342,7 +436,7 @@ export default function PassengerSearchScreen() {
             <Text style={styles.priceLabel}>Price per seat</Text>
             <Text style={styles.price}>${pricePerSeat.toFixed(2)}</Text>
           </View>
-          
+
           <View style={styles.bookSection}>
             <Text style={styles.availableSeats}>
               {item.availableSeats} seat{item.availableSeats !== 1 ? 's' : ''} left
@@ -352,7 +446,7 @@ export default function PassengerSearchScreen() {
             )}
           </View>
         </View>
-        
+
         {/* Auto-start indicator */}
         {!item.departureTime && (
           <View style={styles.autoStartIndicator}>
@@ -410,7 +504,7 @@ export default function PassengerSearchScreen() {
             <Text style={styles.routeText}>
               {stationName} → {selectedDestination.endStation?.name || 'Unknown'}
             </Text>
-            <TouchableOpacity 
+            <TouchableOpacity
               onPress={() => {
                 setSelectedDestination(null);
                 setTrips([]);
@@ -437,7 +531,7 @@ export default function PassengerSearchScreen() {
                   <Text style={styles.refreshButtonText}>🔄 Refresh</Text>
                 </TouchableOpacity>
               </View>
-              
+
               <FlatList
                 data={trips}
                 keyExtractor={(item) => item.id}
@@ -484,17 +578,3 @@ export default function PassengerSearchScreen() {
     </View>
   );
 }
-
-// 🎯 PHENOMENAL TRANSFORMATION RESULTS:
-// 
-// BEFORE: 350+ lines of complex mixed logic and styles
-// AFTER: ~250 lines clean logic + 60+ organized theme-based styles
-// 
-// ✅ PERFECT SEPARATION: Complex UI logic separate from styling
-// ✅ DYNAMIC THEMING: Status colors, capacity indicators use theme
-// ✅ INTERACTIVE DESIGN: Professional hover states and animations
-// ✅ COMPONENT CONSISTENCY: All cards, buttons, indicators match app
-// ✅ SEMANTIC COLORS: Meaningful use of colors for status and urgency
-// ✅ ACCESSIBILITY READY: Consistent touch targets and contrast
-// ✅ MAINTAINABLE: Easy to modify search behavior and appearance
-// ✅ SCALABLE: Patterns can be reused across entire app

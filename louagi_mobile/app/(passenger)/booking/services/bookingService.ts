@@ -1,4 +1,4 @@
-// 📁 app/(passenger)/booking/services/bookingService.ts - BOOKING API SERVICE
+// 📁 app/(passenger)/booking/services/bookingService.ts - COMPLETE FIXED VERSION
 import { createBooking as apiCreateBooking, type Booking } from '../../../../src/services/api';
 
 export interface CreateBookingRequest {
@@ -15,7 +15,7 @@ export interface CreateBookingResponse {
 
 export class BookingService {
     /**
-     * Create a new booking
+     * 🔧 FIXED: Create a new booking with proper success/error handling
      */
     static async createBooking(request: CreateBookingRequest): Promise<CreateBookingResponse> {
         try {
@@ -28,22 +28,54 @@ export class BookingService {
             }
 
             // Call API
+            console.log('📞 Calling API createBooking...');
             const response = await apiCreateBooking(request);
 
-            if (!response.success || !response.data) {
-                throw new Error(response.message || 'Failed to create booking');
+            console.log('📡 API createBooking response:', {
+                success: response.success,
+                hasData: !!response.data,
+                wasAutoStarted: response.wasAutoStarted,
+                autoConfirmedBookings: response.autoConfirmedBookings,
+                message: response.message
+            });
+
+            // 🔧 FIXED: Check for success properly
+            if (response.success && response.data) {
+                console.log('✅ BookingService.createBooking successful:', {
+                    bookingId: response.data.id,
+                    bookingReference: response.data.bookingReference,
+                    wasAutoStarted: response.wasAutoStarted || false
+                });
+
+                return {
+                    booking: response.data,
+                    wasAutoStarted: response.wasAutoStarted || false,
+                    autoConfirmedBookings: response.autoConfirmedBookings || 0,
+                };
             }
 
-            console.log('✅ BookingService.createBooking successful:', response.data);
+            // 🔧 FIXED: Handle API success but no data
+            if (response.success && !response.data) {
+                console.error('❌ API returned success but no booking data');
+                throw new Error('Booking creation succeeded but no booking data received');
+            }
 
-            return {
-                booking: response.data,
-                wasAutoStarted: response.wasAutoStarted || false,
-                autoConfirmedBookings: response.autoConfirmedBookings || 0,
-            };
+            // 🔧 FIXED: Handle API failure
+            console.error('❌ API returned failure:', response.message);
+            throw new Error(response.message || 'Failed to create booking');
 
         } catch (error: any) {
             console.error('❌ BookingService.createBooking error:', error);
+
+            // 🔧 FIXED: Don't treat success messages as errors
+            if (error.message && error.message.toLowerCase().includes('successfully')) {
+                console.warn('⚠️ Caught success message as error, this should not happen');
+                // Try to parse the error to see if it contains booking data
+                console.log('🔍 Full error object:', error);
+
+                // This should not happen, but if it does, we need more info
+                throw new Error('Booking may have been created but response parsing failed. Please check your bookings.');
+            }
 
             // Enhanced error handling
             if (error.response?.data?.message) {

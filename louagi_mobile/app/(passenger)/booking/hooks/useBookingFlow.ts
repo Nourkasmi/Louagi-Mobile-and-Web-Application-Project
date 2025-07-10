@@ -1,12 +1,11 @@
-// 📁 app/(passenger)/booking/hooks/useBookingFlow.ts - MAIN STATE MANAGEMENT HOOK
-import { useState, useCallback, useEffect } from 'react';
+// 📁 app/(passenger)/booking/hooks/useBookingFlow.ts - FIXED STATE MANAGEMENT
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { Alert, Platform, Vibration } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTripData } from './useTripData';
 import { usePaymentFlow } from './usePaymentFlow';
 import { useBookingValidation } from './useBookingValidation';
 import { BookingService } from '../services/bookingService';
-import { BookingHelpers } from '../utils/bookingHelpers';
 import type { Trip, Booking } from '../../../../src/services/api';
 
 export interface BookingState {
@@ -41,21 +40,14 @@ export interface BookingState {
 }
 
 export interface BookingActions {
-    // Trip actions
     refreshTripData: () => void;
     retryLoading: () => void;
-
-    // Form actions
     updateSeats: (seats: number) => void;
     updateSpecialRequests: (requests: string) => void;
     calculateTotalAmount: () => number;
-
-    // Booking process
     createBooking: () => Promise<void>;
     processPayment: () => Promise<void>;
     skipPayment: () => void;
-
-    // Navigation
     goBack: () => void;
     goHome: () => void;
     viewBookingDetails: () => void;
@@ -85,13 +77,42 @@ export function useBookingFlow(tripId: string, initialTrip?: Trip) {
         loading: !initialTrip,
     });
 
+    // 🔧 FIXED: Use refs to prevent infinite loops
+    const lastTripUpdateRef = useRef<string>('');
+    const isCreatingBookingRef = useRef(false);
+    const hasInitializedRef = useRef(false);
+
+    console.log('🎯 useBookingFlow state:', {
+        tripId,
+        hasInitialTrip: !!initialTrip,
+        step: state.step,
+        selectedSeats: state.selectedSeats,
+        hasCreatedBooking: !!state.createdBooking
+    });
+
     // Custom hooks
     const { trip, loading, refreshing, error, refreshTrip, retryLoad } = useTripData(tripId, initialTrip);
     const { initPaymentSheet, presentPaymentSheet, loading: paymentLoading } = usePaymentFlow();
     const { validateBooking } = useBookingValidation();
 
-    // Update state when trip data changes
+    // 🔧 FIXED: Update state only when trip data actually changes
     useEffect(() => {
+        const tripKey = trip ? `${trip.id}-${trip.availableSeats}-${loading}-${error}` : `loading-${loading}-error-${error}`;
+
+        if (lastTripUpdateRef.current === tripKey) {
+            return; // No change, skip update
+        }
+
+        lastTripUpdateRef.current = tripKey;
+        hasInitializedRef.current = true;
+
+        console.log('🔄 Trip data changed, updating state:', {
+            hasTrip: !!trip,
+            loading,
+            error,
+            tripId: trip?.id
+        });
+
         setState(prev => ({
             ...prev,
             trip,
@@ -101,16 +122,24 @@ export function useBookingFlow(tripId: string, initialTrip?: Trip) {
         }));
     }, [trip, loading, refreshing, error]);
 
-    // Calculate total amount
+    // Calculate total amount with memoization
     const calculateTotalAmount = useCallback(() => {
         if (!state.trip) return 0;
-        const { totalAmount } = BookingHelpers.calculatePricing(state.trip, state.selectedSeats);
-        return totalAmount;
-    }, [state.trip, state.selectedSeats]);
 
-    // Update seats with validation
+        try {
+            const tripPrice = parseFloat(state.trip.currentPrice || state.trip.basePrice || '10');
+            const pricePerSeat = tripPrice / (state.trip.capacity || 4);
+            const totalAmount = pricePerSeat * state.selectedSeats;
+            return Math.round(totalAmount * 100) / 100;
+        } catch (error) {
+            console.error('❌ Error calculating price:', error);
+            return state.selectedSeats * 10;
+        }
+    }, [state.trip?.currentPrice, state.trip?.basePrice, state.trip?.capacity, state.selectedSeats]);
+
+    // 🔧 FIXED: Update seats without causing loops
     const updateSeats = useCallback((seats: number) => {
-        if (!state.trip) return;
+        if (!state.trip || seats === state.selectedSeats) return;
 
         const maxSeats = Math.min(state.trip.availableSeats, 4);
 
@@ -121,7 +150,6 @@ export function useBookingFlow(tripId: string, initialTrip?: Trip) {
                 validation: { errors: {}, isValid: true },
             }));
         } else {
-            // Vibration feedback for invalid selection
             if (Platform.OS !== 'web') {
                 Vibration.vibrate(50);
             }
@@ -134,30 +162,24 @@ export function useBookingFlow(tripId: string, initialTrip?: Trip) {
 
             setState(prev => ({
                 ...prev,
-                validation: {
-                    errors: { seats: error },
-                    isValid: false
-                },
+                validation: { errors: { seats: error }, isValid: false },
             }));
         }
-    }, [state.trip]);
+    }, [state.trip, state.selectedSeats]);
 
     // Update special requests
     const updateSpecialRequests = useCallback((requests: string) => {
+        if (requests === state.specialRequests) return;
+
         setState(prev => ({
             ...prev,
-            specialRequests: requests.slice(0, 500), // Max 500 characters
+            specialRequests: requests.slice(0, 500),
         }));
-    }, []);
+    }, [state.specialRequests]);
 
     // Navigation actions
-    const goBack = useCallback(() => {
-        router.back();
-    }, [router]);
-
-    const goHome = useCallback(() => {
-        router.replace('/(passenger)/home');
-    }, [router]);
+    const goBack = useCallback(() => router.back(), [router]);
+    const goHome = useCallback(() => router.replace('/(passenger)/home'), [router]);
 
     const viewBookingDetails = useCallback(() => {
         if (state.createdBooking) {
@@ -168,25 +190,29 @@ export function useBookingFlow(tripId: string, initialTrip?: Trip) {
                     bookingData: JSON.stringify(state.createdBooking)
                 }
             });
+        } else {
+            router.replace('/(passenger)/bookings');
         }
     }, [state.createdBooking, router]);
 
-    // Refresh trip data
-    const refreshTripData = useCallback(() => {
-        refreshTrip();
-    }, [refreshTrip]);
+    const refreshTripData = useCallback(() => refreshTrip(), [refreshTrip]);
+    const retryLoading = useCallback(() => retryLoad(), [retryLoad]);
 
-    // Retry loading
-    const retryLoading = useCallback(() => {
-        retryLoad();
-    }, [retryLoad]);
-
-    // Create booking
+    // 🔧 FIXED: Create booking with proper error handling and no loops
     const createBooking = useCallback(async () => {
-        if (!state.trip) {
-            Alert.alert('Error', 'Trip information not available');
+        if (!state.trip || isCreatingBookingRef.current) {
+            console.log('❌ Cannot create booking:', { hasTrip: !!state.trip, isCreating: isCreatingBookingRef.current });
             return;
         }
+
+        // Prevent multiple simultaneous booking attempts
+        isCreatingBookingRef.current = true;
+
+        console.log('📝 Starting booking creation:', {
+            tripId: state.trip.id,
+            seats: state.selectedSeats,
+            step: state.step
+        });
 
         // Validation
         const validationErrors = validateBooking({
@@ -196,148 +222,111 @@ export function useBookingFlow(tripId: string, initialTrip?: Trip) {
         });
 
         if (validationErrors.length > 0) {
+            const errors = validationErrors.reduce((acc, error) => ({ ...acc, [error.field]: error.message }), {});
             setState(prev => ({
                 ...prev,
-                validation: {
-                    errors: validationErrors.reduce((acc, error) => ({ ...acc, [error.field]: error.message }), {}),
-                    isValid: false,
-                }
+                validation: { errors, isValid: false },
             }));
-            return;
-        }
-
-        // Check booking attempts limit
-        if (state.bookingAttempts >= 3) {
-            Alert.alert(
-                'Booking Limit Reached',
-                'You have reached the maximum booking attempts. Please refresh and try again.',
-                [
-                    { text: 'Refresh', onPress: refreshTripData },
-                    { text: 'Cancel', style: 'cancel' }
-                ]
-            );
+            isCreatingBookingRef.current = false;
+            Alert.alert('Validation Error', Object.values(errors)[0] as string);
             return;
         }
 
         try {
+            // Set processing state ONCE
             setState(prev => ({
                 ...prev,
                 step: 'processing',
                 progress: 0.5,
                 bookingAttempts: prev.bookingAttempts + 1,
+                error: null,
             }));
 
-            console.log('🚀 Creating booking...', {
+            // Call booking service
+            const result = await BookingService.createBooking({
                 tripId: state.trip.id,
                 seats: state.selectedSeats,
                 specialRequests: state.specialRequests.trim() || undefined,
             });
 
-            const { booking, wasAutoStarted, autoConfirmedBookings } = await BookingService.createBooking({
-                tripId: state.trip.id,
-                seats: state.selectedSeats,
-                specialRequests: state.specialRequests.trim() || undefined,
-            });
+            console.log('✅ Booking created successfully:', result.booking.id);
 
-            console.log('✅ Booking created successfully:', booking);
+            const { booking, wasAutoStarted, autoConfirmedBookings } = result;
 
-            setState(prev => ({
-                ...prev,
-                createdBooking: booking,
-                step: 'confirming',
-                progress: 0.6,
-            }));
-
-            // Check if trip was auto-started (no payment needed)
             if (wasAutoStarted) {
+                // Trip auto-started - complete immediately
                 setState(prev => ({
                     ...prev,
+                    createdBooking: booking,
                     step: 'completed',
                     progress: 1.0,
+                    error: null,
                 }));
 
                 Alert.alert(
                     'Trip Starting! 🚀',
-                    `Great news! Your booking filled the last seats and the trip is starting now.\n\nBooking: ${booking.bookingReference}\nConfirmed bookings: ${autoConfirmedBookings}`,
+                    `Your booking filled the last seats and the trip is starting now.\n\nBooking: ${booking.bookingReference}`,
                     [{ text: 'View Booking', onPress: viewBookingDetails }]
                 );
-                return;
-            }
-
-            // Initialize payment for regular bookings
-            try {
-                await initPaymentSheet(booking);
+            } else {
+                // Regular booking - go to payment
                 setState(prev => ({
                     ...prev,
+                    createdBooking: booking,
                     step: 'payment',
                     progress: 0.8,
                     paymentReady: true,
+                    error: null,
                 }));
 
-                // Auto-present payment sheet
-                setTimeout(() => {
-                    processPayment();
-                }, 500);
+                console.log('💳 Booking created, proceeding to payment');
 
-            } catch (paymentError: any) {
-                console.error('❌ Payment initialization error:', paymentError);
-                Alert.alert(
-                    'Booking Created Successfully! ✅',
-                    `Your booking has been created but payment setup failed.\n\nBooking Reference: ${booking.bookingReference}\n\n🎭 You can complete payment later from "My Bookings".`,
-                    [{ text: 'View Booking', onPress: viewBookingDetails }]
-                );
+                // Try to initialize payment (non-blocking)
+                try {
+                    await initPaymentSheet(booking);
+                } catch (paymentError) {
+                    console.warn('⚠️ Payment initialization failed:', paymentError);
+                    // Don't fail the booking, just warn
+                }
             }
 
         } catch (error: any) {
-            console.error('❌ Booking error:', error);
+            console.error('❌ Booking creation failed:', error);
 
             setState(prev => ({
                 ...prev,
                 step: 'failed',
                 progress: 0.2,
-                error: error.message,
+                error: error.message || 'Booking failed',
             }));
 
-            // Enhanced error handling
-            let errorMessage = 'Something went wrong. Please try again.';
-            let shouldRefresh = false;
-
-            if (error.message?.includes('already departed')) {
-                errorMessage = 'This trip has already departed. Please select a different trip.';
-            } else if (error.message?.includes('available')) {
-                errorMessage = 'Not enough seats available. The trip may have filled up.';
-                shouldRefresh = true;
-            } else if (error.message?.includes('already have a booking')) {
-                errorMessage = 'You already have a booking for this trip. Check "My Bookings".';
-            }
-
-            const alertButtons = [{ text: 'OK', style: 'default' as const }];
-            if (shouldRefresh) {
-                alertButtons.unshift({
-                    text: 'Refresh Trip',
-                    style: 'default' as const,
-                    onPress: refreshTripData
-                });
-            }
-
-            Alert.alert('Booking Failed', errorMessage, alertButtons);
-
-            // Reset state after error
-            setTimeout(() => {
-                setState(prev => ({
-                    ...prev,
-                    step: 'selecting',
-                    progress: 0.2,
-                    error: null,
-                }));
-            }, 2000);
+            Alert.alert(
+                'Booking Failed',
+                error.message || 'Something went wrong. Please try again.',
+                [{
+                    text: 'OK',
+                    onPress: () => {
+                        // Reset to selecting after delay
+                        setTimeout(() => {
+                            setState(prev => ({
+                                ...prev,
+                                step: 'selecting',
+                                progress: 0.2,
+                                error: null,
+                            }));
+                        }, 1000);
+                    }
+                }]
+            );
+        } finally {
+            isCreatingBookingRef.current = false;
         }
-    }, [state.trip, state.selectedSeats, state.specialRequests, state.bookingAttempts]);
+    }, [state.trip, state.selectedSeats, state.specialRequests, state.step, validateBooking, initPaymentSheet, viewBookingDetails]);
 
     // Process payment
     const processPayment = useCallback(async () => {
-        if (!state.paymentReady || !state.createdBooking) {
-            Alert.alert('Error', 'Payment not ready. Please try again.');
+        if (!state.createdBooking) {
+            Alert.alert('Error', 'No booking found');
             return;
         }
 
@@ -348,10 +337,11 @@ export function useBookingFlow(tripId: string, initialTrip?: Trip) {
 
             if (error) {
                 if (error.code === 'Canceled') {
+                    setState(prev => ({ ...prev, paymentLoading: false }));
                     Alert.alert('Payment Cancelled', 'You can complete payment later from "My Bookings".');
                     return;
                 }
-                throw new Error(`Payment failed: ${error.message}`);
+                throw new Error(error.message);
             }
 
             // Payment successful
@@ -362,58 +352,65 @@ export function useBookingFlow(tripId: string, initialTrip?: Trip) {
                 paymentLoading: false,
             }));
 
-            // Success feedback
             if (Platform.OS !== 'web') {
                 Vibration.vibrate([100, 50, 100]);
             }
 
             Alert.alert(
-                '🎭 Mock Payment Successful! ✅',
-                `Your booking has been confirmed with mock payment.\n\nBooking Reference: ${state.createdBooking.bookingReference}\nAmount: ${calculateTotalAmount()}\n\n⚠️ This was a test payment - no real money was charged!`,
+                '🎭 Mock Payment Successful!',
+                `Booking confirmed!\nReference: ${state.createdBooking.bookingReference}\nAmount: $${calculateTotalAmount().toFixed(2)}`,
                 [{ text: 'View Booking', onPress: viewBookingDetails }]
             );
 
         } catch (error: any) {
-            console.error('❌ Payment error:', error);
             setState(prev => ({ ...prev, paymentLoading: false }));
-
             Alert.alert(
-                'Mock Payment Failed',
-                `${error.message}\n\n🎭 This is just a test - try again with a different mock card!`,
+                'Payment Failed',
+                error.message,
                 [
                     { text: 'Try Again', onPress: processPayment },
-                    { text: 'Cancel', style: 'cancel' }
+                    {
+                        text: 'Skip', onPress: () => {
+                            setState(prev => ({ ...prev, step: 'completed', progress: 1.0 }));
+                            viewBookingDetails();
+                        }
+                    },
                 ]
             );
         }
-    }, [state.paymentReady, state.createdBooking, presentPaymentSheet, calculateTotalAmount]);
+    }, [state.createdBooking, presentPaymentSheet, calculateTotalAmount, viewBookingDetails]);
 
     // Skip payment
     const skipPayment = useCallback(() => {
         Alert.alert(
-            'Skip Mock Payment?',
-            'You can complete mock payment later from "My Bookings". Your seat will be reserved temporarily.',
+            'Skip Payment?',
+            'You can complete payment later from "My Bookings".',
             [
-                { text: 'Complete Payment Now', onPress: processPayment },
-                { text: 'Skip for Now', style: 'cancel', onPress: viewBookingDetails },
+                { text: 'Complete Now', onPress: processPayment },
+                {
+                    text: 'Skip', onPress: () => {
+                        setState(prev => ({ ...prev, step: 'completed', progress: 1.0 }));
+                        viewBookingDetails();
+                    }
+                },
             ]
         );
     }, [processPayment, viewBookingDetails]);
 
-    // Actions object
-    const actions: BookingActions = {
-        refreshTripData,
-        retryLoading,
-        updateSeats,
-        updateSpecialRequests,
-        calculateTotalAmount,
-        createBooking,
-        processPayment,
-        skipPayment,
-        goBack,
-        goHome,
-        viewBookingDetails,
+    return {
+        state,
+        actions: {
+            refreshTripData,
+            retryLoading,
+            updateSeats,
+            updateSpecialRequests,
+            calculateTotalAmount,
+            createBooking,
+            processPayment,
+            skipPayment,
+            goBack,
+            goHome,
+            viewBookingDetails,
+        }
     };
-
-    return { state, actions };
 }

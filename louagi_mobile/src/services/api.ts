@@ -643,8 +643,161 @@ export const createBooking = async (bookingData: {
   seats?: number;
   specialRequests?: string;
 }): Promise<ApiResponse<Booking>> => {
-  const res = await api.post('/bookings', bookingData);
-  return res.data;
+  try {
+    console.log('📞 API createBooking called with:', bookingData);
+
+    const response = await api.post('/bookings', bookingData);
+
+    console.log('📡 Raw API response:', {
+      status: response.status,
+      statusText: response.statusText,
+      data: response.data,
+      dataType: typeof response.data,
+      hasData: !!response.data?.data,
+      hasBooking: !!response.data?.booking,
+      success: response.data?.success
+    });
+
+    // 🔧 FIXED: Handle different response structures properly
+    let normalizedResponse: ApiResponse<Booking>;
+
+    // Check if response.data has the booking info
+    if (response.data) {
+      // Case 1: Response has success field
+      if (response.data.success !== undefined) {
+        if (response.data.success && (response.data.data || response.data.booking)) {
+          normalizedResponse = {
+            success: true,
+            data: response.data.data || response.data.booking,
+            message: response.data.message || 'Booking created successfully',
+            wasAutoStarted: response.data.wasAutoStarted || false,
+            autoConfirmedBookings: response.data.autoConfirmedBookings || 0,
+          };
+        } else {
+          normalizedResponse = {
+            success: false,
+            message: response.data.message || 'Booking creation failed',
+            error: response.data.error || response.data
+          };
+        }
+      }
+      // Case 2: Response data IS the booking (no wrapper)
+      else if (response.data.id && response.data.tripId) {
+        normalizedResponse = {
+          success: true,
+          data: response.data,
+          message: 'Booking created successfully',
+          wasAutoStarted: false,
+          autoConfirmedBookings: 0,
+        };
+      }
+      // Case 3: Response has booking field directly
+      else if (response.data.booking) {
+        normalizedResponse = {
+          success: true,
+          data: response.data.booking,
+          message: response.data.message || 'Booking created successfully',
+          wasAutoStarted: response.data.wasAutoStarted || false,
+          autoConfirmedBookings: response.data.autoConfirmedBookings || 0,
+        };
+      }
+      // Case 4: Unknown structure
+      else {
+        console.warn('⚠️ Unknown response structure:', response.data);
+        normalizedResponse = {
+          success: false,
+          message: 'Unexpected response format from server',
+          error: response.data
+        };
+      }
+    } else {
+      normalizedResponse = {
+        success: false,
+        message: 'No response data received',
+        error: 'Empty response'
+      };
+    }
+
+    console.log('✅ Normalized API response:', {
+      success: normalizedResponse.success,
+      hasData: !!normalizedResponse.data,
+      message: normalizedResponse.message,
+      bookingId: normalizedResponse.data?.id,
+      wasAutoStarted: normalizedResponse.wasAutoStarted
+    });
+
+    return normalizedResponse;
+
+  } catch (error: any) {
+    console.error('❌ API createBooking error:', {
+      message: error.message,
+      status: error.response?.status,
+      statusText: error.response?.statusText,
+      responseData: error.response?.data,
+      stack: error.stack?.split('\n').slice(0, 3)
+    });
+
+    // Enhanced error handling
+    if (error.response) {
+      const status = error.response.status;
+      const errorData = error.response.data;
+
+      let errorMessage = 'Failed to create booking';
+
+      switch (status) {
+        case 400:
+          errorMessage = errorData?.message || 'Invalid booking data. Please check your selections.';
+          break;
+        case 401:
+          errorMessage = 'Authentication required. Please log in again.';
+          break;
+        case 403:
+          errorMessage = errorData?.message || 'You do not have permission to create bookings.';
+          break;
+        case 404:
+          errorMessage = 'Trip not found. Please select a different trip.';
+          break;
+        case 409:
+          errorMessage = errorData?.message || 'Booking conflict. You may already have a booking for this trip.';
+          break;
+        case 422:
+          errorMessage = errorData?.message || 'Invalid booking data provided.';
+          break;
+        case 500:
+          errorMessage = 'Server error. Please try again in a moment.';
+          break;
+        default:
+          errorMessage = errorData?.message || `Server error (${status}). Please try again.`;
+      }
+
+      return {
+        success: false,
+        message: errorMessage,
+        error: {
+          status,
+          data: errorData
+        }
+      };
+    } else if (error.request) {
+      return {
+        success: false,
+        message: 'Network error. Please check your internet connection.',
+        error: {
+          type: 'network',
+          message: error.message
+        }
+      };
+    } else {
+      return {
+        success: false,
+        message: error.message || 'An unexpected error occurred.',
+        error: {
+          type: 'unknown',
+          message: error.message
+        }
+      };
+    }
+  }
 };
 
 export const getMyBookings = async (params?: {

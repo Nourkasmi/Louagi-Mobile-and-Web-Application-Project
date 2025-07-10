@@ -1,5 +1,5 @@
-// src/services/mockPaymentService.ts - Enhanced Fake Payment Service
-import { Alert } from 'react-native';
+// src/services/mockPaymentService.ts - FIXED Manual Entry Issue
+import { Alert, Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React from 'react';
 
@@ -61,9 +61,9 @@ class MockPaymentService {
     private lastPaymentId = 1000;
 
     /**
-     * Show fake payment form instead of real Stripe
+     * FIXED: Present payment sheet with better manual entry handling
      */
-    async presentFakePaymentForm(): Promise<{ error?: { message: string; code: string } }> {
+    async presentPaymentSheet(): Promise<{ error?: { message: string; code: string } }> {
         if (this.isProcessing) {
             return {
                 error: {
@@ -73,92 +73,176 @@ class MockPaymentService {
             };
         }
 
+        console.log('🎭 Mock Payment: Presenting payment options...');
+
+        return new Promise((resolve) => {
+            Alert.alert(
+                '💳 Mock Payment Options',
+                'Choose how you want to test payment:',
+                [
+                    {
+                        text: 'Cancel',
+                        style: 'cancel',
+                        onPress: () => {
+                            console.log('❌ Mock: Payment cancelled by user');
+                            resolve({
+                                error: { message: 'Payment cancelled', code: 'Canceled' }
+                            });
+                        }
+                    },
+                    {
+                        text: '⚡ Quick Success',
+                        onPress: () => this.handleQuickPayment(resolve, true)
+                    },
+                    {
+                        text: '❌ Quick Decline',
+                        onPress: () => this.handleQuickPayment(resolve, false)
+                    },
+                    {
+                        text: '🎯 Test Cards',
+                        onPress: () => this.showTestCardSelection(resolve)
+                    }
+                ],
+                {
+                    cancelable: true,
+                    onDismiss: () => resolve({
+                        error: { message: 'Payment cancelled', code: 'Canceled' }
+                    })
+                }
+            );
+        });
+    }
+
+    /**
+     * FIXED: Handle quick payment options
+     */
+    private async handleQuickPayment(
+        resolve: (value: { error?: { message: string; code: string } }) => void,
+        success: boolean
+    ) {
         try {
             this.isProcessing = true;
-            console.log('🎭 Mock: Showing fake payment form...');
+            console.log(`🎭 Processing quick ${success ? 'success' : 'decline'} payment...`);
 
-            // Show fake card selection
-            const selectedCard = await this.showFakeCardSelection();
+            // Simulate processing delay
+            await this.delay(1500);
 
-            if (!selectedCard) {
-                console.log('❌ Mock: Payment cancelled by user');
-                return {
+            if (success) {
+                // Store successful payment
+                const successCard = FAKE_CARDS[0]; // Use Visa success card
+                await this.storeFakePayment(successCard);
+
+                console.log('✅ Mock: Quick payment succeeded');
+                resolve({});
+            } else {
+                console.log('❌ Mock: Quick payment declined');
+                resolve({
                     error: {
-                        message: 'Payment was cancelled',
-                        code: 'Canceled'
+                        message: 'Your card was declined - Insufficient funds',
+                        code: 'card_declined'
                     }
-                };
+                });
             }
-
-            // Simulate processing
-            console.log('🎭 Mock: Processing fake payment...');
-            await this.delay(selectedCard.delay);
-
-            if (!selectedCard.success) {
-                console.log('❌ Mock: Fake payment failed -', selectedCard.error);
-                return {
-                    error: {
-                        message: selectedCard.error || 'Payment failed',
-                        code: selectedCard.error?.toLowerCase().replace(' ', '_') || 'payment_failed'
-                    }
-                };
-            }
-
-            // Payment successful
-            console.log('✅ Mock: Fake payment completed successfully!');
-            await this.storeFakePayment(selectedCard);
-
-            return {};
-
+        } catch (error: any) {
+            console.error('❌ Mock: Quick payment error:', error);
+            resolve({
+                error: {
+                    message: error.message || 'Payment processing failed',
+                    code: 'processing_error'
+                }
+            });
         } finally {
             this.isProcessing = false;
         }
     }
 
     /**
-     * Show simple fake card selection
+     * FIXED: Show test card selection with manual entry
      */
-    private showFakeCardSelection(): Promise<typeof FAKE_CARDS[0] | null> {
-        return new Promise((resolve) => {
-            Alert.alert(
-                '💳 Fake Payment - Choose Test Card',
-                'Select a test card to simulate payment:',
-                [
-                    {
-                        text: 'Cancel',
-                        style: 'cancel',
-                        onPress: () => resolve(null)
-                    },
-                    {
-                        text: '✅ Visa •••• 4242 (Success)',
-                        onPress: () => resolve(FAKE_CARDS[0])
-                    },
-                    {
-                        text: '✅ MasterCard •••• 4444 (Success)',
-                        onPress: () => resolve(FAKE_CARDS[1])
-                    },
-                    {
-                        text: '❌ Amex •••• 0005 (Declined)',
-                        onPress: () => resolve(FAKE_CARDS[2])
-                    },
-                    {
-                        text: '❌ Visa •••• 0002 (Invalid)',
-                        onPress: () => resolve(FAKE_CARDS[3])
-                    },
-                ],
-                { cancelable: true, onDismiss: () => resolve(null) }
-            );
-        });
+    private showTestCardSelection(
+        resolve: (value: { error?: { message: string; code: string } }) => void
+    ) {
+        Alert.alert(
+            '💳 Test Card Selection',
+            'Choose a test card or enter manually:',
+            [
+                {
+                    text: 'Cancel',
+                    style: 'cancel',
+                    onPress: () => resolve({
+                        error: { message: 'Payment cancelled', code: 'Canceled' }
+                    })
+                },
+                {
+                    text: '✅ Visa •••• 4242',
+                    onPress: () => this.processSelectedCard(resolve, FAKE_CARDS[0])
+                },
+                {
+                    text: '✅ MC •••• 4444',
+                    onPress: () => this.processSelectedCard(resolve, FAKE_CARDS[1])
+                },
+                {
+                    text: '❌ Amex •••• 0005',
+                    onPress: () => this.processSelectedCard(resolve, FAKE_CARDS[2])
+                },
+                {
+                    text: '✍️ Manual Entry',
+                    onPress: () => this.showManualEntry(resolve)
+                }
+            ]
+        );
     }
 
     /**
-     * Show manual card entry form (fake)
+     * FIXED: Process selected test card
      */
-    async showFakeCardEntryForm(): Promise<{ error?: { message: string; code: string } }> {
-        return new Promise((resolve) => {
+    private async processSelectedCard(
+        resolve: (value: { error?: { message: string; code: string } }) => void,
+        card: typeof FAKE_CARDS[0]
+    ) {
+        try {
+            this.isProcessing = true;
+            console.log(`🎭 Processing ${card.brand} ${card.last4}...`);
+
+            await this.delay(card.delay);
+
+            if (card.success) {
+                await this.storeFakePayment(card);
+                console.log('✅ Mock: Card payment succeeded');
+                resolve({});
+            } else {
+                console.log('❌ Mock: Card payment declined');
+                resolve({
+                    error: {
+                        message: card.error || 'Payment failed',
+                        code: 'card_declined'
+                    }
+                });
+            }
+        } catch (error: any) {
+            console.error('❌ Mock: Card processing error:', error);
+            resolve({
+                error: {
+                    message: error.message || 'Payment processing failed',
+                    code: 'processing_error'
+                }
+            });
+        } finally {
+            this.isProcessing = false;
+        }
+    }
+
+    /**
+     * FIXED: Show manual entry with better platform handling
+     */
+    private showManualEntry(
+        resolve: (value: { error?: { message: string; code: string } }) => void
+    ) {
+        if (Platform.OS === 'ios') {
+            // iOS supports Alert.prompt
             Alert.prompt(
-                '💳 Enter Fake Card Details',
-                'Enter any fake card number (or use test cards):\n\n' +
+                '💳 Enter Card Number',
+                'Enter a test card number:\n\n' +
                 '✅ 4242424242424242 (Success)\n' +
                 '✅ 5555555555554444 (Success)\n' +
                 '❌ 4000000000000002 (Declined)\n' +
@@ -168,24 +252,19 @@ class MockPaymentService {
                         text: 'Cancel',
                         style: 'cancel',
                         onPress: () => resolve({
-                            error: { message: 'Payment cancelled', code: 'Canceled' }
+                            error: { message: 'Manual entry cancelled', code: 'Canceled' }
                         })
                     },
                     {
-                        text: 'Pay Now',
-                        onPress: async (cardNumber) => {
-                            if (!cardNumber || cardNumber.length < 13) {
+                        text: 'Process Payment',
+                        onPress: (cardNumber) => {
+                            if (!cardNumber) {
                                 resolve({
-                                    error: {
-                                        message: 'Invalid card number',
-                                        code: 'invalid_card'
-                                    }
+                                    error: { message: 'No card number entered', code: 'invalid_input' }
                                 });
                                 return;
                             }
-
-                            const result = await this.processFakeCard(cardNumber);
-                            resolve(result);
+                            this.processManualCard(resolve, cardNumber);
                         }
                     }
                 ],
@@ -193,58 +272,132 @@ class MockPaymentService {
                 '4242424242424242', // Default value
                 'numeric'
             );
-        });
+        } else {
+            // Android doesn't reliably support Alert.prompt, show alternative
+            Alert.alert(
+                '💳 Manual Entry (Android)',
+                'Android manual entry simulation:\n\n' +
+                'Choose what would happen if you entered a card:',
+                [
+                    {
+                        text: 'Cancel',
+                        style: 'cancel',
+                        onPress: () => resolve({
+                            error: { message: 'Manual entry cancelled', code: 'Canceled' }
+                        })
+                    },
+                    {
+                        text: '✅ Success Card',
+                        onPress: () => {
+                            console.log('🎭 Android: Simulating manual success entry');
+                            this.processManualCard(resolve, '4242424242424242');
+                        }
+                    },
+                    {
+                        text: '❌ Declined Card',
+                        onPress: () => {
+                            console.log('🎭 Android: Simulating manual decline entry');
+                            this.processManualCard(resolve, '4000000000000002');
+                        }
+                    },
+                    {
+                        text: '🎲 Random Card',
+                        onPress: () => {
+                            console.log('🎭 Android: Simulating random manual entry');
+                            // Generate random 16-digit number
+                            const randomCard = '4' + Math.random().toString().slice(2, 16);
+                            this.processManualCard(resolve, randomCard);
+                        }
+                    }
+                ]
+            );
+        }
     }
 
     /**
-     * Process fake card based on number
+     * FIXED: Process manually entered card
      */
-    private async processFakeCard(cardNumber: string): Promise<{ error?: { message: string; code: string } }> {
-        console.log('🎭 Processing fake card:', cardNumber.slice(-4));
+    private async processManualCard(
+        resolve: (value: { error?: { message: string; code: string } }) => void,
+        cardNumber: string
+    ) {
+        try {
+            this.isProcessing = true;
+            const cleanCardNumber = cardNumber.replace(/\s/g, '');
 
-        // Simulate processing delay
-        await this.delay(2000);
+            console.log('🎭 Processing manual card:', cleanCardNumber.slice(-4));
 
-        // Check if it's a test card
-        const testCard = FAKE_CARDS.find(card =>
-            cardNumber.replace(/\s/g, '') === card.number
-        );
-
-        if (testCard) {
-            if (testCard.success) {
-                await this.storeFakePayment(testCard);
-                return {};
-            } else {
-                return {
+            // Validate card number length
+            if (cleanCardNumber.length < 13 || cleanCardNumber.length > 19) {
+                resolve({
                     error: {
-                        message: testCard.error || 'Card declined',
-                        code: 'card_declined'
+                        message: 'Invalid card number length. Please enter 13-19 digits.',
+                        code: 'invalid_card_number'
                     }
-                };
+                });
+                return;
             }
-        }
 
-        // For any other number, randomly succeed or fail
-        const isSuccess = Math.random() > 0.3; // 70% success rate
+            // Check if it's a known test card
+            const testCard = FAKE_CARDS.find(card =>
+                cleanCardNumber === card.number
+            );
 
-        if (isSuccess) {
-            const fakeCard = {
-                brand: this.getBrandFromNumber(cardNumber),
-                number: cardNumber,
-                last4: cardNumber.slice(-4),
-                success: true,
-                delay: 2000,
-                name: 'Custom Test Card'
-            };
-            await this.storeFakePayment(fakeCard);
-            return {};
-        } else {
-            return {
-                error: {
-                    message: 'Card declined - Insufficient funds',
-                    code: 'card_declined'
+            // Simulate processing delay
+            await this.delay(2000);
+
+            if (testCard) {
+                // Known test card
+                if (testCard.success) {
+                    await this.storeFakePayment(testCard);
+                    console.log('✅ Mock: Manual entry succeeded (known test card)');
+                    resolve({});
+                } else {
+                    console.log('❌ Mock: Manual entry declined (known test card)');
+                    resolve({
+                        error: {
+                            message: testCard.error || 'Card declined',
+                            code: 'card_declined'
+                        }
+                    });
                 }
-            };
+            } else {
+                // Unknown card - simulate random result with 70% success rate
+                const isSuccess = Math.random() > 0.3;
+
+                if (isSuccess) {
+                    const customCard = {
+                        brand: this.getBrandFromNumber(cleanCardNumber),
+                        number: cleanCardNumber,
+                        last4: cleanCardNumber.slice(-4),
+                        success: true,
+                        delay: 2000,
+                        name: 'Custom Card'
+                    };
+
+                    await this.storeFakePayment(customCard);
+                    console.log('✅ Mock: Manual entry succeeded (random card)');
+                    resolve({});
+                } else {
+                    console.log('❌ Mock: Manual entry declined (random card)');
+                    resolve({
+                        error: {
+                            message: 'Card declined - Please try a different card',
+                            code: 'card_declined'
+                        }
+                    });
+                }
+            }
+        } catch (error: any) {
+            console.error('❌ Mock: Manual card processing error:', error);
+            resolve({
+                error: {
+                    message: error.message || 'Manual entry processing failed',
+                    code: 'processing_error'
+                }
+            });
+        } finally {
+            this.isProcessing = false;
         }
     }
 
@@ -265,8 +418,8 @@ class MockPaymentService {
     /**
      * Store fake payment data
      */
-    private async storeFakePayment(card: typeof FAKE_CARDS[0]): Promise<void> {
-        const paymentId = `fake_payment_${++this.lastPaymentId}`;
+    private async storeFakePayment(card: any): Promise<void> {
+        const paymentId = `mock_payment_${++this.lastPaymentId}`;
         const paymentData = {
             id: paymentId,
             brand: card.brand,
@@ -275,16 +428,16 @@ class MockPaymentService {
             amount: 0, // Will be set by calling code
             currency: 'USD',
             status: 'completed',
-            fake: true,
+            mock: true,
             cardName: card.name
         };
 
-        await AsyncStorage.setItem('last_fake_payment', JSON.stringify(paymentData));
-        console.log('💾 Fake payment stored:', paymentData);
+        await AsyncStorage.setItem('last_mock_payment', JSON.stringify(paymentData));
+        console.log('💾 Mock payment stored:', paymentData);
     }
 
     /**
-     * Initialize fake payment sheet
+     * Initialize mock payment sheet
      */
     async initPaymentSheet(params: {
         merchantDisplayName: string;
@@ -293,70 +446,28 @@ class MockPaymentService {
         allowsDelayedPaymentMethods?: boolean;
         returnURL?: string;
     }): Promise<{ error?: { message: string; code: string } }> {
-        console.log('🎭 Fake Payment: Initializing...', params.merchantDisplayName);
+        console.log('🎭 Mock Payment: Initializing...', params.merchantDisplayName);
 
         // Simulate initialization delay
         await this.delay(500);
 
-        console.log('✅ Fake Payment: Ready for testing!');
+        console.log('✅ Mock Payment: Ready for testing!');
         return {};
     }
 
     /**
-     * Present fake payment sheet (main method used by app)
+     * Create mock payment intent
      */
-    async presentPaymentSheet(): Promise<{ error?: { message: string; code: string } }> {
-        console.log('🎭 Fake Payment: Presenting payment options...');
-
-        return new Promise((resolve) => {
-            Alert.alert(
-                '💳 Fake Payment Options',
-                'Choose how you want to test payment:',
-                [
-                    {
-                        text: 'Cancel',
-                        style: 'cancel',
-                        onPress: () => resolve({
-                            error: { message: 'Payment cancelled', code: 'Canceled' }
-                        })
-                    },
-                    {
-                        text: '🎯 Quick Test Cards',
-                        onPress: async () => {
-                            const result = await this.presentFakePaymentForm();
-                            resolve(result);
-                        }
-                    },
-                    {
-                        text: '✍️ Manual Entry',
-                        onPress: async () => {
-                            const result = await this.showFakeCardEntryForm();
-                            resolve(result);
-                        }
-                    }
-                ],
-                {
-                    cancelable: true, onDismiss: () => resolve({
-                        error: { message: 'Payment cancelled', code: 'Canceled' }
-                    })
-                }
-            );
-        });
-    }
-
-    /**
-     * Create fake payment intent
-     */
-    async createFakePaymentIntent(bookingId: string): Promise<{
+    async createMockPaymentIntent(bookingId: string): Promise<{
         success: boolean;
         clientSecret?: string;
         error?: string;
     }> {
-        console.log('🎭 Creating fake payment intent for booking:', bookingId);
+        console.log('🎭 Creating mock payment intent for booking:', bookingId);
 
         await this.delay(800);
 
-        const clientSecret = `pi_fake_${Date.now()}_secret_${Math.random().toString(36).substr(2, 9)}`;
+        const clientSecret = `pi_mock_${Date.now()}_secret_${Math.random().toString(36).substr(2, 9)}`;
 
         return {
             success: true,
@@ -365,11 +476,11 @@ class MockPaymentService {
     }
 
     /**
-     * Get fake payment history
+     * Get mock payment history
      */
-    async getFakePaymentHistory(): Promise<any[]> {
+    async getMockPaymentHistory(): Promise<any[]> {
         try {
-            const lastPayment = await AsyncStorage.getItem('last_fake_payment');
+            const lastPayment = await AsyncStorage.getItem('last_mock_payment');
             return lastPayment ? [JSON.parse(lastPayment)] : [];
         } catch (error) {
             return [];
@@ -377,11 +488,11 @@ class MockPaymentService {
     }
 
     /**
-     * Clear fake payment data
+     * Clear mock payment data
      */
-    async clearFakeData(): Promise<void> {
-        await AsyncStorage.removeItem('last_fake_payment');
-        console.log('🗑️ Fake payment data cleared');
+    async clearMockData(): Promise<void> {
+        await AsyncStorage.removeItem('last_mock_payment');
+        console.log('🗑️ Mock payment data cleared');
     }
 
     /**
@@ -392,32 +503,19 @@ class MockPaymentService {
     }
 
     /**
-     * Show payment success message
-     */
-    showSuccessMessage(amount: string): void {
-        Alert.alert(
-            '🎉 Fake Payment Successful!',
-            `Your test payment of $${amount} was processed successfully!\n\n` +
-            `💡 This was a simulated payment - no real money was charged.\n\n` +
-            `✅ Your booking is now confirmed!`,
-            [{ text: 'Great!', style: 'default' }]
-        );
-    }
-
-    /**
      * Show test card information
      */
     showTestCardInfo(): void {
         Alert.alert(
             '💳 Test Card Numbers',
-            'Use these fake cards for testing:\n\n' +
+            'Use these mock cards for testing:\n\n' +
             '✅ SUCCESS CARDS:\n' +
             '4242424242424242 (Visa)\n' +
             '5555555555554444 (MasterCard)\n\n' +
             '❌ FAILURE CARDS:\n' +
             '4000000000000002 (Declined)\n' +
             '4000000000000069 (Expired)\n\n' +
-            '💡 You can also enter any 16-digit number!',
+            '💡 Or enter any 13-19 digit number for random results!',
             [{ text: 'Got it!', style: 'default' }]
         );
     }
@@ -426,16 +524,16 @@ class MockPaymentService {
 // Export singleton instance
 export const mockPaymentService = new MockPaymentService();
 
-// Fake Stripe Provider Component
+// Mock Stripe Provider Component
 export const MockStripeProvider: React.FC<{
     children: React.ReactNode;
-    publishableKey: string
+    publishableKey: string;
 }> = ({ children }) => {
-    console.log('🎭 Fake Stripe Provider initialized - No real Stripe needed!');
+    console.log('🎭 Mock Stripe Provider initialized - No real Stripe needed!');
     return React.createElement(React.Fragment, null, children);
 };
 
-// Fake usePaymentSheet hook
+// Mock usePaymentSheet hook
 export const useMockPaymentSheet = () => {
     return {
         initPaymentSheet: mockPaymentService.initPaymentSheet.bind(mockPaymentService),
@@ -443,9 +541,5 @@ export const useMockPaymentSheet = () => {
         loading: false
     };
 };
-
-// Export aliases for consistency
-export const useFakePaymentSheet = useMockPaymentSheet;
-export const FakeStripeProvider = MockStripeProvider;
 
 export default mockPaymentService;

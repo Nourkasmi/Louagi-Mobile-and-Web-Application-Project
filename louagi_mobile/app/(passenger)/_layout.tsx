@@ -1,5 +1,4 @@
-// app/(passenger)/_layout.tsx - CLEANED UP Passenger Tab Bar
-
+// app/(passenger)/_layout.tsx - UPDATED Passenger Tab Layout
 import React from 'react';
 import { Tabs } from 'expo-router';
 import { Platform } from 'react-native';
@@ -65,6 +64,9 @@ export default function PassengerLayout() {
       <Tabs.Screen name="booking" options={{ href: null }} />
       <Tabs.Screen name="payment" options={{ href: null }} />
       <Tabs.Screen name="bookings/[id]" options={{ href: null }} />
+      <Tabs.Screen name="bookings/components" options={{ href: null }} />
+      <Tabs.Screen name="bookings/types" options={{ href: null }} />
+      <Tabs.Screen name="bookings/utils" options={{ href: null }} />
       <Tabs.Screen name="search/index" options={{ href: null }} />
       <Tabs.Screen name="profile/edit" options={{ href: null }} />
     </Tabs>

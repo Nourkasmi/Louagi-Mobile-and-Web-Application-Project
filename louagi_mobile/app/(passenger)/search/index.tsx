@@ -1,4 +1,4 @@
-// 📁 app/(passenger)/search/index.tsx - FIXED to Pass Context Data
+// app/(passenger)/search/index.tsx - UPDATED: Direct Station Search
 import React, { useEffect, useState, useCallback } from 'react';
 import {
   View,
@@ -8,607 +8,627 @@ import {
   ActivityIndicator,
   Alert,
   RefreshControl,
+  TextInput,
+  StatusBar,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { MaterialIcons } from '@expo/vector-icons';
 import {
+  getStations,
   getDestinations,
-  getTrips,
-  type Destination,
-  type Trip
+  type Station,
+  type Destination
 } from '../../../src/services/api';
-import { styles } from './index.style';
 import { theme } from '../../../src/styles/theme';
 
-export default function PassengerSearchScreen() {
-  const { stationId, stationName } = useLocalSearchParams<{
-    stationId: string;
-    stationName: string;
+export default function StationSearchScreen() {
+  const { selectedStationId, selectedStationName } = useLocalSearchParams<{
+    selectedStationId?: string;
+    selectedStationName?: string;
   }>();
 
   const router = useRouter();
 
   // State management
+  const [stations, setStations] = useState<Station[]>([]);
+  const [filteredStations, setFilteredStations] = useState<Station[]>([]);
+  const [selectedStation, setSelectedStation] = useState<Station | null>(null);
   const [destinations, setDestinations] = useState<Destination[]>([]);
-  const [trips, setTrips] = useState<Trip[]>([]);
-  const [selectedDestination, setSelectedDestination] = useState<Destination | null>(null);
   const [loading, setLoading] = useState(true);
-  const [searchingTrips, setSearchingTrips] = useState(false);
+  const [searchText, setSearchText] = useState('');
   const [refreshing, setRefreshing] = useState(false);
+  const [step, setStep] = useState<'stations' | 'destinations'>('stations');
 
-  // Fetch destinations for this station
+  // Check if we need to auto-select a station from home screen
   useEffect(() => {
-    const fetchDestinations = async () => {
-      try {
-        setLoading(true);
-
-        const response = await getDestinations(stationId, { limit: 50 });
-
-        let dests = [];
-        if (response.success) {
-          if (response.data?.destinations) {
-            dests = response.data.destinations;
-          } else if (response.destinations) {
-            dests = response.destinations;
-          }
-        }
-
-        setDestinations(dests);
-
-        if (!response.success || dests.length === 0) {
-          Alert.alert('Info', 'No destinations available for this station');
-        }
-      } catch (error) {
-        console.error('Error fetching destinations:', error);
-        Alert.alert('Error', 'Failed to load destinations');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    if (stationId) {
-      fetchDestinations();
+    if (selectedStationId && selectedStationName) {
+      // Find the station and auto-navigate to destinations
+      const autoSelectedStation: Station = {
+        id: selectedStationId,
+        name: selectedStationName,
+        address: '',
+        city: '',
+        state: '',
+        zipCode: '',
+        capacity: 100,
+        isActive: true,
+        amenities: {},
+      };
+      fetchDestinations(autoSelectedStation);
     }
-  }, [stationId]);
+  }, [selectedStationId, selectedStationName]);
 
-  // Search trips function
-  const searchTrips = useCallback(async (destination: Destination, isRefresh = false) => {
+  // Fetch all stations
+  const fetchStations = useCallback(async (isRefresh = false) => {
     try {
-      if (isRefresh) {
-        setRefreshing(true);
-      } else {
-        setSearchingTrips(true);
+      if (isRefresh) setRefreshing(true);
+      else setLoading(true);
+
+      const response = await getStations({ limit: 100 });
+
+      let stationsList = [];
+      if (response.success) {
+        if (response.data?.stations) {
+          stationsList = response.data.stations;
+        } else if (response.stations) {
+          stationsList = response.stations;
+        }
       }
 
-      setSelectedDestination(destination);
+      setStations(stationsList);
+      setFilteredStations(stationsList);
 
-      // API call with destinationId
-      const response = await getTrips({
-        destinationId: destination.id,
-        status: 'scheduled',
-        page: 1,
-        limit: 20
-      });
-
-      let tripList = [];
-
-      // Handle multiple possible response structures
-      if (response.success) {
-        if (response.data?.trips) {
-          tripList = response.data.trips;
-        } else if (response.trips) {
-          tripList = response.trips;
-        } else if (response.data?.data?.trips) {
-          tripList = response.data.data.trips;
-        } else if (Array.isArray(response.data)) {
-          tripList = response.data;
-        }
-
-        // Filter for available seats
-        const availableTrips = Array.isArray(tripList) ?
-          tripList.filter(trip => trip.availableSeats > 0) : [];
-
-        setTrips(availableTrips);
-
-        if (availableTrips.length === 0 && tripList.length > 0) {
-          Alert.alert(
-            'Trips Found But Full',
-            `Found ${tripList.length} trip(s), but all seats are booked. New trips are created when drivers declare availability.`
-          );
-        } else if (availableTrips.length === 0) {
-          Alert.alert(
-            'No Available Trips',
-            'No trips with available seats found for this route. New trips are created automatically when drivers declare availability.'
-          );
-        }
-      } else {
-        Alert.alert('Error', response.message || 'Failed to search trips');
-        setTrips([]);
+      if (!response.success || stationsList.length === 0) {
+        Alert.alert('Info', 'No stations available at the moment');
       }
     } catch (error) {
-      console.error('Error searching trips:', error);
-      Alert.alert('Error', 'Failed to search trips');
-      setTrips([]);
+      console.error('Error fetching stations:', error);
+      Alert.alert('Error', 'Failed to load stations');
     } finally {
-      setSearchingTrips(false);
+      setLoading(false);
       setRefreshing(false);
     }
   }, []);
 
-  // Auto-refresh trips every 30 seconds for real-time updates
-  useEffect(() => {
-    if (selectedDestination) {
-      const interval = setInterval(() => {
-        searchTrips(selectedDestination, true);
-      }, 30000);
-
-      return () => clearInterval(interval);
-    }
-  }, [selectedDestination, searchTrips]);
-
-  // Helper functions using theme
-  const formatTime = (dateString: string | null) => {
-    if (!dateString) return 'When full';
-    return new Date(dateString).toLocaleTimeString('en-US', {
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: true
-    });
-  };
-
-  const formatDate = (dateString: string | null) => {
-    if (!dateString) return 'Today';
-    return new Date(dateString).toLocaleDateString('en-US', {
-      weekday: 'short',
-      month: 'short',
-      day: 'numeric'
-    });
-  };
-
-  // Get trip status info with theme colors
-  const getTripStatusInfo = (trip: Trip) => {
-    const bookedSeats = trip.capacity - trip.availableSeats;
-    const percentageFull = Math.round((bookedSeats / trip.capacity) * 100);
-
-    if (percentageFull === 100) {
-      return {
-        text: 'Starting Soon! 🚀',
-        color: theme.colors.status.completed,
-        urgent: true
-      };
-    } else if (percentageFull >= 75) {
-      return {
-        text: 'Almost Full!',
-        color: theme.colors.status.pending,
-        urgent: true
-      };
-    } else if (percentageFull >= 50) {
-      return {
-        text: 'Filling Up',
-        color: theme.colors.status.inProgress,
-        urgent: false
-      };
-    } else {
-      return {
-        text: 'Available',
-        color: theme.colors.status.noShow,
-        urgent: false
-      };
-    }
-  };
-
-  // 🔧 FIXED: Navigate to booking screen with complete context data
-  const selectTrip = (trip: Trip) => {
+  // Fetch destinations for selected station
+  const fetchDestinations = useCallback(async (station: Station) => {
     try {
-      console.log('🚗 Selecting trip for booking:', {
-        tripId: trip.id,
-        stationId,
-        stationName,
-        selectedDestination: selectedDestination?.id
-      });
+      setLoading(true);
+      setSelectedStation(station);
+      setStep('destinations');
 
-      // 🔧 FIXED: Validate trip data before navigation
-      if (!trip || !trip.id) {
-        Alert.alert('Error', 'Invalid trip data. Please try again.');
-        return;
-      }
+      const response = await getDestinations(station.id, { limit: 50 });
 
-      // 🆕 NEW: Create context data for the booking flow
-      const contextData = {
-        stationName: stationName || 'Departure Station',
-        selectedDestination: selectedDestination,
-        searchParams: {
-          stationId,
-          destinationId: selectedDestination?.id,
+      let destinationsList = [];
+      if (response.success) {
+        if (response.data?.destinations) {
+          destinationsList = response.data.destinations;
+        } else if (response.destinations) {
+          destinationsList = response.destinations;
         }
-      };
-
-      // 🔧 FIXED: Ensure route data is complete with all required fields
-      const completeTrip = {
-        ...trip,
-        // Ensure all required trip fields
-        id: trip.id,
-        capacity: trip.capacity || 8,
-        availableSeats: trip.availableSeats || 0,
-        status: trip.status || 'scheduled',
-        basePrice: trip.basePrice || '36.00',
-        currentPrice: trip.currentPrice || trip.basePrice || '36.00',
-        departureTime: trip.departureTime,
-        estimatedArrivalTime: trip.estimatedArrivalTime,
-        notes: trip.notes || '',
-        createdAt: trip.createdAt || new Date().toISOString(),
-        updatedAt: trip.updatedAt || new Date().toISOString(),
-
-        // Complete route information with fallbacks
-        route: {
-          id: trip.route?.id || `route_${trip.id}`,
-          startId: trip.route?.startId || stationId || '',
-          endId: trip.route?.endId || selectedDestination?.endStation?.id || selectedDestination?.id || '',
-          distance: trip.route?.distance || 150,
-          basePrice: trip.route?.basePrice || trip.basePrice || '36.00',
-          estimatedDuration: trip.route?.estimatedDuration || 180,
-          isActive: trip.route?.isActive ?? true,
-          description: trip.route?.description || selectedDestination?.description || `${stationName} to ${selectedDestination?.endStation?.name || 'Destination'}`,
-          createdAt: trip.route?.createdAt || new Date().toISOString(),
-          updatedAt: trip.route?.updatedAt || new Date().toISOString(),
-
-          // Complete start station with real data
-          startStation: {
-            id: trip.route?.startStation?.id || stationId || 'temp-start',
-            name: trip.route?.startStation?.name || stationName || 'Departure Station',
-            address: trip.route?.startStation?.address || '123 Main Street',
-            city: trip.route?.startStation?.city || 'Tunis',
-            state: trip.route?.startStation?.state || 'Tunis Governorate',
-            zipCode: trip.route?.startStation?.zipCode || '1000',
-            capacity: trip.route?.startStation?.capacity || 100,
-            isActive: trip.route?.startStation?.isActive ?? true,
-            contactPhone: trip.route?.startStation?.contactPhone || '+216 XX XXX XXX',
-            contactEmail: trip.route?.startStation?.contactEmail || 'station@louagi.com',
-            amenities: trip.route?.startStation?.amenities || {},
-          },
-
-          // Complete end station with real data
-          endStation: {
-            id: trip.route?.endStation?.id || selectedDestination?.endStation?.id || selectedDestination?.id || 'temp-end',
-            name: trip.route?.endStation?.name || selectedDestination?.endStation?.name || selectedDestination?.description || 'Destination Station',
-            address: trip.route?.endStation?.address || selectedDestination?.endStation?.address || '456 Destination Ave',
-            city: trip.route?.endStation?.city || selectedDestination?.endStation?.city || 'Sfax',
-            state: trip.route?.endStation?.state || selectedDestination?.endStation?.state || 'Sfax Governorate',
-            zipCode: trip.route?.endStation?.zipCode || selectedDestination?.endStation?.zipCode || '3000',
-            capacity: trip.route?.endStation?.capacity || 100,
-            isActive: trip.route?.endStation?.isActive ?? true,
-            contactPhone: trip.route?.endStation?.contactPhone || '+216 XX XXX XXX',
-            contactEmail: trip.route?.endStation?.contactEmail || 'destination@louagi.com',
-            amenities: trip.route?.endStation?.amenities || {},
-          },
-        },
-
-        // Include enhanced driver info if available, or create realistic fallback
-        driver: trip.driver || {
-          id: 'temp-driver',
-          user: {
-            id: 'temp-driver-user',
-            username: 'Ahmed Ben Salem',
-            email: 'ahmed.driver@louagi.com',
-            phone: '+216 98 765 432',
-            role: 'driver' as const,
-            isActive: true,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-          },
-          licenseNo: 'TN-123456789',
-          licenseExpiry: '2025-12-31',
-          experience: 8,
-          rating: 4.7,
-          vehicleType: '8-Seater Van',
-          vehicleCapacity: trip.capacity || 8,
-          isVerified: true,
-          isAvailable: true,
-          documents: {},
-        },
-
-        schedule: trip.schedule || null,
-        queueEntry: trip.queueEntry || null,
-        bookings: trip.bookings || [],
-      };
-
-      // 🔧 FIXED: Validate complete trip before navigation
-      if (!completeTrip.route.startStation.name || !completeTrip.route.endStation.name) {
-        Alert.alert('Error', 'Trip route information is incomplete. Please try again.');
-        return;
       }
 
-      // 🔧 FIXED: Convert to string safely with error handling
-      let tripDataString: string;
-      try {
-        tripDataString = JSON.stringify(completeTrip);
-      } catch (stringifyError) {
-        console.error('❌ Error stringifying trip data:', stringifyError);
-        Alert.alert('Error', 'Unable to process trip data. Please try again.');
-        return;
+      setDestinations(destinationsList);
+
+      if (!response.success || destinationsList.length === 0) {
+        Alert.alert(
+          'No Routes Available',
+          `No routes are configured from ${station.name} yet. Please try another station.`,
+          [
+            {
+              text: 'Choose Different Station', onPress: () => {
+                setStep('stations');
+                setSelectedStation(null);
+                setDestinations([]);
+              }
+            }
+          ]
+        );
       }
-
-      console.log('✅ Complete trip data prepared for booking:', {
-        tripId: completeTrip.id,
-        route: `${completeTrip.route.startStation.name} → ${completeTrip.route.endStation.name}`,
-        capacity: completeTrip.capacity,
-        availableSeats: completeTrip.availableSeats,
-        price: completeTrip.currentPrice,
-        dataSize: tripDataString.length,
-        hasDriver: !!completeTrip.driver,
-        hasSchedule: !!completeTrip.schedule,
-        driverName: completeTrip.driver?.user?.username,
-        contextData: contextData
-      });
-
-      // 🔧 FIXED: Navigate with complete and validated data
-      router.push({
-        pathname: '/(passenger)/booking',
-        params: {
-          tripId: completeTrip.id,
-          tripData: tripDataString,
-          // Pass context data separately
-          stationName: contextData.stationName,
-          destinationName: completeTrip.route.endStation.name,
-          stationId: contextData.searchParams.stationId,
-          destinationId: contextData.searchParams.destinationId,
-        }
-      });
-
     } catch (error) {
-      console.error('❌ Error navigating to booking:', error);
-      Alert.alert(
-        'Navigation Error',
-        'Unable to open booking screen. Please try selecting the trip again.',
-        [
-          { text: 'OK', style: 'default' }
-        ]
-      );
+      console.error('Error fetching destinations:', error);
+      Alert.alert('Error', 'Failed to load destinations for this station');
+    } finally {
+      setLoading(false);
     }
-  };
+  }, []);
+
+  // Search filter
+  useEffect(() => {
+    if (!searchText.trim()) {
+      setFilteredStations(stations);
+      return;
+    }
+
+    const filtered = stations.filter(station =>
+      station.name.toLowerCase().includes(searchText.toLowerCase()) ||
+      station.city.toLowerCase().includes(searchText.toLowerCase()) ||
+      station.state.toLowerCase().includes(searchText.toLowerCase())
+    );
+
+    setFilteredStations(filtered);
+  }, [searchText, stations]);
+
+  // Initial load
+  useEffect(() => {
+    fetchStations();
+  }, [fetchStations]);
+
+  // Navigate to trips screen
+  const selectDestination = useCallback((destination: Destination) => {
+    if (!selectedStation) return;
+
+    router.push({
+      pathname: '/(passenger)/search/trips',
+      params: {
+        stationId: selectedStation.id,
+        stationName: selectedStation.name,
+        destinationId: destination.id,
+        destinationName: destination.endStation?.name || destination.description,
+      }
+    });
+  }, [selectedStation, router]);
+
+  // Render station item
+  const renderStationItem = ({ item }: { item: Station }) => (
+    <TouchableOpacity
+      style={styles.destinationCard}
+      onPress={() => fetchDestinations(item)}
+    >
+      <View style={styles.stationHeader}>
+        <MaterialIcons name="location-on" size={24} color={theme.colors.primary} />
+        <View style={styles.stationInfo}>
+          <Text style={styles.destinationName}>{item.name}</Text>
+          <Text style={styles.destinationDetails}>
+            {item.city}, {item.state}
+          </Text>
+          {item.amenities && Object.keys(item.amenities).length > 0 && (
+            <View style={styles.amenitiesRow}>
+              <MaterialIcons name="star" size={14} color={theme.colors.warning} />
+              <Text style={styles.amenitiesText}>Amenities available</Text>
+            </View>
+          )}
+        </View>
+        <MaterialIcons name="arrow-forward-ios" size={16} color="#ccc" />
+      </View>
+    </TouchableOpacity>
+  );
 
   // Render destination item
   const renderDestinationItem = ({ item }: { item: Destination }) => (
     <TouchableOpacity
       style={styles.destinationCard}
-      onPress={() => searchTrips(item)}
+      onPress={() => selectDestination(item)}
     >
-      <Text style={styles.destinationName}>{item.description}</Text>
-      <Text style={styles.destinationDetails}>
-        To: {item.endStation?.name || 'Unknown'}, {item.endStation?.city || 'Unknown'}
-      </Text>
-      <View style={styles.destinationMeta}>
-        <Text style={styles.price}>From ${item.basePrice}</Text>
-        <Text style={styles.duration}>{item.estimatedDuration} min</Text>
+      <View style={styles.routeInfo}>
+        <MaterialIcons name="route" size={24} color={theme.colors.secondary} />
+        <View style={styles.routeDetails}>
+          <Text style={styles.destinationName}>
+            To: {item.endStation?.name || 'Unknown Destination'}
+          </Text>
+          <Text style={styles.destinationDetails}>
+            {item.endStation?.city}, {item.endStation?.state}
+          </Text>
+          <View style={styles.destinationMeta}>
+            <Text style={styles.price}>From ${item.basePrice}</Text>
+            <Text style={styles.duration}>{item.estimatedDuration} min</Text>
+            <Text style={styles.distance}>{item.distance} km</Text>
+          </View>
+        </View>
+        <MaterialIcons name="arrow-forward-ios" size={16} color="#ccc" />
       </View>
     </TouchableOpacity>
   );
 
-  // Enhanced trip item rendering with theme
-  const renderTripItem = ({ item }: { item: Trip }) => {
-    const bookedSeats = item.capacity - item.availableSeats;
-    const statusInfo = getTripStatusInfo(item);
-    const pricePerSeat = (item.currentPrice / item.capacity);
+  // Render header
+  const renderHeader = () => (
+    <View style={styles.header}>
+      <StatusBar barStyle="light-content" backgroundColor={theme.colors.primary} />
 
-    return (
-      <TouchableOpacity
-        style={[
-          styles.tripCard,
-          statusInfo.urgent && styles.urgentTripCard
-        ]}
-        onPress={() => selectTrip(item)}
-        disabled={item.availableSeats === 0}
-      >
-        {/* Trip Header */}
-        <View style={styles.tripHeader}>
-          <View style={styles.timeContainer}>
-            <Text style={styles.tripTime}>
-              {formatTime(item.departureTime)}
-            </Text>
-            <Text style={styles.tripDate}>
-              {formatDate(item.departureTime)}
-            </Text>
-          </View>
+      <View style={styles.headerTop}>
+        <TouchableOpacity onPress={() => {
+          if (step === 'destinations') {
+            setStep('stations');
+            setSelectedStation(null);
+            setDestinations([]);
+          } else {
+            router.back();
+          }
+        }} style={styles.backButton}>
+          <MaterialIcons name="arrow-back" size={24} color="#ffffff" />
+        </TouchableOpacity>
 
-          <View style={[styles.statusBadge, { backgroundColor: statusInfo.color }]}>
-            <Text style={styles.statusText}>{statusInfo.text}</Text>
-          </View>
-        </View>
+        <Text style={styles.headerTitle}>
+          {step === 'stations' ? 'Choose Departure Station' : 'Choose Destination'}
+        </Text>
 
-        {/* Capacity Visual */}
-        <View style={styles.capacitySection}>
-          <View style={styles.capacityHeader}>
-            <Text style={styles.capacityLabel}>Seats</Text>
-            <Text style={styles.capacityCount}>
-              {bookedSeats}/{item.capacity} filled
-            </Text>
-          </View>
+        <View style={styles.headerAction} />
+      </View>
 
-          <View style={styles.capacityBar}>
-            <View
-              style={[
-                styles.capacityFill,
-                {
-                  width: `${(bookedSeats / item.capacity) * 100}%`,
-                  backgroundColor: statusInfo.color
-                }
-              ]}
-            />
-          </View>
-
-          <View style={styles.seatIndicators}>
-            {Array.from({ length: item.capacity }, (_, index) => (
-              <View
-                key={index}
-                style={[
-                  styles.seatIndicator,
-                  index < bookedSeats ? styles.bookedSeat : styles.availableSeat
-                ]}
-              />
-            ))}
-          </View>
-        </View>
-
-        {/* Trip Details */}
-        <View style={styles.tripDetails}>
-          <View style={styles.driverSection}>
-            <Text style={styles.driverName}>
-              🚗 {item.driver?.user?.username || 'Ahmed Ben Salem'}
-            </Text>
-            <Text style={styles.vehicleInfo}>
-              {item.driver?.vehicleType || '8-Seater Van'} • ⭐ {item.driver?.rating?.toFixed(1) || '4.7'}
-            </Text>
-          </View>
-
-          <Text style={styles.durationText}>
-            ⏱️ {item.route?.estimatedDuration || 180} min trip
+      {step === 'destinations' && selectedStation && (
+        <View style={styles.selectedStationBanner}>
+          <MaterialIcons name="location-on" size={20} color="#ffffff" />
+          <Text style={styles.selectedStationText}>
+            From: {selectedStation.name}
           </Text>
+          <TouchableOpacity onPress={() => {
+            setStep('stations');
+            setSelectedStation(null);
+            setDestinations([]);
+          }}>
+            <Text style={styles.changeStationText}>Change</Text>
+          </TouchableOpacity>
         </View>
+      )}
 
-        {/* Price and Book Button */}
-        <View style={styles.tripFooter}>
-          <View style={styles.priceSection}>
-            <Text style={styles.priceLabel}>Price per seat</Text>
-            <Text style={styles.price}>${pricePerSeat.toFixed(2)}</Text>
-          </View>
-
-          <View style={styles.bookSection}>
-            <Text style={styles.availableSeats}>
-              {item.availableSeats} seat{item.availableSeats !== 1 ? 's' : ''} left
-            </Text>
-            {statusInfo.urgent && (
-              <Text style={styles.urgentText}>Book now!</Text>
+      {step === 'stations' && (
+        <View style={styles.searchContainer}>
+          <View style={styles.searchInputContainer}>
+            <MaterialIcons name="search" size={20} color="#666" />
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Search stations by name or city..."
+              value={searchText}
+              onChangeText={setSearchText}
+              placeholderTextColor="#999"
+            />
+            {searchText.length > 0 && (
+              <TouchableOpacity onPress={() => setSearchText('')}>
+                <MaterialIcons name="clear" size={20} color="#666" />
+              </TouchableOpacity>
             )}
           </View>
         </View>
+      )}
+    </View>
+  );
 
-        {/* Auto-start indicator */}
-        {!item.departureTime && (
-          <View style={styles.autoStartIndicator}>
-            <Text style={styles.autoStartText}>
-              🚀 Starts automatically when full
-            </Text>
-          </View>
-        )}
-      </TouchableOpacity>
-    );
-  };
-
-  if (loading) {
+  if (loading && (step === 'stations' ? stations.length === 0 : destinations.length === 0)) {
     return (
-      <View style={styles.centered}>
-        <ActivityIndicator size="large" color={theme.colors.primary} />
-        <Text style={styles.loadingText}>Loading destinations...</Text>
+      <View style={styles.container}>
+        {renderHeader()}
+        <View style={styles.centered}>
+          <ActivityIndicator size="large" color={theme.colors.primary} />
+          <Text style={styles.loadingText}>
+            {step === 'stations' ? 'Loading stations...' : 'Loading destinations...'}
+          </Text>
+        </View>
       </View>
     );
   }
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <Text style={styles.backButtonText}>← Back</Text>
-        </TouchableOpacity>
-        <Text style={styles.title}>Search Trips</Text>
-        <Text style={styles.subtitle}>From: {stationName}</Text>
-      </View>
+      {renderHeader()}
 
-      {!selectedDestination ? (
-        <>
-          <Text style={styles.sectionTitle}>Select Destination:</Text>
-          <FlatList
-            data={destinations}
-            keyExtractor={(item) => item.id}
-            renderItem={renderDestinationItem}
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={styles.listContainer}
-            ListEmptyComponent={
-              <View style={styles.emptyState}>
-                <Text style={styles.emptyIcon}>🎯</Text>
-                <Text style={styles.emptyText}>No destinations available</Text>
-                <Text style={styles.emptySubtext}>
-                  No routes are configured from this station yet.
+      {step === 'stations' ? (
+        <FlatList
+          data={filteredStations}
+          keyExtractor={(item) => item.id}
+          renderItem={renderStationItem}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={() => fetchStations(true)}
+              colors={[theme.colors.primary]}
+            />
+          }
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.listContainer}
+          ListEmptyComponent={
+            <View style={styles.emptyState}>
+              <MaterialIcons name="location-off" size={64} color="#ccc" />
+              <Text style={styles.emptyText}>
+                {searchText ? 'No stations found' : 'No stations available'}
+              </Text>
+              <Text style={styles.emptySubtext}>
+                {searchText
+                  ? `No stations match "${searchText}". Try a different search.`
+                  : 'No departure stations are configured yet.'
+                }
+              </Text>
+              {searchText && (
+                <TouchableOpacity
+                  style={styles.refreshEmptyButton}
+                  onPress={() => setSearchText('')}
+                >
+                  <Text style={styles.refreshEmptyButtonText}>Clear Search</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          }
+          ListHeaderComponent={
+            filteredStations.length > 0 ? (
+              <View style={styles.listHeader}>
+                <Text style={styles.listHeaderText}>
+                  {searchText
+                    ? `${filteredStations.length} station${filteredStations.length !== 1 ? 's' : ''} found`
+                    : `${filteredStations.length} departure station${filteredStations.length !== 1 ? 's' : ''} available`
+                  }
                 </Text>
               </View>
-            }
-          />
-        </>
+            ) : null
+          }
+        />
       ) : (
-        <>
-          <View style={styles.selectedRoute}>
-            <Text style={styles.routeText}>
-              {stationName} → {selectedDestination.endStation?.name || 'Unknown'}
-            </Text>
-            <TouchableOpacity
-              onPress={() => {
-                setSelectedDestination(null);
-                setTrips([]);
-              }}
-              style={styles.changeButton}
-            >
-              <Text style={styles.changeButtonText}>Change Route</Text>
-            </TouchableOpacity>
-          </View>
-
-          {searchingTrips ? (
-            <View style={styles.centered}>
-              <ActivityIndicator size="large" color={theme.colors.primary} />
-              <Text style={styles.loadingText}>Searching available trips...</Text>
+        <FlatList
+          data={destinations}
+          keyExtractor={(item) => item.id}
+          renderItem={renderDestinationItem}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.listContainer}
+          ListEmptyComponent={
+            <View style={styles.emptyState}>
+              <MaterialIcons name="route" size={64} color="#ccc" />
+              <Text style={styles.emptyText}>No routes available</Text>
+              <Text style={styles.emptySubtext}>
+                No routes are configured from {selectedStation?.name} yet.
+              </Text>
+              <TouchableOpacity
+                style={styles.refreshEmptyButton}
+                onPress={() => {
+                  setStep('stations');
+                  setSelectedStation(null);
+                  setDestinations([]);
+                }}
+              >
+                <Text style={styles.refreshEmptyButtonText}>Choose Different Station</Text>
+              </TouchableOpacity>
             </View>
-          ) : (
-            <>
-              <View style={styles.tripListHeader}>
-                <Text style={styles.sectionTitle}>Available Trips:</Text>
-                <TouchableOpacity
-                  onPress={() => searchTrips(selectedDestination, true)}
-                  style={styles.refreshButton}
-                >
-                  <Text style={styles.refreshButtonText}>🔄 Refresh</Text>
-                </TouchableOpacity>
+          }
+          ListHeaderComponent={
+            destinations.length > 0 ? (
+              <View style={styles.listHeader}>
+                <Text style={styles.listHeaderText}>
+                  {destinations.length} destination{destinations.length !== 1 ? 's' : ''} available from {selectedStation?.name}
+                </Text>
               </View>
-
-              <FlatList
-                data={trips}
-                keyExtractor={(item) => item.id}
-                renderItem={renderTripItem}
-                refreshControl={
-                  <RefreshControl
-                    refreshing={refreshing}
-                    onRefresh={() => searchTrips(selectedDestination, true)}
-                    colors={[theme.colors.primary]}
-                  />
-                }
-                showsVerticalScrollIndicator={false}
-                contentContainerStyle={styles.listContainer}
-                ListEmptyComponent={
-                  <View style={styles.emptyState}>
-                    <Text style={styles.emptyIcon}>🚐</Text>
-                    <Text style={styles.emptyText}>No trips available right now</Text>
-                    <Text style={styles.emptySubtext}>
-                      Trips are created when drivers declare availability.{'\n'}
-                      Pull to refresh or try again in a few minutes.
-                    </Text>
-                    <TouchableOpacity
-                      style={styles.refreshEmptyButton}
-                      onPress={() => searchTrips(selectedDestination, true)}
-                    >
-                      <Text style={styles.refreshEmptyButtonText}>🔄 Check Again</Text>
-                    </TouchableOpacity>
-                  </View>
-                }
-                ListHeaderComponent={
-                  trips.length > 0 ? (
-                    <View style={styles.tripsTip}>
-                      <Text style={styles.tipText}>
-                        💡 Trips fill up fast! Book early to secure your seat.
-                      </Text>
-                    </View>
-                  ) : null
-                }
-              />
-            </>
-          )}
-        </>
+            ) : null
+          }
+        />
       )}
     </View>
   );
 }
+
+// Enhanced styles for the search screen
+const styles = {
+  container: {
+    flex: 1,
+    backgroundColor: theme.colors.background.primary,
+  },
+
+  // Header styles
+  header: {
+    backgroundColor: theme.colors.primary,
+    paddingBottom: 20,
+  },
+
+  headerTop: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    paddingHorizontal: 16,
+    paddingTop: 50,
+    paddingBottom: 16,
+  },
+
+  backButton: {
+    padding: 8,
+    marginRight: 8,
+  },
+
+  headerTitle: {
+    flex: 1,
+    fontSize: 20,
+    fontWeight: '700' as const,
+    color: '#ffffff',
+    textAlign: 'center' as const,
+  },
+
+  headerAction: {
+    width: 40,
+  },
+
+  selectedStationBanner: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 8,
+    marginHorizontal: 16,
+    marginBottom: 16,
+  },
+
+  selectedStationText: {
+    flex: 1,
+    fontSize: 16,
+    fontWeight: '600' as const,
+    color: '#ffffff',
+    marginLeft: 8,
+  },
+
+  changeStationText: {
+    fontSize: 14,
+    fontWeight: '600' as const,
+    color: '#ffffff',
+    textDecorationLine: 'underline' as const,
+  },
+
+  // Search container
+  searchContainer: {
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+  },
+
+  searchInputContainer: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    backgroundColor: '#ffffff',
+    borderRadius: 25,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+
+  searchInput: {
+    flex: 1,
+    fontSize: 16,
+    color: '#333',
+    marginLeft: 12,
+    marginRight: 8,
+  },
+
+  // Loading and centered content
+  centered: {
+    flex: 1,
+    justifyContent: 'center' as const,
+    alignItems: 'center' as const,
+    padding: 40,
+  },
+
+  loadingText: {
+    fontSize: 16,
+    color: theme.colors.text.secondary,
+    marginTop: 16,
+    textAlign: 'center' as const,
+  },
+
+  // List styles
+  listContainer: {
+    padding: 16,
+    paddingBottom: 32,
+  },
+
+  listHeader: {
+    marginBottom: 16,
+  },
+
+  listHeaderText: {
+    fontSize: 14,
+    fontWeight: '600' as const,
+    color: theme.colors.text.secondary,
+    textAlign: 'center' as const,
+  },
+
+  // Station/Destination card styles
+  destinationCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+
+  stationHeader: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+  },
+
+  stationInfo: {
+    flex: 1,
+    marginLeft: 12,
+  },
+
+  destinationName: {
+    fontSize: 18,
+    fontWeight: '600' as const,
+    color: theme.colors.text.primary,
+    marginBottom: 4,
+  },
+
+  destinationDetails: {
+    fontSize: 14,
+    color: theme.colors.text.secondary,
+    marginBottom: 8,
+  },
+
+  amenitiesRow: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+  },
+
+  amenitiesText: {
+    fontSize: 12,
+    color: theme.colors.warning,
+    fontWeight: '500' as const,
+    marginLeft: 4,
+  },
+
+  routeInfo: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+  },
+
+  routeDetails: {
+    flex: 1,
+    marginLeft: 12,
+  },
+
+  destinationMeta: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 16,
+  },
+
+  price: {
+    fontSize: 16,
+    fontWeight: '700' as const,
+    color: theme.colors.primary,
+  },
+
+  duration: {
+    fontSize: 14,
+    color: theme.colors.text.secondary,
+  },
+
+  distance: {
+    fontSize: 14,
+    color: theme.colors.text.tertiary,
+  },
+
+  // Empty state
+  emptyState: {
+    alignItems: 'center' as const,
+    padding: 40,
+    paddingTop: 80,
+  },
+
+  emptyText: {
+    fontSize: 20,
+    fontWeight: '600' as const,
+    color: theme.colors.text.secondary,
+    marginTop: 16,
+    marginBottom: 8,
+    textAlign: 'center' as const,
+  },
+
+  emptySubtext: {
+    fontSize: 16,
+    color: theme.colors.text.tertiary,
+    textAlign: 'center' as const,
+    lineHeight: 22,
+    marginBottom: 32,
+  },
+
+  refreshEmptyButton: {
+    backgroundColor: theme.colors.button.primary,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+
+  refreshEmptyButtonText: {
+    fontSize: 16,
+    fontWeight: '600' as const,
+    color: '#ffffff',
+  },
+};

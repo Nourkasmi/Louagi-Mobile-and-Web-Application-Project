@@ -1,4 +1,4 @@
-// 📁 app/(passenger)/home/index.tsx - FIXED VERSION with Original Structure
+// app/(passenger)/home/index.tsx - UPDATED: Direct Navigation to Station Search
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { useEffect, useState, useCallback } from 'react';
 import {
@@ -150,16 +150,6 @@ export default function PassengerHomeScreen() {
   }, []);
 
   // Navigation handlers
-  const handleStationSelect = useCallback((station: Station) => {
-    router.push({
-      pathname: '/(passenger)/search',
-      params: {
-        stationId: station.id,
-        stationName: station.name
-      }
-    });
-  }, [router]);
-
   const handleBookingPress = useCallback((booking: Booking) => {
     router.push({
       pathname: '/(passenger)/bookings/[id]',
@@ -195,10 +185,20 @@ export default function PassengerHomeScreen() {
     );
   };
 
-  // Enhanced search function - direct navigation
+  // 🔧 UPDATED: Direct navigation to station search
   const handleSearchTrips = () => {
-    // Just navigate to search - let user pick station there
     router.push('/(passenger)/search');
+  };
+
+  // 🔧 UPDATED: Quick station selection
+  const handleQuickStationSelect = (station: Station) => {
+    router.push({
+      pathname: '/(passenger)/search',
+      params: {
+        selectedStationId: station.id,
+        selectedStationName: station.name
+      }
+    });
   };
 
   // Render functions
@@ -231,7 +231,7 @@ export default function PassengerHomeScreen() {
         </View>
       </View>
 
-      {/* Main Search CTA */}
+      {/* 🔧 UPDATED: Enhanced Search Section */}
       <View style={modernStyles.searchSection}>
         <Text style={modernStyles.searchTitle}>Where are you going?</Text>
         <Text style={modernStyles.searchSubtitle}>Find trips across Tunisia</Text>
@@ -242,9 +242,36 @@ export default function PassengerHomeScreen() {
           activeOpacity={0.9}
         >
           <MaterialIcons name="search" size={24} color="#0066cc" />
-          <Text style={modernStyles.searchButtonText}>Search destinations</Text>
+          <Text style={modernStyles.searchButtonText}>Search stations & destinations</Text>
           <MaterialIcons name="arrow-forward" size={20} color="#0066cc" />
         </TouchableOpacity>
+
+        {/* 🆕 NEW: Quick Action Buttons */}
+        <View style={modernStyles.quickActionsRow}>
+          <TouchableOpacity
+            style={modernStyles.quickAction}
+            onPress={() => router.push('/(passenger)/bookings')}
+          >
+            <MaterialIcons name="history" size={20} color="#ffffff" />
+            <Text style={modernStyles.quickActionText}>My Trips</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={modernStyles.quickAction}
+            onPress={() => router.push('/(passenger)/search')}
+          >
+            <MaterialIcons name="directions" size={20} color="#ffffff" />
+            <Text style={modernStyles.quickActionText}>Find Routes</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={modernStyles.quickAction}
+            onPress={() => Alert.alert('Support', 'Contact: support@louagi.com')}
+          >
+            <MaterialIcons name="help-outline" size={20} color="#ffffff" />
+            <Text style={modernStyles.quickActionText}>Help</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Quick stats */}
@@ -363,7 +390,7 @@ export default function PassengerHomeScreen() {
         modernStyles.stationCard,
         index % 2 === 0 ? modernStyles.stationCardLeft : modernStyles.stationCardRight
       ]}
-      onPress={() => handleStationSelect(item)}
+      onPress={() => handleQuickStationSelect(item)}
     >
       <View style={modernStyles.stationIcon}>
         <MaterialIcons name="location-on" size={24} color="#0066cc" />
@@ -443,17 +470,17 @@ export default function PassengerHomeScreen() {
         {renderNextTrip()}
         {renderRecentBookings()}
 
-        {/* Popular Destinations */}
+        {/* 🔧 UPDATED: Popular Destinations Section */}
         <View style={modernStyles.section}>
           <View style={modernStyles.sectionHeader}>
-            <Text style={modernStyles.sectionTitle}>🌟 Popular Destinations</Text>
+            <Text style={modernStyles.sectionTitle}>🌟 Quick Station Access</Text>
             <TouchableOpacity onPress={() => router.push('/(passenger)/search')}>
-              <Text style={modernStyles.seeAllLink}>Explore all ({stations.length})</Text>
+              <Text style={modernStyles.seeAllLink}>View all ({stations.length})</Text>
             </TouchableOpacity>
           </View>
 
           <FlatList
-            data={stations}
+            data={stations.slice(0, 6)} // Show only first 6 stations
             keyExtractor={(item) => item.id}
             renderItem={renderStationItem}
             scrollEnabled={false}
@@ -463,11 +490,25 @@ export default function PassengerHomeScreen() {
             ListEmptyComponent={
               <View style={modernStyles.emptyState}>
                 <MaterialIcons name="location-off" size={48} color="#ccc" />
-                <Text style={modernStyles.emptyText}>No destinations available</Text>
+                <Text style={modernStyles.emptyText}>No stations available</Text>
                 <Text style={modernStyles.emptySubtext}>Pull to refresh</Text>
               </View>
             }
           />
+
+          {/* 🆕 NEW: Search All Stations Button */}
+          {stations.length > 6 && (
+            <TouchableOpacity
+              style={modernStyles.searchAllButton}
+              onPress={() => router.push('/(passenger)/search')}
+            >
+              <MaterialIcons name="search" size={20} color="#0066cc" />
+              <Text style={modernStyles.searchAllButtonText}>
+                Search all {stations.length} stations
+              </Text>
+              <MaterialIcons name="arrow-forward" size={16} color="#0066cc" />
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* App info footer */}
@@ -482,7 +523,7 @@ export default function PassengerHomeScreen() {
   );
 }
 
-// Modern styles - cleaner and more elegant
+// 🔧 UPDATED: Enhanced modern styles
 const modernStyles = {
   // Hero Section
   heroSection: {
@@ -548,7 +589,7 @@ const modernStyles = {
     backgroundColor: 'rgba(255, 255, 255, 0.1)',
   },
 
-  // Search Section
+  // 🔧 UPDATED: Enhanced Search Section
   searchSection: {
     alignItems: 'center' as const,
     marginBottom: 30,
@@ -582,6 +623,7 @@ const modernStyles = {
     shadowRadius: 8,
     elevation: 6,
     gap: 12,
+    marginBottom: 20,
   },
 
   searchButtonText: {
@@ -589,6 +631,32 @@ const modernStyles = {
     fontWeight: '600' as const,
     color: '#0066cc',
     flex: 1,
+  },
+
+  // 🆕 NEW: Quick Actions Row
+  quickActionsRow: {
+    flexDirection: 'row' as const,
+    justifyContent: 'space-around' as const,
+    width: '100%',
+    gap: 12,
+  },
+
+  quickAction: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 20,
+    flex: 1,
+    justifyContent: 'center' as const,
+    gap: 6,
+  },
+
+  quickActionText: {
+    fontSize: 12,
+    fontWeight: '600' as const,
+    color: '#ffffff',
   },
 
   // Stats
@@ -830,6 +898,26 @@ const modernStyles = {
     fontSize: 10,
     color: '#ffc107',
     fontWeight: '500' as const,
+  },
+
+  // 🆕 NEW: Search All Button
+  searchAllButton: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+    backgroundColor: '#f0f8ff',
+    padding: 16,
+    borderRadius: 12,
+    marginTop: 16,
+    borderWidth: 1,
+    borderColor: '#0066cc',
+    gap: 8,
+  },
+
+  searchAllButtonText: {
+    fontSize: 16,
+    fontWeight: '600' as const,
+    color: '#0066cc',
   },
 
   // Empty states

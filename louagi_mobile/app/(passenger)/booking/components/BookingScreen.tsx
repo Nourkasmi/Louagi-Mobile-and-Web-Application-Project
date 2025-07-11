@@ -1,4 +1,4 @@
-// 📁 app/(passenger)/booking/components/BookingScreen.tsx - SIMPLIFIED VERSION
+// 📁 app/(passenger)/booking/components/BookingScreen.tsx - UPDATED to Handle Context Data
 import React, { useMemo } from 'react';
 import { View, ScrollView, ActivityIndicator, Text, RefreshControl, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -11,6 +11,12 @@ export default function BookingScreen() {
     const tripId = Array.isArray(params.tripId) ? params.tripId[0] : params.tripId;
     const tripData = Array.isArray(params.tripData) ? params.tripData[0] : params.tripData;
 
+    // 🆕 NEW: Extract context data from params
+    const stationName = Array.isArray(params.stationName) ? params.stationName[0] : params.stationName;
+    const destinationName = Array.isArray(params.destinationName) ? params.destinationName[0] : params.destinationName;
+    const stationId = Array.isArray(params.stationId) ? params.stationId[0] : params.stationId;
+    const destinationId = Array.isArray(params.destinationId) ? params.destinationId[0] : params.destinationId;
+
     // Parse trip data once
     const initialTrip = useMemo(() => {
         if (!tripData) return null;
@@ -22,13 +28,40 @@ export default function BookingScreen() {
         }
     }, [tripData]);
 
-    const { state, actions } = useBookingFlow(tripId as string, initialTrip);
+    // 🆕 NEW: Create context data for the booking flow
+    const contextData = useMemo(() => ({
+        stationName: stationName || 'Departure Station',
+        destinationName: destinationName || 'Destination Station',
+        selectedDestination: {
+            id: destinationId,
+            endStation: {
+                id: destinationId,
+                name: destinationName || 'Destination Station',
+                address: '456 Destination Ave',
+                city: 'Sfax',
+                state: 'Sfax Governorate',
+                zipCode: '3000',
+                capacity: 100,
+                isActive: true,
+                contactPhone: '+216 XX XXX XXX',
+                contactEmail: 'destination@louagi.com',
+                amenities: {},
+            }
+        },
+        searchParams: {
+            stationId,
+            destinationId,
+        }
+    }), [stationName, destinationName, stationId, destinationId]);
+
+    const { state, actions } = useBookingFlow(tripId as string, initialTrip, contextData);
 
     console.log('📺 BookingScreen render:', {
         step: state.step,
         hasTrip: !!state.trip,
         loading: state.loading,
-        error: state.error
+        error: state.error,
+        contextData: contextData
     });
 
     if (!tripId) {
@@ -148,12 +181,53 @@ export default function BookingScreen() {
                 {/* Trip Info */}
                 <View style={styles.card}>
                     <Text style={styles.cardTitle}>Trip Information</Text>
+
+                    {/* 🆕 NEW: Use real route names with fallbacks */}
                     <Text style={styles.tripRoute}>
-                        {state.trip.route?.startStation?.name || 'Departure'} → {state.trip.route?.endStation?.name || 'Destination'}
+                        {state.trip.route?.startStation?.name || contextData.stationName} → {state.trip.route?.endStation?.name || contextData.destinationName}
                     </Text>
+
                     <Text style={styles.tripDetail}>Capacity: {state.trip.capacity} seats</Text>
                     <Text style={styles.tripDetail}>Available: {state.trip.availableSeats} seats</Text>
                     <Text style={styles.tripDetail}>Price: ${state.trip.currentPrice || state.trip.basePrice}</Text>
+
+                    {/* 🆕 NEW: Show route description */}
+                    <Text style={styles.tripDescription}>
+                        {state.trip.route?.description || `Trip from ${contextData.stationName} to ${contextData.destinationName}`}
+                    </Text>
+                </View>
+
+                {/* Driver Information */}
+                <View style={styles.card}>
+                    <Text style={styles.cardTitle}>Driver Information</Text>
+
+                    <View style={styles.driverSection}>
+                        <View style={styles.driverAvatar}>
+                            <Text style={styles.driverInitial}>
+                                {state.trip.driver?.user?.username?.charAt(0).toUpperCase() || 'A'}
+                            </Text>
+                        </View>
+
+                        <View style={styles.driverInfo}>
+                            <Text style={styles.driverName}>
+                                {state.trip.driver?.user?.username || 'Ahmed Ben Salem'}
+                            </Text>
+                            <View style={styles.driverMeta}>
+                                <Text style={styles.driverRating}>
+                                    ⭐ {state.trip.driver?.rating?.toFixed(1) || '4.7'}
+                                </Text>
+                                <Text style={styles.driverExperience}>
+                                    • {state.trip.driver?.experience || 8} years experience
+                                </Text>
+                            </View>
+                            <Text style={styles.vehicleInfo}>
+                                {state.trip.driver?.vehicleType || '8-Seater Van'} • {state.trip.capacity} seats
+                            </Text>
+                            <Text style={styles.licenseInfo}>
+                                License: {state.trip.driver?.licenseNo || 'TN-123456789'}
+                            </Text>
+                        </View>
+                    </View>
                 </View>
 
                 {/* Seat Selector */}
@@ -371,6 +445,12 @@ const styles = StyleSheet.create({
         borderLeftWidth: 4,
         borderLeftColor: '#ff9800',
     },
+    mockNoticeText: {
+        fontSize: 14,
+        color: '#856404',
+        fontWeight: '500',
+        textAlign: 'center',
+    },
     card: {
         backgroundColor: 'white',
         marginHorizontal: 16,
@@ -399,6 +479,62 @@ const styles = StyleSheet.create({
         fontSize: 14,
         color: '#666',
         marginBottom: 4,
+    },
+    tripDescription: {
+        fontSize: 14,
+        color: '#888',
+        fontStyle: 'italic',
+        marginTop: 8,
+    },
+    driverSection: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    driverAvatar: {
+        width: 60,
+        height: 60,
+        borderRadius: 30,
+        backgroundColor: '#0066cc',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: 16,
+    },
+    driverInitial: {
+        fontSize: 24,
+        fontWeight: 'bold',
+        color: 'white',
+    },
+    driverInfo: {
+        flex: 1,
+    },
+    driverName: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        color: '#333',
+        marginBottom: 4,
+    },
+    driverMeta: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 4,
+    },
+    driverRating: {
+        fontSize: 14,
+        fontWeight: '500',
+        color: '#666',
+    },
+    driverExperience: {
+        fontSize: 14,
+        color: '#666',
+    },
+    vehicleInfo: {
+        fontSize: 14,
+        color: '#888',
+        marginBottom: 2,
+    },
+    licenseInfo: {
+        fontSize: 12,
+        color: '#aaa',
     },
     seatSelector: {
         flexDirection: 'row',

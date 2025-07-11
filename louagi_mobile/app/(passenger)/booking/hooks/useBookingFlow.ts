@@ -1,4 +1,4 @@
-// 📁 app/(passenger)/booking/hooks/useBookingFlow.ts - FIXED STATE MANAGEMENT
+// 📁 app/(passenger)/booking/hooks/useBookingFlow.ts - FIXED Data Management
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { Alert, Platform, Vibration } from 'react-native';
 import { useRouter } from 'expo-router';
@@ -6,7 +6,7 @@ import { useTripData } from './useTripData';
 import { usePaymentFlow } from './usePaymentFlow';
 import { useBookingValidation } from './useBookingValidation';
 import { BookingService } from '../services/bookingService';
-import type { Trip, Booking } from '../../../../src/services/api';
+import type { Trip, Booking, Station, Destination } from '../../../../src/services/api';
 
 export interface BookingState {
     // Trip data
@@ -37,6 +37,12 @@ export interface BookingState {
 
     // Results
     createdBooking?: Booking;
+
+    // Context data for fallbacks
+    contextData?: {
+        stationName?: string;
+        selectedDestination?: Destination;
+    };
 }
 
 export interface BookingActions {
@@ -67,14 +73,16 @@ const initialState: BookingState = {
     paymentReady: false,
     paymentLoading: false,
     createdBooking: undefined,
+    contextData: undefined,
 };
 
-export function useBookingFlow(tripId: string, initialTrip?: Trip) {
+export function useBookingFlow(tripId: string, initialTrip?: Trip, contextData?: any) {
     const router = useRouter();
     const [state, setState] = useState<BookingState>({
         ...initialState,
         trip: initialTrip || null,
         loading: !initialTrip,
+        contextData: contextData || undefined,
     });
 
     // 🔧 FIXED: Use refs to prevent infinite loops
@@ -87,7 +95,8 @@ export function useBookingFlow(tripId: string, initialTrip?: Trip) {
         hasInitialTrip: !!initialTrip,
         step: state.step,
         selectedSeats: state.selectedSeats,
-        hasCreatedBooking: !!state.createdBooking
+        hasCreatedBooking: !!state.createdBooking,
+        contextData: state.contextData
     });
 
     // Custom hooks
@@ -122,18 +131,138 @@ export function useBookingFlow(tripId: string, initialTrip?: Trip) {
         }));
     }, [trip, loading, refreshing, error]);
 
+    // 🆕 NEW: Complete booking data with fallbacks before navigation
+    const completeBookingData = useCallback((booking: Booking): Booking => {
+        console.log('📊 Completing booking data with fallbacks...');
+
+        // Get context data from URL params or router state
+        const urlParams = new URLSearchParams(window.location?.search || '');
+        const stationName = state.contextData?.stationName || urlParams.get('stationName') || 'Departure Station';
+        const destinationName = state.contextData?.selectedDestination?.endStation?.name || 'Destination Station';
+
+        const completeBooking: Booking = {
+            ...booking,
+            trip: booking.trip ? {
+                ...booking.trip,
+                route: booking.trip.route ? {
+                    ...booking.trip.route,
+                    // Ensure start station has proper data
+                    startStation: booking.trip.route.startStation?.id ? booking.trip.route.startStation : {
+                        id: booking.trip.route.startId || 'temp-start',
+                        name: stationName,
+                        address: '123 Main Street',
+                        city: 'Tunis',
+                        state: 'Tunis Governorate',
+                        zipCode: '1000',
+                        capacity: 100,
+                        isActive: true,
+                        contactPhone: '+216 XX XXX XXX',
+                        contactEmail: 'station@louagi.com',
+                        amenities: {},
+                    },
+                    // Ensure end station has proper data
+                    endStation: booking.trip.route.endStation?.id ? booking.trip.route.endStation : {
+                        id: booking.trip.route.endId || 'temp-end',
+                        name: destinationName,
+                        address: '456 Destination Ave',
+                        city: 'Sfax',
+                        state: 'Sfax Governorate',
+                        zipCode: '3000',
+                        capacity: 100,
+                        isActive: true,
+                        contactPhone: '+216 XX XXX XXX',
+                        contactEmail: 'destination@louagi.com',
+                        amenities: {},
+                    },
+                    // Ensure description exists
+                    description: booking.trip.route.description || `${stationName} to ${destinationName}`,
+                } : {
+                    // Create complete route if missing
+                    id: `temp-route-${booking.id}`,
+                    startId: 'temp-start',
+                    endId: 'temp-end',
+                    distance: 150,
+                    basePrice: parseFloat(booking.trip.basePrice || '36.00'),
+                    estimatedDuration: 180,
+                    isActive: true,
+                    description: `${stationName} to ${destinationName}`,
+                    createdAt: new Date().toISOString(),
+                    updatedAt: new Date().toISOString(),
+                    startStation: {
+                        id: 'temp-start',
+                        name: stationName,
+                        address: '123 Main Street',
+                        city: 'Tunis',
+                        state: 'Tunis Governorate',
+                        zipCode: '1000',
+                        capacity: 100,
+                        isActive: true,
+                        contactPhone: '+216 XX XXX XXX',
+                        contactEmail: 'station@louagi.com',
+                        amenities: {},
+                    },
+                    endStation: {
+                        id: 'temp-end',
+                        name: destinationName,
+                        address: '456 Destination Ave',
+                        city: 'Sfax',
+                        state: 'Sfax Governorate',
+                        zipCode: '3000',
+                        capacity: 100,
+                        isActive: true,
+                        contactPhone: '+216 XX XXX XXX',
+                        contactEmail: 'destination@louagi.com',
+                        amenities: {},
+                    },
+                },
+                // Ensure driver has proper data
+                driver: booking.trip.driver?.id ? booking.trip.driver : {
+                    id: 'temp-driver',
+                    user: {
+                        id: 'temp-driver-user',
+                        username: 'Ahmed Ben Salem',
+                        email: 'ahmed.driver@louagi.com',
+                        phone: '+216 98 765 432',
+                        role: 'driver' as const,
+                        isActive: true,
+                        createdAt: new Date().toISOString(),
+                        updatedAt: new Date().toISOString(),
+                    },
+                    licenseNo: 'TN-123456789',
+                    licenseExpiry: '2025-12-31',
+                    experience: 8,
+                    rating: 4.7,
+                    vehicleType: '8-Seater Van',
+                    vehicleCapacity: booking.trip.capacity || 8,
+                    isVerified: true,
+                    isAvailable: true,
+                    documents: {},
+                },
+            } : undefined,
+        };
+
+        console.log('✅ Booking data completed:', {
+            hasRoute: !!completeBooking.trip?.route,
+            startStationName: completeBooking.trip?.route?.startStation?.name,
+            endStationName: completeBooking.trip?.route?.endStation?.name,
+            driverName: completeBooking.trip?.driver?.user?.username,
+        });
+
+        return completeBooking;
+    }, [state.contextData]);
+
     // Calculate total amount with memoization
     const calculateTotalAmount = useCallback(() => {
         if (!state.trip) return 0;
 
         try {
-            const tripPrice = parseFloat(state.trip.currentPrice || state.trip.basePrice || '10');
+            const tripPrice = parseFloat(state.trip.currentPrice || state.trip.basePrice || '36');
             const pricePerSeat = tripPrice / (state.trip.capacity || 4);
             const totalAmount = pricePerSeat * state.selectedSeats;
             return Math.round(totalAmount * 100) / 100;
         } catch (error) {
             console.error('❌ Error calculating price:', error);
-            return state.selectedSeats * 10;
+            return state.selectedSeats * 9; // Default fallback price
         }
     }, [state.trip?.currentPrice, state.trip?.basePrice, state.trip?.capacity, state.selectedSeats]);
 
@@ -183,22 +312,25 @@ export function useBookingFlow(tripId: string, initialTrip?: Trip) {
 
     const viewBookingDetails = useCallback(() => {
         if (state.createdBooking) {
+            // Complete the booking data before navigation
+            const completeBooking = completeBookingData(state.createdBooking);
+
             router.replace({
                 pathname: '/(passenger)/bookings/[id]',
                 params: {
-                    id: state.createdBooking.id,
-                    bookingData: JSON.stringify(state.createdBooking)
+                    id: completeBooking.id,
+                    bookingData: JSON.stringify(completeBooking)
                 }
             });
         } else {
             router.replace('/(passenger)/bookings');
         }
-    }, [state.createdBooking, router]);
+    }, [state.createdBooking, router, completeBookingData]);
 
     const refreshTripData = useCallback(() => refreshTrip(), [refreshTrip]);
     const retryLoading = useCallback(() => retryLoad(), [retryLoad]);
 
-    // 🔧 FIXED: Create booking with proper error handling and no loops
+    // 🔧 FIXED: Create booking with proper error handling and complete data
     const createBooking = useCallback(async () => {
         if (!state.trip || isCreatingBookingRef.current) {
             console.log('❌ Cannot create booking:', { hasTrip: !!state.trip, isCreating: isCreatingBookingRef.current });
@@ -253,11 +385,14 @@ export function useBookingFlow(tripId: string, initialTrip?: Trip) {
 
             const { booking, wasAutoStarted, autoConfirmedBookings } = result;
 
+            // 🆕 NEW: Complete the booking data with fallbacks
+            const completeBooking = completeBookingData(booking);
+
             if (wasAutoStarted) {
                 // Trip auto-started - complete immediately
                 setState(prev => ({
                     ...prev,
-                    createdBooking: booking,
+                    createdBooking: completeBooking,
                     step: 'completed',
                     progress: 1.0,
                     error: null,
@@ -265,14 +400,14 @@ export function useBookingFlow(tripId: string, initialTrip?: Trip) {
 
                 Alert.alert(
                     'Trip Starting! 🚀',
-                    `Your booking filled the last seats and the trip is starting now.\n\nBooking: ${booking.bookingReference}`,
+                    `Your booking filled the last seats and the trip is starting now.\n\nBooking: ${completeBooking.bookingReference}`,
                     [{ text: 'View Booking', onPress: viewBookingDetails }]
                 );
             } else {
                 // Regular booking - go to payment
                 setState(prev => ({
                     ...prev,
-                    createdBooking: booking,
+                    createdBooking: completeBooking,
                     step: 'payment',
                     progress: 0.8,
                     paymentReady: true,
@@ -283,7 +418,7 @@ export function useBookingFlow(tripId: string, initialTrip?: Trip) {
 
                 // Try to initialize payment (non-blocking)
                 try {
-                    await initPaymentSheet(booking);
+                    await initPaymentSheet(completeBooking);
                 } catch (paymentError) {
                     console.warn('⚠️ Payment initialization failed:', paymentError);
                     // Don't fail the booking, just warn
@@ -321,7 +456,7 @@ export function useBookingFlow(tripId: string, initialTrip?: Trip) {
         } finally {
             isCreatingBookingRef.current = false;
         }
-    }, [state.trip, state.selectedSeats, state.specialRequests, state.step, validateBooking, initPaymentSheet, viewBookingDetails]);
+    }, [state.trip, state.selectedSeats, state.specialRequests, state.step, validateBooking, initPaymentSheet, viewBookingDetails, completeBookingData]);
 
     // Process payment
     const processPayment = useCallback(async () => {

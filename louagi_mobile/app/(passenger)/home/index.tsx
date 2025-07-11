@@ -1,4 +1,4 @@
-// 📁 app/(passenger)/home/index.tsx - ENHANCED Home Screen with Modern UX
+// 📁 app/(passenger)/home/index.tsx - FIXED VERSION with Original Structure
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { useEffect, useState, useCallback } from 'react';
 import {
@@ -13,7 +13,6 @@ import {
   Platform,
   Dimensions,
   StatusBar,
-  Image,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useDispatch, useSelector } from 'react-redux';
@@ -196,93 +195,77 @@ export default function PassengerHomeScreen() {
     );
   };
 
-  // Quick action handlers
-  const handleQuickBook = () => {
-    if (stations.length > 0) {
-      // Go to most popular station (first one)
-      handleStationSelect(stations[0]);
-    } else {
-      Alert.alert('No Stations', 'No departure stations are currently available.');
-    }
-  };
-
-  const handleViewAllStations = () => {
-    // You could create a dedicated all stations screen or show current list
-    Alert.alert('All Stations', `Showing ${stations.length} available stations below.`);
+  // Enhanced search function - direct navigation
+  const handleSearchTrips = () => {
+    // Just navigate to search - let user pick station there
+    router.push('/(passenger)/search');
   };
 
   // Render functions
-  const renderHeader = () => (
-    <View style={styles.header}>
-      <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
+  const renderModernHeader = () => (
+    <View style={modernStyles.heroSection}>
+      <StatusBar barStyle="light-content" backgroundColor="#0066cc" />
 
-      {/* User greeting and profile */}
-      <View style={styles.userSection}>
-        <View style={styles.greetingContainer}>
-          <Text style={styles.greeting}>{getGreeting()},</Text>
-          <Text style={styles.userName}>{getFirstName()}! 👋</Text>
+      {/* User greeting */}
+      <View style={modernStyles.userGreeting}>
+        <View style={modernStyles.greetingContent}>
+          <Text style={modernStyles.greeting}>{getGreeting()},</Text>
+          <Text style={modernStyles.userName}>{getFirstName()}! 👋</Text>
         </View>
 
-        <View style={styles.profileActions}>
+        <View style={modernStyles.headerActions}>
           <TouchableOpacity
-            style={styles.profileButton}
+            style={modernStyles.profileButton}
             onPress={() => router.push('/(passenger)/profile')}
           >
-            <MaterialIcons name="account-circle" size={32} color="#0066cc" />
+            <View style={modernStyles.avatar}>
+              <Text style={modernStyles.avatarText}>
+                {auth.user?.username?.charAt(0).toUpperCase() || 'U'}
+              </Text>
+            </View>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-            <MaterialIcons name="logout" size={20} color="#dc3545" />
+          <TouchableOpacity style={modernStyles.logoutButton} onPress={handleLogout}>
+            <MaterialIcons name="logout" size={20} color="#ffffff" />
           </TouchableOpacity>
         </View>
+      </View>
+
+      {/* Main Search CTA */}
+      <View style={modernStyles.searchSection}>
+        <Text style={modernStyles.searchTitle}>Where are you going?</Text>
+        <Text style={modernStyles.searchSubtitle}>Find trips across Tunisia</Text>
+
+        <TouchableOpacity
+          style={modernStyles.searchButton}
+          onPress={handleSearchTrips}
+          activeOpacity={0.9}
+        >
+          <MaterialIcons name="search" size={24} color="#0066cc" />
+          <Text style={modernStyles.searchButtonText}>Search destinations</Text>
+          <MaterialIcons name="arrow-forward" size={20} color="#0066cc" />
+        </TouchableOpacity>
       </View>
 
       {/* Quick stats */}
-      <View style={styles.statsContainer}>
-        <View style={styles.statCard}>
-          <MaterialIcons name="directions-bus" size={24} color="#0066cc" />
-          <Text style={styles.statNumber}>{quickStats.totalTrips}</Text>
-          <Text style={styles.statLabel}>Trips</Text>
+      <View style={modernStyles.statsRow}>
+        <View style={modernStyles.statItem}>
+          <MaterialIcons name="directions-bus" size={20} color="#ffffff" />
+          <Text style={modernStyles.statNumber}>{quickStats.totalTrips}</Text>
+          <Text style={modernStyles.statLabel}>Trips</Text>
         </View>
 
-        <View style={styles.statCard}>
-          <MaterialIcons name="savings" size={24} color="#28a745" />
-          <Text style={styles.statNumber}>${quickStats.savedAmount}</Text>
-          <Text style={styles.statLabel}>Saved</Text>
+        <View style={modernStyles.statItem}>
+          <MaterialIcons name="savings" size={20} color="#ffffff" />
+          <Text style={modernStyles.statNumber}>${quickStats.savedAmount}</Text>
+          <Text style={modernStyles.statLabel}>Saved</Text>
         </View>
 
-        <View style={styles.statCard}>
-          <MaterialIcons name="schedule" size={24} color="#ff9800" />
-          <Text style={styles.statNumber}>{quickStats.pendingPayments}</Text>
-          <Text style={styles.statLabel}>Pending</Text>
+        <View style={modernStyles.statItem}>
+          <MaterialIcons name="schedule" size={20} color="#ffffff" />
+          <Text style={modernStyles.statNumber}>{quickStats.pendingPayments}</Text>
+          <Text style={modernStyles.statLabel}>Pending</Text>
         </View>
-      </View>
-    </View>
-  );
-
-  const renderQuickActions = () => (
-    <View style={styles.quickActionsContainer}>
-      <Text style={styles.sectionTitle}>Quick Actions</Text>
-
-      <View style={styles.quickActionsGrid}>
-        <TouchableOpacity style={styles.quickActionCard} onPress={handleQuickBook}>
-          <View style={[styles.quickActionIcon, { backgroundColor: '#e3f2fd' }]}>
-            <MaterialIcons name="add-location" size={28} color="#0066cc" />
-          </View>
-          <Text style={styles.quickActionTitle}>Book Trip</Text>
-          <Text style={styles.quickActionSubtitle}>Find & book your ride</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.quickActionCard}
-          onPress={() => router.push('/(passenger)/bookings')}
-        >
-          <View style={[styles.quickActionIcon, { backgroundColor: '#fff3cd' }]}>
-            <MaterialIcons name="receipt-long" size={28} color="#ff9800" />
-          </View>
-          <Text style={styles.quickActionTitle}>My Trips</Text>
-          <Text style={styles.quickActionSubtitle}>View your bookings</Text>
-        </TouchableOpacity>
       </View>
     </View>
   );
@@ -292,42 +275,42 @@ export default function PassengerHomeScreen() {
 
     const trip = quickStats.nextTrip;
     return (
-      <View style={styles.nextTripContainer}>
-        <Text style={styles.sectionTitle}>Your Next Trip</Text>
+      <View style={modernStyles.section}>
+        <Text style={modernStyles.sectionTitle}>🎫 Your Next Trip</Text>
 
         <TouchableOpacity
-          style={styles.nextTripCard}
+          style={modernStyles.nextTripCard}
           onPress={() => handleBookingPress(trip)}
         >
-          <View style={styles.nextTripHeader}>
-            <View style={styles.routeInfo}>
-              <Text style={styles.routeText}>
+          <View style={modernStyles.tripHeader}>
+            <View style={modernStyles.routeInfo}>
+              <Text style={modernStyles.routeText}>
                 {trip.trip?.route?.startStation?.name || 'Departure'} → {trip.trip?.route?.endStation?.name || 'Destination'}
               </Text>
-              <Text style={styles.nextTripTime}>
+              <Text style={modernStyles.tripTime}>
                 {trip.trip?.departureTime ? formatTime(trip.trip.departureTime) : 'When full'} • {trip.trip?.departureTime ? formatDate(trip.trip.departureTime) : 'Today'}
               </Text>
             </View>
 
-            <View style={styles.tripStatusBadge}>
-              <Text style={styles.tripStatusText}>Confirmed</Text>
+            <View style={modernStyles.tripBadge}>
+              <Text style={modernStyles.tripBadgeText}>Confirmed</Text>
             </View>
           </View>
 
-          <View style={styles.nextTripDetails}>
-            <View style={styles.tripDetailItem}>
+          <View style={modernStyles.tripDetails}>
+            <View style={modernStyles.tripDetailItem}>
               <MaterialIcons name="people" size={16} color="#666" />
-              <Text style={styles.tripDetailText}>{trip.seats} seat{trip.seats > 1 ? 's' : ''}</Text>
+              <Text style={modernStyles.tripDetailText}>{trip.seats} seat{trip.seats > 1 ? 's' : ''}</Text>
             </View>
 
-            <View style={styles.tripDetailItem}>
+            <View style={modernStyles.tripDetailItem}>
               <MaterialIcons name="payment" size={16} color="#666" />
-              <Text style={styles.tripDetailText}>${trip.amount || '0.00'}</Text>
+              <Text style={modernStyles.tripDetailText}>${trip.amount || '0.00'}</Text>
             </View>
 
-            <View style={styles.tripDetailItem}>
+            <View style={modernStyles.tripDetailItem}>
               <MaterialIcons name="confirmation-number" size={16} color="#666" />
-              <Text style={styles.tripDetailText}>#{trip.bookingReference}</Text>
+              <Text style={modernStyles.tripDetailText}>#{trip.bookingReference}</Text>
             </View>
           </View>
         </TouchableOpacity>
@@ -339,36 +322,33 @@ export default function PassengerHomeScreen() {
     if (recentBookings.length === 0) return null;
 
     return (
-      <View style={styles.recentBookingsContainer}>
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Recent Trips</Text>
+      <View style={modernStyles.section}>
+        <View style={modernStyles.sectionHeader}>
+          <Text style={modernStyles.sectionTitle}>📋 Recent Activity</Text>
           <TouchableOpacity onPress={() => router.push('/(passenger)/bookings')}>
-            <Text style={styles.seeAllLink}>See all</Text>
+            <Text style={modernStyles.seeAllLink}>View all</Text>
           </TouchableOpacity>
         </View>
 
         {recentBookings.map((booking, index) => (
           <TouchableOpacity
             key={booking.id}
-            style={styles.recentBookingCard}
+            style={modernStyles.activityCard}
             onPress={() => handleBookingPress(booking)}
           >
-            <View style={styles.bookingCardContent}>
-              <View style={styles.bookingRoute}>
-                <Text style={styles.bookingRouteText}>
+            <View style={modernStyles.activityContent}>
+              <View style={modernStyles.bookingRoute}>
+                <Text style={modernStyles.activityTitle}>
                   {booking.trip?.route?.startStation?.name || 'Unknown'} → {booking.trip?.route?.endStation?.name || 'Unknown'}
                 </Text>
-                <Text style={styles.bookingDate}>
-                  {formatDate(booking.trip?.departureTime || booking.createdAt)}
+                <Text style={modernStyles.activitySubtitle}>
+                  {formatDate(booking.trip?.departureTime || booking.createdAt)} • {booking.seats} seat{booking.seats > 1 ? 's' : ''}
                 </Text>
               </View>
 
-              <View style={styles.bookingStatusContainer}>
-                <View style={[
-                  styles.bookingStatusDot,
-                  { backgroundColor: getStatusColor(booking.status) }
-                ]} />
-                <Text style={styles.bookingAmount}>${booking.amount || '0.00'}</Text>
+              <View style={modernStyles.bookingStatus}>
+                <View style={[modernStyles.statusDot, { backgroundColor: getStatusColor(booking.status) }]} />
+                <Text style={modernStyles.bookingAmount}>${booking.amount || '0.00'}</Text>
               </View>
             </View>
           </TouchableOpacity>
@@ -376,6 +356,36 @@ export default function PassengerHomeScreen() {
       </View>
     );
   };
+
+  const renderStationItem = ({ item, index }: { item: Station; index: number }) => (
+    <TouchableOpacity
+      style={[
+        modernStyles.stationCard,
+        index % 2 === 0 ? modernStyles.stationCardLeft : modernStyles.stationCardRight
+      ]}
+      onPress={() => handleStationSelect(item)}
+    >
+      <View style={modernStyles.stationIcon}>
+        <MaterialIcons name="location-on" size={24} color="#0066cc" />
+      </View>
+
+      <View style={modernStyles.stationInfo}>
+        <Text style={modernStyles.stationName} numberOfLines={1}>{item.name}</Text>
+        <Text style={modernStyles.stationLocation} numberOfLines={1}>
+          {item.city}, {item.state}
+        </Text>
+
+        {item.amenities && Object.keys(item.amenities).length > 0 && (
+          <View style={modernStyles.amenitiesIndicator}>
+            <MaterialIcons name="star" size={12} color="#ffc107" />
+            <Text style={modernStyles.amenitiesText}>Amenities</Text>
+          </View>
+        )}
+      </View>
+
+      <MaterialIcons name="arrow-forward-ios" size={16} color="#ccc" />
+    </TouchableOpacity>
+  );
 
   const getStatusColor = (status: string) => {
     const colors = {
@@ -387,41 +397,11 @@ export default function PassengerHomeScreen() {
     return colors[status as keyof typeof colors] || '#9e9e9e';
   };
 
-  const renderStationItem = ({ item, index }: { item: Station; index: number }) => (
-    <TouchableOpacity
-      style={[
-        styles.stationCard,
-        index % 2 === 0 ? styles.stationCardLeft : styles.stationCardRight
-      ]}
-      onPress={() => handleStationSelect(item)}
-    >
-      <View style={styles.stationIconContainer}>
-        <MaterialIcons name="location-on" size={24} color="#0066cc" />
-      </View>
-
-      <View style={styles.stationInfo}>
-        <Text style={styles.stationName} numberOfLines={1}>{item.name}</Text>
-        <Text style={styles.stationLocation} numberOfLines={1}>
-          {item.city}, {item.state}
-        </Text>
-
-        {item.amenities && Object.keys(item.amenities).length > 0 && (
-          <View style={styles.amenitiesIndicator}>
-            <MaterialIcons name="star" size={12} color="#ffc107" />
-            <Text style={styles.amenitiesText}>Amenities</Text>
-          </View>
-        )}
-      </View>
-
-      <MaterialIcons name="arrow-forward-ios" size={16} color="#ccc" />
-    </TouchableOpacity>
-  );
-
   // Loading state
   if (loading && stations.length === 0) {
     return (
       <View style={styles.container}>
-        {renderHeader()}
+        {renderModernHeader()}
         <View style={styles.centered}>
           <ActivityIndicator size="large" color="#0066cc" />
           <Text style={styles.loadingText}>Loading your dashboard...</Text>
@@ -434,7 +414,7 @@ export default function PassengerHomeScreen() {
   if (error && stations.length === 0) {
     return (
       <View style={styles.container}>
-        {renderHeader()}
+        {renderModernHeader()}
         <View style={styles.centered}>
           <MaterialIcons name="error-outline" size={64} color="#f44336" />
           <Text style={styles.errorText}>{error}</Text>
@@ -459,17 +439,16 @@ export default function PassengerHomeScreen() {
           />
         }
       >
-        {renderHeader()}
-        {renderQuickActions()}
+        {renderModernHeader()}
         {renderNextTrip()}
         {renderRecentBookings()}
 
-        {/* Departure Stations */}
-        <View style={styles.stationsContainer}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Departure Stations</Text>
-            <TouchableOpacity onPress={handleViewAllStations}>
-              <Text style={styles.seeAllLink}>View all ({stations.length})</Text>
+        {/* Popular Destinations */}
+        <View style={modernStyles.section}>
+          <View style={modernStyles.sectionHeader}>
+            <Text style={modernStyles.sectionTitle}>🌟 Popular Destinations</Text>
+            <TouchableOpacity onPress={() => router.push('/(passenger)/search')}>
+              <Text style={modernStyles.seeAllLink}>Explore all ({stations.length})</Text>
             </TouchableOpacity>
           </View>
 
@@ -479,26 +458,416 @@ export default function PassengerHomeScreen() {
             renderItem={renderStationItem}
             scrollEnabled={false}
             numColumns={2}
-            columnWrapperStyle={styles.stationRow}
-            contentContainerStyle={styles.stationsList}
+            columnWrapperStyle={stations.length > 1 ? modernStyles.stationRow : undefined}
+            contentContainerStyle={modernStyles.stationsList}
             ListEmptyComponent={
-              <View style={styles.emptyStations}>
+              <View style={modernStyles.emptyState}>
                 <MaterialIcons name="location-off" size={48} color="#ccc" />
-                <Text style={styles.emptyStationsText}>No stations available</Text>
-                <Text style={styles.emptyStationsSubtext}>Pull to refresh</Text>
+                <Text style={modernStyles.emptyText}>No destinations available</Text>
+                <Text style={modernStyles.emptySubtext}>Pull to refresh</Text>
               </View>
             }
           />
         </View>
 
         {/* App info footer */}
-        <View style={styles.footerContainer}>
-          <Text style={styles.footerText}>
+        <View style={modernStyles.footer}>
+          <Text style={modernStyles.footerText}>
             Louagi • Fast, reliable shared transportation
           </Text>
-          <Text style={styles.versionText}>v1.0.0</Text>
+          <Text style={modernStyles.versionText}>v1.0.0</Text>
         </View>
       </ScrollView>
     </View>
   );
 }
+
+// Modern styles - cleaner and more elegant
+const modernStyles = {
+  // Hero Section
+  heroSection: {
+    backgroundColor: '#0066cc',
+    paddingTop: Platform.OS === 'ios' ? 50 : 30,
+    paddingBottom: 30,
+    paddingHorizontal: 20,
+  },
+
+  userGreeting: {
+    flexDirection: 'row' as const,
+    justifyContent: 'space-between' as const,
+    alignItems: 'flex-start' as const,
+    marginBottom: 30,
+  },
+
+  greetingContent: {
+    flex: 1,
+  },
+
+  greeting: {
+    fontSize: 16,
+    color: 'rgba(255, 255, 255, 0.8)',
+    marginBottom: 4,
+  },
+
+  userName: {
+    fontSize: 28,
+    fontWeight: '700' as const,
+    color: '#ffffff',
+  },
+
+  headerActions: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 12,
+  },
+
+  profileButton: {
+    padding: 4,
+  },
+
+  avatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    justifyContent: 'center' as const,
+    alignItems: 'center' as const,
+    borderWidth: 2,
+    borderColor: '#ffffff',
+  },
+
+  avatarText: {
+    fontSize: 18,
+    fontWeight: '700' as const,
+    color: '#ffffff',
+  },
+
+  logoutButton: {
+    padding: 8,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+  },
+
+  // Search Section
+  searchSection: {
+    alignItems: 'center' as const,
+    marginBottom: 30,
+  },
+
+  searchTitle: {
+    fontSize: 24,
+    fontWeight: '700' as const,
+    color: '#ffffff',
+    marginBottom: 8,
+    textAlign: 'center' as const,
+  },
+
+  searchSubtitle: {
+    fontSize: 16,
+    color: 'rgba(255, 255, 255, 0.8)',
+    marginBottom: 24,
+    textAlign: 'center' as const,
+  },
+
+  searchButton: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    backgroundColor: '#ffffff',
+    paddingHorizontal: 24,
+    paddingVertical: 16,
+    borderRadius: 25,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 6,
+    gap: 12,
+  },
+
+  searchButtonText: {
+    fontSize: 16,
+    fontWeight: '600' as const,
+    color: '#0066cc',
+    flex: 1,
+  },
+
+  // Stats
+  statsRow: {
+    flexDirection: 'row' as const,
+    justifyContent: 'space-around' as const,
+    alignItems: 'center' as const,
+  },
+
+  statItem: {
+    alignItems: 'center' as const,
+    gap: 8,
+  },
+
+  statNumber: {
+    fontSize: 20,
+    fontWeight: '700' as const,
+    color: '#ffffff',
+  },
+
+  statLabel: {
+    fontSize: 12,
+    color: 'rgba(255, 255, 255, 0.8)',
+    textAlign: 'center' as const,
+  },
+
+  // Sections
+  section: {
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+  },
+
+  sectionHeader: {
+    flexDirection: 'row' as const,
+    justifyContent: 'space-between' as const,
+    alignItems: 'center' as const,
+    marginBottom: 16,
+  },
+
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: '700' as const,
+    color: '#333',
+  },
+
+  seeAllLink: {
+    fontSize: 14,
+    color: '#0066cc',
+    fontWeight: '600' as const,
+  },
+
+  // Next Trip
+  nextTripCard: {
+    backgroundColor: '#ffffff',
+    padding: 20,
+    borderRadius: 16,
+    borderLeftWidth: 4,
+    borderLeftColor: '#28a745',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+
+  tripHeader: {
+    flexDirection: 'row' as const,
+    justifyContent: 'space-between' as const,
+    alignItems: 'flex-start' as const,
+    marginBottom: 16,
+  },
+
+  routeInfo: {
+    flex: 1,
+  },
+
+  routeText: {
+    fontSize: 18,
+    fontWeight: '600' as const,
+    color: '#333',
+    marginBottom: 4,
+  },
+
+  tripTime: {
+    fontSize: 14,
+    color: '#666',
+  },
+
+  tripBadge: {
+    backgroundColor: '#e8f5e8',
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+
+  tripBadgeText: {
+    fontSize: 12,
+    fontWeight: '600' as const,
+    color: '#28a745',
+  },
+
+  tripDetails: {
+    flexDirection: 'row' as const,
+    justifyContent: 'space-between' as const,
+    alignItems: 'center' as const,
+  },
+
+  tripDetailItem: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 4,
+  },
+
+  tripDetailText: {
+    fontSize: 12,
+    color: '#666',
+    fontWeight: '500' as const,
+  },
+
+  // Activity Cards
+  activityCard: {
+    backgroundColor: '#ffffff',
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+
+  activityContent: {
+    flexDirection: 'row' as const,
+    justifyContent: 'space-between' as const,
+    alignItems: 'center' as const,
+  },
+
+  bookingRoute: {
+    flex: 1,
+  },
+
+  activityTitle: {
+    fontSize: 16,
+    fontWeight: '600' as const,
+    color: '#333',
+    marginBottom: 4,
+  },
+
+  activitySubtitle: {
+    fontSize: 14,
+    color: '#666',
+  },
+
+  bookingStatus: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 8,
+  },
+
+  statusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+
+  bookingAmount: {
+    fontSize: 16,
+    fontWeight: '600' as const,
+    color: '#333',
+  },
+
+  // Stations
+  stationsList: {
+    paddingBottom: 8,
+  },
+
+  stationRow: {
+    justifyContent: 'space-between' as const,
+    marginBottom: 12,
+  },
+
+  stationCard: {
+    backgroundColor: '#ffffff',
+    width: (width - 52) / 2,
+    padding: 16,
+    borderRadius: 12,
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+
+  stationCardLeft: {
+    marginRight: 6,
+  },
+
+  stationCardRight: {
+    marginLeft: 6,
+  },
+
+  stationIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#f0f8ff',
+    justifyContent: 'center' as const,
+    alignItems: 'center' as const,
+    marginRight: 12,
+  },
+
+  stationInfo: {
+    flex: 1,
+  },
+
+  stationName: {
+    fontSize: 14,
+    fontWeight: '600' as const,
+    color: '#333',
+    marginBottom: 2,
+  },
+
+  stationLocation: {
+    fontSize: 12,
+    color: '#666',
+    marginBottom: 4,
+  },
+
+  amenitiesIndicator: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 2,
+  },
+
+  amenitiesText: {
+    fontSize: 10,
+    color: '#ffc107',
+    fontWeight: '500' as const,
+  },
+
+  // Empty states
+  emptyState: {
+    alignItems: 'center' as const,
+    padding: 40,
+  },
+
+  emptyText: {
+    fontSize: 18,
+    fontWeight: '600' as const,
+    color: '#666',
+    marginTop: 16,
+    marginBottom: 4,
+    textAlign: 'center' as const,
+  },
+
+  emptySubtext: {
+    fontSize: 14,
+    color: '#999',
+    textAlign: 'center' as const,
+  },
+
+  // Footer
+  footer: {
+    alignItems: 'center' as const,
+    padding: 24,
+    paddingBottom: 40,
+  },
+
+  footerText: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 4,
+  },
+
+  versionText: {
+    fontSize: 12,
+    color: '#999',
+  },
+};

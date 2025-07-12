@@ -1,654 +1,761 @@
-// 📁 app/(passenger)/profile/index.tsx - ENHANCED Profile Screen
-import React, { useState, useEffect } from 'react';
+// app/(passenger)/profile/index.tsx - FIXED Passenger Profile Screen
+import React, { useEffect, useState, useCallback } from 'react';
 import {
   View,
   Text,
   ScrollView,
   TouchableOpacity,
-  Alert,
-  Switch,
   ActivityIndicator,
-  StatusBar,
-  Platform,
-  Linking,
+  StyleSheet,
+  Alert,
+  RefreshControl,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { useSelector, useDispatch } from 'react-redux';
-import { MaterialIcons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-
+import { useDispatch, useSelector } from 'react-redux';
+import { logout } from '../../../src/store/authSlice';
 import { RootState } from '../../../src/store/store';
-import { logout, updateUser } from '../../../src/store/authSlice';
-import { getCurrentUser, updateUserProfile, getPassengerAnalytics } from '../../../src/services/api';
-import { theme } from '../../../src/styles/theme';
+import {
+  getCurrentUser,
+  getPassengerAnalytics,
+  getMyBookings,
+  getMyPayments,
+  type User
+} from '../../../src/services/api';
 
-interface ProfileStats {
-  totalBookings: number;
-  completedTrips: number;
-  totalSpent: number;
-  averageSpentPerTrip: number;
-  completionRate: string;
-  cancellationRate: string;
-}
-
-interface UserSettings {
-  notifications: boolean;
-  emailUpdates: boolean;
-  smsAlerts: boolean;
-  locationServices: boolean;
-  autoBook: boolean;
-}
-
-export default function ProfileScreen() {
+export default function PassengerProfileScreen() {
   const router = useRouter();
   const dispatch = useDispatch();
-  const auth = useSelector((state: RootState) => state.auth);
+  const { user } = useSelector((state: RootState) => state.auth);
 
   // State management
-  const [loading, setLoading] = useState(false);
+  const [userProfile, setUserProfile] = useState<User | null>(user);
+  const [analytics, setAnalytics] = useState<any>(null);
+  const [recentBookings, setRecentBookings] = useState<any[]>([]);
+  const [paymentSummary, setPaymentSummary] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [stats, setStats] = useState<ProfileStats | null>(null);
-  const [settings, setSettings] = useState<UserSettings>({
-    notifications: true,
-    emailUpdates: true,
-    smsAlerts: false,
-    locationServices: true,
-    autoBook: false,
-  });
 
-  // Load user data and analytics
-  const loadProfileData = async (isRefresh = false) => {
+  // Fetch profile data
+  const fetchProfileData = useCallback(async (isRefresh = false) => {
     try {
-      if (isRefresh) setRefreshing(true);
-      else setLoading(true);
+      if (isRefresh) {
+        setRefreshing(true);
+      } else {
+        setLoading(true);
+      }
 
-      // Load analytics
-      const analyticsResponse = await getPassengerAnalytics(6); // Last 6 months
+      // Fetch current user profile
+      const userResponse = await getCurrentUser();
+      if (userResponse.success && userResponse.data) {
+        setUserProfile(userResponse.data);
+      }
+
+      // Fetch passenger analytics (last 6 months)
+      const analyticsResponse = await getPassengerAnalytics(6);
       if (analyticsResponse.success && analyticsResponse.data) {
-        setStats(analyticsResponse.data.analytics.summary);
+        setAnalytics(analyticsResponse.data.analytics);
       }
 
-      // Load saved settings
-      const savedSettings = await AsyncStorage.getItem('user_settings');
-      if (savedSettings) {
-        setSettings(JSON.parse(savedSettings));
+      // Fetch recent bookings (last 5)
+      const bookingsResponse = await getMyBookings({ limit: 5 });
+      if (bookingsResponse.success && bookingsResponse.data) {
+        setRecentBookings(bookingsResponse.data.bookings || []);
       }
+
+      // Fetch payment summary
+      const paymentsResponse = await getMyPayments({ limit: 10 });
+      if (paymentsResponse.success && paymentsResponse.data) {
+        const payments = paymentsResponse.data.payments || [];
+        const totalSpent = payments
+          .filter(p => p.status === 'completed')
+          .reduce((sum, p) => sum + parseFloat(p.amount), 0);
+
+        setPaymentSummary({
+          totalSpent,
+          paymentsCount: payments.length,
+          lastPayment: payments[0] || null
+        });
+      }
+
     } catch (error) {
-      console.error('Error loading profile data:', error);
+      console.error('Error fetching profile data:', error);
+      Alert.alert('Error', 'Failed to load profile information');
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  };
-
-  useEffect(() => {
-    loadProfileData();
   }, []);
 
-  // Update setting and save to storage
-  const updateSetting = async (key: keyof UserSettings, value: boolean) => {
-    const newSettings = { ...settings, [key]: value };
-    setSettings(newSettings);
-    await AsyncStorage.setItem('user_settings', JSON.stringify(newSettings));
-  };
+  // Initial load
+  useEffect(() => {
+    fetchProfileData();
+  }, [fetchProfileData]);
 
   // Handle logout
   const handleLogout = () => {
     Alert.alert(
-      'Sign Out',
-      'Are you sure you want to sign out of your account?',
+      'Logout',
+      'Are you sure you want to logout?',
       [
         { text: 'Cancel', style: 'cancel' },
         {
-          text: 'Sign Out',
+          text: 'Logout',
           style: 'destructive',
-          onPress: async () => {
-            try {
-              await AsyncStorage.removeItem('louagi_token');
-              global.authToken = undefined;
-              dispatch(logout());
-              router.replace('/login');
-            } catch (error) {
-              dispatch(logout());
-              router.replace('/login');
-            }
-          }
-        }
-      ]
-    );
-  };
-
-  // Handle edit profile
-  const handleEditProfile = () => {
-    router.push('/(passenger)/profile/edit');
-  };
-
-  // Handle contact support
-  const handleContactSupport = () => {
-    Alert.alert(
-      'Contact Support',
-      'How would you like to contact our support team?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Email',
-          onPress: () => Linking.openURL('mailto:support@louagi.com?subject=Louagi Support Request')
+          onPress: () => {
+            dispatch(logout());
+            global.authToken = undefined;
+            router.replace('/login');
+          },
         },
-        {
-          text: 'Phone',
-          onPress: () => Linking.openURL('tel:+216-XX-XXX-XXX')
-        }
       ]
     );
   };
 
-  // Handle about app
-  const handleAboutApp = () => {
-    Alert.alert(
-      'About Louagi',
-      'Louagi v1.0.0\n\nFast, reliable shared transportation across Tunisia.\n\nMade with ❤️ for modern travelers.',
-      [{ text: 'OK' }]
-    );
-  };
-
-  // Render methods
-  const renderHeader = () => (
-    <View style={styles.header}>
-      <StatusBar barStyle="light-content" backgroundColor="#0066cc" />
-
-      <View style={styles.headerContent}>
-        <View style={styles.userInfo}>
-          <View style={styles.avatarContainer}>
-            <View style={styles.avatar}>
-              <Text style={styles.avatarText}>
-                {auth.user?.username?.charAt(0).toUpperCase() || 'U'}
-              </Text>
-            </View>
-
-            <TouchableOpacity style={styles.editAvatarButton}>
-              <MaterialIcons name="camera-alt" size={16} color="#ffffff" />
-            </TouchableOpacity>
-          </View>
-
-          <View style={styles.userDetails}>
-            <Text style={styles.userName}>{auth.user?.username || 'User'}</Text>
-            <Text style={styles.userEmail}>{auth.user?.email || 'user@example.com'}</Text>
-            <Text style={styles.userPhone}>{auth.user?.phone || '+216 XX XXX XXX'}</Text>
-          </View>
+  // Render user info card
+  const renderUserInfoCard = () => (
+    <View style={styles.userCard}>
+      <View style={styles.userHeader}>
+        <View style={styles.avatar}>
+          <Text style={styles.avatarText}>
+            {userProfile?.username?.charAt(0).toUpperCase() || 'U'}
+          </Text>
         </View>
-
-        <TouchableOpacity style={styles.editButton} onPress={handleEditProfile}>
-          <MaterialIcons name="edit" size={20} color="#ffffff" />
-          <Text style={styles.editButtonText}>Edit</Text>
-        </TouchableOpacity>
+        <View style={styles.userInfo}>
+          <Text style={styles.userName}>{userProfile?.username}</Text>
+          <Text style={styles.userEmail}>{userProfile?.email}</Text>
+          <Text style={styles.userPhone}>{userProfile?.phone}</Text>
+          <Text style={styles.userRole}>🎫 Passenger</Text>
+        </View>
       </View>
+
+      <TouchableOpacity
+        style={styles.editButton}
+        onPress={() => router.push('/(passenger)/profile/edit')}
+      >
+        <Text style={styles.editButtonText}>Edit Profile</Text>
+      </TouchableOpacity>
     </View>
   );
 
-  const renderStats = () => {
-    if (!stats) return null;
+  // Render travel stats card
+  const renderTravelStatsCard = () => {
+    if (!analytics) return null;
 
     return (
-      <View style={styles.statsContainer}>
-        <Text style={styles.sectionTitle}>Your Travel Stats</Text>
+      <View style={styles.statsCard}>
+        <Text style={styles.cardTitle}>Travel Statistics 📊</Text>
 
         <View style={styles.statsGrid}>
-          <View style={styles.statCard}>
-            <MaterialIcons name="flight-takeoff" size={24} color="#0066cc" />
-            <Text style={styles.statNumber}>{stats.completedTrips}</Text>
+          <View style={styles.statItem}>
+            <Text style={styles.statNumber}>{analytics.summary.totalBookings}</Text>
+            <Text style={styles.statLabel}>Total Bookings</Text>
+          </View>
+
+          <View style={styles.statItem}>
+            <Text style={styles.statNumber}>{analytics.summary.completedTrips}</Text>
             <Text style={styles.statLabel}>Completed Trips</Text>
           </View>
 
-          <View style={styles.statCard}>
-            <MaterialIcons name="attach-money" size={24} color="#28a745" />
-            <Text style={styles.statNumber}>${stats.totalSpent.toFixed(0)}</Text>
+          <View style={styles.statItem}>
+            <Text style={styles.statNumber}>${analytics.summary.totalSpent.toFixed(0)}</Text>
             <Text style={styles.statLabel}>Total Spent</Text>
           </View>
 
-          <View style={styles.statCard}>
-            <MaterialIcons name="trending-up" size={24} color="#ff9800" />
-            <Text style={styles.statNumber}>{stats.completionRate}</Text>
-            <Text style={styles.statLabel}>Completion Rate</Text>
-          </View>
-
-          <View style={styles.statCard}>
-            <MaterialIcons name="payments" size={24} color="#9c27b0" />
-            <Text style={styles.statNumber}>${stats.averageSpentPerTrip.toFixed(0)}</Text>
-            <Text style={styles.statLabel}>Avg per Trip</Text>
+          <View style={styles.statItem}>
+            <Text style={styles.statNumber}>{analytics.summary.completionRate}</Text>
+            <Text style={styles.statLabel}>Success Rate</Text>
           </View>
         </View>
+
+        <View style={styles.averageSection}>
+          <Text style={styles.averageText}>
+            💰 Average per trip: ${analytics.summary.averageSpentPerTrip.toFixed(2)}
+          </Text>
+        </View>
+
+        <TouchableOpacity
+          style={styles.viewMoreButton}
+          onPress={() => router.push('/(passenger)/bookings')}
+        >
+          <Text style={styles.viewMoreText}>View All Bookings →</Text>
+        </TouchableOpacity>
       </View>
     );
   };
 
-  const renderSettings = () => (
-    <View style={styles.settingsContainer}>
-      <Text style={styles.sectionTitle}>Preferences</Text>
+  // Render recent bookings
+  const renderRecentBookingsCard = () => (
+    <View style={styles.recentCard}>
+      <Text style={styles.cardTitle}>Recent Activity 🎫</Text>
 
-      <View style={styles.settingsList}>
-        <View style={styles.settingItem}>
-          <View style={styles.settingInfo}>
-            <MaterialIcons name="notifications" size={24} color="#0066cc" />
-            <View style={styles.settingText}>
-              <Text style={styles.settingTitle}>Push Notifications</Text>
-              <Text style={styles.settingDescription}>Trip updates and alerts</Text>
+      {recentBookings.length === 0 ? (
+        <View style={styles.emptyState}>
+          <Text style={styles.emptyIcon}>🚐</Text>
+          <Text style={styles.emptyText}>No recent bookings</Text>
+          <Text style={styles.emptySubtext}>Start your journey today!</Text>
+          <TouchableOpacity
+            style={styles.exploreButton}
+            onPress={() => router.push('/(passenger)/home')}
+          >
+            <Text style={styles.exploreButtonText}>Explore Trips</Text>
+          </TouchableOpacity>
+        </View>
+      ) : (
+        <>
+          {recentBookings.slice(0, 3).map((booking) => (
+            <View key={booking.id} style={styles.bookingItem}>
+              <View style={styles.bookingInfo}>
+                <Text style={styles.bookingRoute}>
+                  {booking.trip.route.startStation.name} → {booking.trip.route.endStation.name}
+                </Text>
+                <Text style={styles.bookingDate}>
+                  {new Date(booking.createdAt).toLocaleDateString('en-US', {
+                    weekday: 'short',
+                    month: 'short',
+                    day: 'numeric'
+                  })}
+                </Text>
+                <Text style={styles.bookingReference}>#{booking.bookingReference}</Text>
+              </View>
+
+              <View style={styles.bookingStatus}>
+                <Text style={[
+                  styles.statusText,
+                  { color: getStatusColor(booking.status) }
+                ]}>
+                  {getStatusIcon(booking.status)} {booking.status}
+                </Text>
+                <Text style={styles.bookingAmount}>
+                  ${booking.amount}
+                </Text>
+              </View>
             </View>
+          ))}
+
+          <TouchableOpacity
+            style={styles.viewAllButton}
+            onPress={() => router.push('/(passenger)/bookings')}
+          >
+            <Text style={styles.viewAllText}>View All Bookings →</Text>
+          </TouchableOpacity>
+        </>
+      )}
+    </View>
+  );
+
+  // Render payment summary
+  const renderPaymentSummaryCard = () => {
+    if (!paymentSummary) return null;
+
+    return (
+      <View style={styles.paymentCard}>
+        <Text style={styles.cardTitle}>Payment Summary 💳</Text>
+
+        <View style={styles.paymentStats}>
+          <View style={styles.paymentStat}>
+            <Text style={styles.paymentNumber}>${paymentSummary.totalSpent.toFixed(2)}</Text>
+            <Text style={styles.paymentLabel}>Total Spent</Text>
           </View>
-          <Switch
-            value={settings.notifications}
-            onValueChange={(value) => updateSetting('notifications', value)}
-            trackColor={{ false: '#e5e5ea', true: '#0066cc50' }}
-            thumbColor={settings.notifications ? '#0066cc' : '#f4f3f4'}
-          />
+
+          <View style={styles.paymentStat}>
+            <Text style={styles.paymentNumber}>{paymentSummary.paymentsCount}</Text>
+            <Text style={styles.paymentLabel}>Transactions</Text>
+          </View>
         </View>
 
-        <View style={styles.settingItem}>
-          <View style={styles.settingInfo}>
-            <MaterialIcons name="email" size={24} color="#0066cc" />
-            <View style={styles.settingText}>
-              <Text style={styles.settingTitle}>Email Updates</Text>
-              <Text style={styles.settingDescription}>Booking confirmations and receipts</Text>
-            </View>
+        {paymentSummary.lastPayment && (
+          <View style={styles.lastPaymentInfo}>
+            <Text style={styles.lastPaymentText}>
+              Last payment: ${paymentSummary.lastPayment.amount} on{' '}
+              {new Date(paymentSummary.lastPayment.createdAt).toLocaleDateString()}
+            </Text>
           </View>
-          <Switch
-            value={settings.emailUpdates}
-            onValueChange={(value) => updateSetting('emailUpdates', value)}
-            trackColor={{ false: '#e5e5ea', true: '#0066cc50' }}
-            thumbColor={settings.emailUpdates ? '#0066cc' : '#f4f3f4'}
-          />
-        </View>
+        )}
 
-        <View style={styles.settingItem}>
-          <View style={styles.settingInfo}>
-            <MaterialIcons name="sms" size={24} color="#0066cc" />
-            <View style={styles.settingText}>
-              <Text style={styles.settingTitle}>SMS Alerts</Text>
-              <Text style={styles.settingDescription}>Important trip notifications</Text>
-            </View>
-          </View>
-          <Switch
-            value={settings.smsAlerts}
-            onValueChange={(value) => updateSetting('smsAlerts', value)}
-            trackColor={{ false: '#e5e5ea', true: '#0066cc50' }}
-            thumbColor={settings.smsAlerts ? '#0066cc' : '#f4f3f4'}
-          />
-        </View>
+        <TouchableOpacity
+          style={styles.managePaymentButton}
+          onPress={() => {
+            Alert.alert('Coming Soon', 'Payment method management coming soon!');
+          }}
+        >
+          <Text style={styles.managePaymentText}>Manage Payment Methods</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  };
 
-        <View style={styles.settingItem}>
-          <View style={styles.settingInfo}>
-            <MaterialIcons name="location-on" size={24} color="#0066cc" />
-            <View style={styles.settingText}>
-              <Text style={styles.settingTitle}>Location Services</Text>
-              <Text style={styles.settingDescription}>For better route suggestions</Text>
-            </View>
-          </View>
-          <Switch
-            value={settings.locationServices}
-            onValueChange={(value) => updateSetting('locationServices', value)}
-            trackColor={{ false: '#e5e5ea', true: '#0066cc50' }}
-            thumbColor={settings.locationServices ? '#0066cc' : '#f4f3f4'}
-          />
-        </View>
+  // Render quick actions
+  const renderQuickActionsCard = () => (
+    <View style={styles.actionsCard}>
+      <Text style={styles.cardTitle}>Quick Actions ⚡</Text>
+
+      <View style={styles.actionButtons}>
+        <TouchableOpacity
+          style={styles.actionButton}
+          onPress={() => router.push('/(passenger)/home')}
+        >
+          <Text style={styles.actionIcon}>🔍</Text>
+          <Text style={styles.actionText}>Search Trips</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.actionButton}
+          onPress={() => router.push('/(passenger)/bookings')}
+        >
+          <Text style={styles.actionIcon}>📋</Text>
+          <Text style={styles.actionText}>My Bookings</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.actionButton}
+          onPress={() => {
+            Alert.alert('Support', 'Email: support@louagi.com\nPhone: +216 XX XXX XXX');
+          }}
+        >
+          <Text style={styles.actionIcon}>💬</Text>
+          <Text style={styles.actionText}>Support</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.actionButton}
+          onPress={() => {
+            Alert.alert('Settings', 'Notification settings coming soon!');
+          }}
+        >
+          <Text style={styles.actionIcon}>⚙️</Text>
+          <Text style={styles.actionText}>Settings</Text>
+        </TouchableOpacity>
       </View>
     </View>
   );
 
-  const renderMenuItems = () => (
-    <View style={styles.menuContainer}>
-      <Text style={styles.sectionTitle}>More Options</Text>
-
-      <View style={styles.menuList}>
-        <TouchableOpacity style={styles.menuItem} onPress={() => router.push('/(passenger)/bookings')}>
-          <MaterialIcons name="history" size={24} color="#666" />
-          <Text style={styles.menuItemText}>Trip History</Text>
-          <MaterialIcons name="chevron-right" size={20} color="#ccc" />
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.menuItem} onPress={handleContactSupport}>
-          <MaterialIcons name="support-agent" size={24} color="#666" />
-          <Text style={styles.menuItemText}>Contact Support</Text>
-          <MaterialIcons name="chevron-right" size={20} color="#ccc" />
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.menuItem} onPress={handleAboutApp}>
-          <MaterialIcons name="info" size={24} color="#666" />
-          <Text style={styles.menuItemText}>About Louagi</Text>
-          <MaterialIcons name="chevron-right" size={20} color="#ccc" />
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.menuItem}
-          onPress={() => Linking.openURL('https://louagi.com/privacy')}
-        >
-          <MaterialIcons name="privacy-tip" size={24} color="#666" />
-          <Text style={styles.menuItemText}>Privacy Policy</Text>
-          <MaterialIcons name="chevron-right" size={20} color="#ccc" />
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.menuItem}
-          onPress={() => Linking.openURL('https://louagi.com/terms')}
-        >
-          <MaterialIcons name="description" size={24} color="#666" />
-          <Text style={styles.menuItemText}>Terms of Service</Text>
-          <MaterialIcons name="chevron-right" size={20} color="#ccc" />
-        </TouchableOpacity>
-      </View>
+  // Render app info
+  const renderAppInfo = () => (
+    <View style={styles.appInfo}>
+      <Text style={styles.appInfoText}>Louagi Mobile v1.0.0</Text>
+      <Text style={styles.appInfoText}>Made with ❤️ in Tunisia 🇹🇳</Text>
+      <Text style={styles.appInfoText}>Your trusted travel companion</Text>
     </View>
   );
+
+  // Helper functions
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'pending': return '#ffc107';
+      case 'confirmed': return '#28a745';
+      case 'completed': return '#007bff';
+      case 'cancelled': return '#dc3545';
+      default: return '#6c757d';
+    }
+  };
+
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case 'pending': return '⏳';
+      case 'confirmed': return '✅';
+      case 'completed': return '🎉';
+      case 'cancelled': return '❌';
+      default: return '❓';
+    }
+  };
 
   if (loading) {
     return (
-      <View style={styles.container}>
-        {renderHeader()}
-        <View style={styles.centered}>
-          <ActivityIndicator size="large" color="#0066cc" />
-          <Text style={styles.loadingText}>Loading your profile...</Text>
-        </View>
+      <View style={styles.centered}>
+        <ActivityIndicator size="large" color="#0066cc" />
+        <Text style={styles.loadingText}>Loading your profile...</Text>
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={() => loadProfileData(true)}
-            colors={['#0066cc']}
-            tintColor="#0066cc"
-          />
-        }
-      >
-        {renderHeader()}
-        {renderStats()}
-        {renderSettings()}
-        {renderMenuItems()}
+    <ScrollView
+      style={styles.container}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={() => fetchProfileData(true)}
+          colors={['#0066cc']}
+        />
+      }
+      showsVerticalScrollIndicator={false}
+    >
+      <View style={styles.header}>
+        <Text style={styles.title}>My Profile</Text>
+        <TouchableOpacity
+          onPress={handleLogout}
+          style={styles.logoutButton}
+        >
+          <Text style={styles.logoutText}>Logout</Text>
+        </TouchableOpacity>
+      </View>
 
-        {/* Logout button */}
-        <View style={styles.logoutContainer}>
-          <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-            <MaterialIcons name="logout" size={20} color="#dc3545" />
-            <Text style={styles.logoutButtonText}>Sign Out</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* App version */}
-        <View style={styles.versionContainer}>
-          <Text style={styles.versionText}>Louagi v1.0.0</Text>
-          <Text style={styles.buildText}>Build 2024.1</Text>
-        </View>
-      </ScrollView>
-    </View>
+      {renderUserInfoCard()}
+      {renderTravelStatsCard()}
+      {renderRecentBookingsCard()}
+      {renderPaymentSummaryCard()}
+      {renderQuickActionsCard()}
+      {renderAppInfo()}
+    </ScrollView>
   );
 }
 
-// Enhanced styles for the profile screen
-const styles = {
+const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: theme.colors.background.primary,
+    backgroundColor: '#f8f9fa',
   },
-
-  header: {
-    backgroundColor: '#0066cc',
-    paddingTop: Platform.OS === 'ios' ? 50 : 30,
-    paddingBottom: 30,
-    paddingHorizontal: 20,
-  },
-
-  headerContent: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-  },
-
-  userInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-
-  avatarContainer: {
-    position: 'relative',
-    marginRight: 16,
-  },
-
-  avatar: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 3,
-    borderColor: '#ffffff',
-  },
-
-  avatarText: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#ffffff',
-  },
-
-  editAvatarButton: {
-    position: 'absolute',
-    bottom: -2,
-    right: -2,
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: '#0066cc',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: '#ffffff',
-  },
-
-  userDetails: {
-    flex: 1,
-  },
-
-  userName: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#ffffff',
-    marginBottom: 4,
-  },
-
-  userEmail: {
-    fontSize: 14,
-    color: 'rgba(255, 255, 255, 0.8)',
-    marginBottom: 2,
-  },
-
-  userPhone: {
-    fontSize: 14,
-    color: 'rgba(255, 255, 255, 0.8)',
-  },
-
-  editButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    gap: 4,
-  },
-
-  editButtonText: {
-    color: '#ffffff',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-
   centered: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 40,
   },
-
   loadingText: {
+    marginTop: 12,
     fontSize: 16,
-    color: theme.colors.text.secondary,
-    marginTop: 16,
+    color: '#666',
   },
-
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: theme.colors.text.primary,
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 20,
+    paddingTop: 60,
+    backgroundColor: 'white',
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  logoutButton: {
+    padding: 8,
+  },
+  logoutText: {
+    fontSize: 16,
+    color: '#dc3545',
+    fontWeight: '600',
+  },
+  userCard: {
+    backgroundColor: 'white',
+    margin: 16,
+    padding: 20,
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  userHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
     marginBottom: 16,
   },
-
-  // Stats section
-  statsContainer: {
-    padding: 20,
+  avatar: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#0066cc',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
   },
-
+  avatarText: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: 'white',
+  },
+  userInfo: {
+    flex: 1,
+  },
+  userName: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 4,
+  },
+  userEmail: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 2,
+  },
+  userPhone: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 4,
+  },
+  userRole: {
+    fontSize: 14,
+    color: '#0066cc',
+    fontWeight: '500',
+  },
+  editButton: {
+    backgroundColor: '#f8f9fa',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#dee2e6',
+    alignSelf: 'flex-start',
+  },
+  editButtonText: {
+    fontSize: 14,
+    color: '#0066cc',
+    fontWeight: '600',
+  },
+  statsCard: {
+    backgroundColor: 'white',
+    marginHorizontal: 16,
+    marginBottom: 16,
+    padding: 20,
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  cardTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 16,
+  },
   statsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 12,
-  },
-
-  statCard: {
-    flex: 1,
-    minWidth: '45%',
-    backgroundColor: '#ffffff',
-    padding: 16,
-    borderRadius: 12,
-    alignItems: 'center',
-    gap: 8,
-    ...theme.shadows.light,
-  },
-
-  statNumber: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: theme.colors.text.primary,
-  },
-
-  statLabel: {
-    fontSize: 12,
-    color: theme.colors.text.secondary,
-    textAlign: 'center',
-  },
-
-  // Settings section
-  settingsContainer: {
-    padding: 20,
-    paddingTop: 0,
-  },
-
-  settingsList: {
-    backgroundColor: '#ffffff',
-    borderRadius: 12,
-    ...theme.shadows.light,
-  },
-
-  settingItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+    marginBottom: 16,
   },
-
-  settingInfo: {
-    flexDirection: 'row',
+  statItem: {
+    width: '48%',
     alignItems: 'center',
-    flex: 1,
+    backgroundColor: '#f8f9fa',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 8,
   },
-
-  settingText: {
-    marginLeft: 16,
-    flex: 1,
-  },
-
-  settingTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: theme.colors.text.primary,
-    marginBottom: 2,
-  },
-
-  settingDescription: {
-    fontSize: 12,
-    color: theme.colors.text.secondary,
-  },
-
-  // Menu section
-  menuContainer: {
-    padding: 20,
-    paddingTop: 0,
-  },
-
-  menuList: {
-    backgroundColor: '#ffffff',
-    borderRadius: 12,
-    ...theme.shadows.light,
-  },
-
-  menuItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
-  },
-
-  menuItemText: {
-    fontSize: 16,
-    color: theme.colors.text.primary,
-    marginLeft: 16,
-    flex: 1,
-  },
-
-  // Logout section
-  logoutContainer: {
-    padding: 20,
-    paddingTop: 0,
-  },
-
-  logoutButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#ffffff',
-    padding: 16,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#ffebee',
-    gap: 8,
-  },
-
-  logoutButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#dc3545',
-  },
-
-  // Version info
-  versionContainer: {
-    alignItems: 'center',
-    padding: 20,
-    paddingBottom: 40,
-  },
-
-  versionText: {
-    fontSize: 14,
-    color: theme.colors.text.secondary,
+  statNumber: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#0066cc',
     marginBottom: 4,
   },
-
-  buildText: {
+  statLabel: {
     fontSize: 12,
-    color: theme.colors.text.tertiary,
+    color: '#666',
+    textAlign: 'center',
   },
-};
+  averageSection: {
+    backgroundColor: '#e3f2fd',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 12,
+  },
+  averageText: {
+    fontSize: 14,
+    color: '#0066cc',
+    textAlign: 'center',
+    fontWeight: '500',
+  },
+  viewMoreButton: {
+    alignSelf: 'flex-end',
+  },
+  viewMoreText: {
+    fontSize: 14,
+    color: '#0066cc',
+    fontWeight: '600',
+  },
+  recentCard: {
+    backgroundColor: 'white',
+    marginHorizontal: 16,
+    marginBottom: 16,
+    padding: 20,
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  emptyState: {
+    alignItems: 'center',
+    padding: 20,
+  },
+  emptyIcon: {
+    fontSize: 48,
+    marginBottom: 12,
+  },
+  emptyText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#666',
+    marginBottom: 4,
+  },
+  emptySubtext: {
+    fontSize: 14,
+    color: '#888',
+    marginBottom: 16,
+  },
+  exploreButton: {
+    backgroundColor: '#0066cc',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  exploreButtonText: {
+    color: 'white',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  bookingItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  bookingInfo: {
+    flex: 1,
+  },
+  bookingRoute: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 2,
+  },
+  bookingDate: {
+    fontSize: 12,
+    color: '#666',
+    marginBottom: 2,
+  },
+  bookingReference: {
+    fontSize: 11,
+    color: '#0066cc',
+    fontWeight: '500',
+  },
+  bookingStatus: {
+    alignItems: 'flex-end',
+  },
+  statusText: {
+    fontSize: 12,
+    fontWeight: '600',
+    marginBottom: 2,
+  },
+  bookingAmount: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#333',
+  },
+  viewAllButton: {
+    alignSelf: 'flex-end',
+    marginTop: 8,
+  },
+  viewAllText: {
+    fontSize: 14,
+    color: '#0066cc',
+    fontWeight: '600',
+  },
+  paymentCard: {
+    backgroundColor: 'white',
+    marginHorizontal: 16,
+    marginBottom: 16,
+    padding: 20,
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  paymentStats: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginBottom: 16,
+  },
+  paymentStat: {
+    alignItems: 'center',
+  },
+  paymentNumber: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#28a745',
+    marginBottom: 4,
+  },
+  paymentLabel: {
+    fontSize: 12,
+    color: '#666',
+  },
+  lastPaymentInfo: {
+    backgroundColor: '#f8f9fa',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 12,
+  },
+  lastPaymentText: {
+    fontSize: 12,
+    color: '#666',
+    textAlign: 'center',
+  },
+  managePaymentButton: {
+    backgroundColor: '#0066cc',
+    paddingVertical: 10,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  managePaymentText: {
+    color: 'white',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  actionsCard: {
+    backgroundColor: 'white',
+    marginHorizontal: 16,
+    marginBottom: 16,
+    padding: 20,
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  actionButtons: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+  },
+  actionButton: {
+    width: '48%',
+    backgroundColor: '#f8f9fa',
+    padding: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  actionIcon: {
+    fontSize: 24,
+    marginBottom: 8,
+  },
+  actionText: {
+    fontSize: 14,
+    color: '#333',
+    fontWeight: '500',
+    textAlign: 'center',
+  },
+  appInfo: {
+    alignItems: 'center',
+    padding: 20,
+    marginBottom: 40,
+  },
+  appInfoText: {
+    fontSize: 12,
+    color: '#888',
+    marginBottom: 4,
+    textAlign: 'center',
+  },
+});

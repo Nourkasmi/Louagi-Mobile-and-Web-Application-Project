@@ -1000,4 +1000,108 @@ api.interceptors.response.use(
   }
 );
 
+
+export const getMyBookingsDebug = async (params?: {
+  page?: number;
+  limit?: number;
+  status?: string;
+  startDate?: string;
+  endDate?: string;
+}): Promise<ApiResponse<{ bookings: Booking[]; summary: any }>> => {
+  try {
+    console.log('🔍 DEBUG: Making bookings API call with params:', params);
+
+    const res = await api.get('/bookings/my', { params });
+
+    console.log('🔍 DEBUG: Raw API response:', {
+      status: res.status,
+      statusText: res.statusText,
+      headers: res.headers,
+      data: res.data,
+      dataType: typeof res.data,
+      dataKeys: res.data ? Object.keys(res.data) : [],
+      dataStringified: JSON.stringify(res.data, null, 2)
+    });
+
+    // Check if response.data is the expected format
+    if (res.data) {
+      if (res.data.success !== undefined) {
+        console.log('🔍 DEBUG: Response has success field:', res.data.success);
+
+        if (res.data.success && res.data.data) {
+          console.log('🔍 DEBUG: Success with nested data:', {
+            dataKeys: Object.keys(res.data.data),
+            hasBookings: 'bookings' in res.data.data,
+            bookingsType: typeof res.data.data.bookings,
+            bookingsLength: Array.isArray(res.data.data.bookings) ? res.data.data.bookings.length : 'not array'
+          });
+        }
+      } else {
+        console.log('🔍 DEBUG: Response without success field, checking direct properties:', {
+          hasBookings: 'bookings' in res.data,
+          bookingsType: typeof res.data.bookings,
+          isArray: Array.isArray(res.data),
+          directBookingsLength: Array.isArray(res.data.bookings) ? res.data.bookings.length : 'not array'
+        });
+      }
+    }
+
+    return res.data;
+  } catch (error: any) {
+    console.error('🔍 DEBUG: API Error details:', {
+      message: error.message,
+      status: error.response?.status,
+      statusText: error.response?.statusText,
+      responseData: error.response?.data,
+      responseHeaders: error.response?.headers,
+      requestUrl: error.config?.url,
+      requestMethod: error.config?.method,
+      requestParams: error.config?.params
+    });
+
+    throw error;
+  }
+};
+
+// Also add this simple test function to call from your component:
+export const testBookingsAPI = async () => {
+  console.log('🧪 TESTING: Starting bookings API test...');
+
+  try {
+    // Test the actual endpoint directly
+    const directResponse = await fetch(`${Config.API_BASE_URL}/bookings/my`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${global.authToken}`,
+        'Content-Type': 'application/json',
+        'ngrok-skip-browser-warning': 'true',
+      },
+    });
+
+    console.log('🧪 TESTING: Direct fetch response:', {
+      ok: directResponse.ok,
+      status: directResponse.status,
+      statusText: directResponse.statusText,
+      headers: Object.fromEntries(directResponse.headers.entries())
+    });
+
+    const directData = await directResponse.json();
+    console.log('🧪 TESTING: Direct fetch data:', {
+      data: directData,
+      stringified: JSON.stringify(directData, null, 2)
+    });
+
+    // Test with our API wrapper
+    const wrapperResponse = await getMyBookingsDebug({ limit: 10 });
+    console.log('🧪 TESTING: Wrapper response:', wrapperResponse);
+
+    return {
+      direct: directData,
+      wrapper: wrapperResponse
+    };
+  } catch (error) {
+    console.error('🧪 TESTING: Test failed:', error);
+    throw error;
+  }
+};
 export default api;

@@ -1,4 +1,4 @@
-// app/(passenger)/bookings/index.tsx - Main Bookings Screen
+// app/(passenger)/bookings/index.tsx - FIXED Bookings Screen
 import React, { useEffect, useState, useCallback } from 'react';
 import {
     View,
@@ -37,7 +37,7 @@ export default function BookingsScreen() {
         cancelled: 0,
     });
 
-    // Fetch bookings
+    // 🔧 FIXED: Enhanced fetchBookings with better error handling
     const fetchBookings = useCallback(async (isRefresh = false) => {
         try {
             if (isRefresh) {
@@ -48,29 +48,96 @@ export default function BookingsScreen() {
 
             setError(null);
 
+            console.log('📋 Fetching bookings...');
             const response = await getMyBookings({
                 limit: 50,
                 page: 1,
             });
 
-            if (response.success && response.data) {
-                const bookingsList = response.data.bookings || [];
+            console.log('📋 Bookings API response:', {
+                success: response.success,
+                hasData: !!response.data,
+                dataKeys: response.data ? Object.keys(response.data) : [],
+                responseKeys: Object.keys(response)
+            });
+
+            if (response.success) {
+                // 🔧 FIXED: Handle multiple possible response structures
+                let bookingsList: Booking[] = [];
+
+                // Try different possible response structures
+                if (response.data?.bookings && Array.isArray(response.data.bookings)) {
+                    bookingsList = response.data.bookings;
+                } else if (response.data && Array.isArray(response.data)) {
+                    bookingsList = response.data;
+                } else if (response.bookings && Array.isArray(response.bookings)) {
+                    bookingsList = response.bookings;
+                } else if (Array.isArray(response)) {
+                    bookingsList = response;
+                } else {
+                    console.warn('⚠️ Unexpected bookings response structure:', response);
+                    bookingsList = [];
+                }
+
+                console.log('📋 Processed bookings:', {
+                    count: bookingsList.length,
+                    firstBooking: bookingsList[0] ? {
+                        id: bookingsList[0].id,
+                        status: bookingsList[0].status,
+                        hasTrip: !!bookingsList[0].trip
+                    } : null
+                });
+
                 setBookings(bookingsList);
                 calculateStats(bookingsList);
 
-                console.log('📋 Fetched bookings:', {
-                    count: bookingsList.length,
-                    hasData: response.data,
-                    summary: response.data.summary
-                });
+                // Only show error if we got success but no bookings when we expected some
+                if (bookingsList.length === 0) {
+                    console.log('ℹ️ No bookings found (this might be normal for new users)');
+                }
             } else {
-                setError(response.message || 'Failed to load bookings');
+                // API returned success: false
+                const errorMessage = response.message || 'Failed to load bookings';
+                console.error('❌ Bookings API error:', errorMessage);
+                setError(errorMessage);
                 setBookings([]);
+                setStats({
+                    total: 0,
+                    pending: 0,
+                    confirmed: 0,
+                    completed: 0,
+                    cancelled: 0,
+                });
             }
         } catch (err: any) {
-            console.error('❌ Error fetching bookings:', err);
-            setError('Failed to load bookings. Please try again.');
+            console.error('❌ Error fetching bookings:', {
+                message: err.message,
+                status: err.response?.status,
+                responseData: err.response?.data
+            });
+
+            // 🔧 FIXED: More specific error messages
+            let errorMessage = 'Failed to load bookings. Please try again.';
+
+            if (err.response?.status === 401) {
+                errorMessage = 'Authentication failed. Please log in again.';
+            } else if (err.response?.status === 403) {
+                errorMessage = 'Access denied. Please check your permissions.';
+            } else if (err.response?.status >= 500) {
+                errorMessage = 'Server error. Please try again in a few minutes.';
+            } else if (!err.response) {
+                errorMessage = 'Network error. Please check your connection.';
+            }
+
+            setError(errorMessage);
             setBookings([]);
+            setStats({
+                total: 0,
+                pending: 0,
+                confirmed: 0,
+                completed: 0,
+                cancelled: 0,
+            });
         } finally {
             setLoading(false);
             setRefreshing(false);
@@ -87,6 +154,7 @@ export default function BookingsScreen() {
             cancelled: bookingsList.filter(b => b.status === 'cancelled').length,
         };
         setStats(newStats);
+        console.log('📊 Booking stats calculated:', newStats);
     }, []);
 
     // Filter bookings based on selected filter
@@ -173,8 +241,8 @@ export default function BookingsScreen() {
         />
     ), [handleBookingPress, handleBookingAction]);
 
-    // Loading state
-    if (loading && bookings.length === 0) {
+    // 🔧 FIXED: Better loading state handling
+    if (loading && bookings.length === 0 && !error) {
         return (
             <View style={styles.container}>
                 <BookingsHeader
@@ -189,7 +257,7 @@ export default function BookingsScreen() {
         );
     }
 
-    // Error state
+    // 🔧 FIXED: Better error state handling
     if (error && bookings.length === 0) {
         return (
             <View style={styles.container}>

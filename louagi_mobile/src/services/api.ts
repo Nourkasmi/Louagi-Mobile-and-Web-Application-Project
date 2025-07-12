@@ -919,7 +919,13 @@ export const getPassengerAnalytics = async (months?: number): Promise<ApiRespons
   };
   period: string;
 }>> => {
-  const res = await api.get('/bookings/passenger-analytics', { params: { months } });
+  // 🔧 FIX: Use proper query parameter format
+  const params: any = {};
+  if (months && months > 0) {
+    params.months = months;
+  }
+
+  const res = await api.get('/bookings/passenger-analytics', { params });
   return res.data;
 };
 

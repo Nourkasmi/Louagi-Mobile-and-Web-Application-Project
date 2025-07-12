@@ -1,4 +1,4 @@
-// app/(passenger)/profile/index.tsx - FIXED Passenger Profile Screen
+// app/(passenger)/profile/index.tsx - FIXED with Better Error Handling
 import React, { useEffect, useState, useCallback } from 'react';
 import {
   View,
@@ -35,7 +35,7 @@ export default function PassengerProfileScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  // Fetch profile data
+  // 🔧 FIXED: Enhanced error handling for profile data
   const fetchProfileData = useCallback(async (isRefresh = false) => {
     try {
       if (isRefresh) {
@@ -44,52 +44,141 @@ export default function PassengerProfileScreen() {
         setLoading(true);
       }
 
-      // Fetch current user profile
-      const userResponse = await getCurrentUser();
-      if (userResponse.success && userResponse.data) {
-        setUserProfile(userResponse.data);
+      console.log('🔄 Fetching profile data...');
+
+      // 1. Fetch current user profile (critical)
+      try {
+        const userResponse = await getCurrentUser();
+        if (userResponse.success && userResponse.data) {
+          setUserProfile(userResponse.data);
+          console.log('✅ User profile loaded');
+        } else {
+          console.warn('⚠️ User profile response:', userResponse.message);
+        }
+      } catch (userError) {
+        console.error('❌ Error fetching user profile:', userError);
+        // Don't fail completely, use existing user data
       }
 
-      // Fetch passenger analytics (last 6 months)
-      const analyticsResponse = await getPassengerAnalytics(6);
-      if (analyticsResponse.success && analyticsResponse.data) {
-        setAnalytics(analyticsResponse.data.analytics);
+      // 2. Fetch recent bookings (critical for analytics fallback)
+      let bookingsForAnalytics: any[] = [];
+      try {
+        const bookingsResponse = await getMyBookings({ limit: 10 });
+        if (bookingsResponse.success && bookingsResponse.data) {
+          const bookings = bookingsResponse.data.bookings || [];
+          setRecentBookings(bookings.slice(0, 3)); // Show only 3 recent
+          bookingsForAnalytics = bookings;
+          console.log('✅ Recent bookings loaded:', bookings.length);
+        } else {
+          console.warn('⚠️ Bookings response:', bookingsResponse.message);
+          setRecentBookings([]);
+        }
+      } catch (bookingsError) {
+        console.error('❌ Error fetching bookings:', bookingsError);
+        setRecentBookings([]);
       }
 
-      // Fetch recent bookings (last 5)
-      const bookingsResponse = await getMyBookings({ limit: 5 });
-      if (bookingsResponse.success && bookingsResponse.data) {
-        setRecentBookings(bookingsResponse.data.bookings || []);
+      // 3. Try to fetch analytics, but use fallback if it fails
+      try {
+        console.log('🔄 Attempting to fetch analytics...');
+
+        // 🔧 FIX: Try without parameters first
+        const analyticsResponse = await getPassengerAnalytics();
+
+        if (analyticsResponse.success && analyticsResponse.data) {
+          setAnalytics(analyticsResponse.data.analytics);
+          console.log('✅ Analytics loaded from API');
+        } else {
+          console.warn('⚠️ Analytics API response:', analyticsResponse.message);
+          throw new Error('Analytics API returned no data');
+        }
+      } catch (analyticsError) {
+        console.warn('⚠️ Analytics API failed, using fallback calculation:', analyticsError);
+
+        // 🔧 FALLBACK: Calculate analytics from bookings
+        const completedBookings = bookingsForAnalytics.filter(b => b.status === 'completed');
+        const cancelledBookings = bookingsForAnalytics.filter(b => b.status === 'cancelled');
+        const totalSpent = completedBookings.reduce((sum, b) => sum + (b.amount || 0), 0);
+        const totalBookings = bookingsForAnalytics.length;
+
+        const fallbackAnalytics = {
+          summary: {
+            totalBookings,
+            completedTrips: completedBookings.length,
+            totalSpent,
+            averageSpentPerTrip: completedBookings.length > 0 ? totalSpent / completedBookings.length : 0,
+            completionRate: totalBookings > 0 ? `${Math.round((completedBookings.length / totalBookings) * 100)}%` : '0%',
+            cancellationRate: totalBookings > 0 ? `${Math.round((cancelledBookings.length / totalBookings) * 100)}%` : '0%',
+          },
+          monthlyBreakdown: [] // Could calculate from booking dates if needed
+        };
+
+        setAnalytics(fallbackAnalytics);
+        console.log('✅ Using fallback analytics:', fallbackAnalytics.summary);
       }
 
-      // Fetch payment summary
-      const paymentsResponse = await getMyPayments({ limit: 10 });
-      if (paymentsResponse.success && paymentsResponse.data) {
-        const payments = paymentsResponse.data.payments || [];
-        const totalSpent = payments
-          .filter(p => p.status === 'completed')
-          .reduce((sum, p) => sum + parseFloat(p.amount), 0);
+      // 4. Fetch payment summary (non-critical)
+      try {
+        const paymentsResponse = await getMyPayments({ limit: 10 });
+        if (paymentsResponse.success && paymentsResponse.data) {
+          const payments = paymentsResponse.data.payments || [];
+          const totalSpent = payments
+            .filter(p => p.status === 'completed')
+            .reduce((sum, p) => sum + parseFloat(p.amount), 0);
 
+          setPaymentSummary({
+            totalSpent,
+            paymentsCount: payments.length,
+            lastPayment: payments[0] || null
+          });
+          console.log('✅ Payment summary loaded');
+        } else {
+          console.warn('⚠️ Payments response:', paymentsResponse.message);
+        }
+      } catch (paymentsError) {
+        console.warn('⚠️ Payments API failed (non-critical):', paymentsError);
         setPaymentSummary({
-          totalSpent,
-          paymentsCount: payments.length,
-          lastPayment: payments[0] || null
+          totalSpent: 0,
+          paymentsCount: 0,
+          lastPayment: null
         });
       }
 
+      console.log('✅ Profile data fetch completed');
+
     } catch (error) {
-      console.error('Error fetching profile data:', error);
-      Alert.alert('Error', 'Failed to load profile information');
+      console.error('❌ Critical error fetching profile data:', error);
+      // Only show alert for critical errors
+      if (!isRefresh) {
+        Alert.alert('Error', 'Failed to load profile information. Please try again.');
+      }
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
   }, []);
 
-  // Initial load
-  useEffect(() => {
-    fetchProfileData();
-  }, [fetchProfileData]);
+  // 🔧 FIXED: Alternative getPassengerAnalytics call without parameters
+  const getPassengerAnalyticsSimple = async () => {
+    try {
+      // Try without any parameters
+      const response = await fetch(`${process.env.API_BASE_URL || 'your-api-url'}/bookings/passenger-analytics`, {
+        headers: {
+          'Authorization': `Bearer ${global.authToken}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        return await response.json();
+      } else {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+    } catch (error) {
+      console.error('Direct analytics fetch failed:', error);
+      throw error;
+    }
+  };
 
   // Handle logout
   const handleLogout = () => {
@@ -110,6 +199,11 @@ export default function PassengerProfileScreen() {
       ]
     );
   };
+
+  // Initial load
+  useEffect(() => {
+    fetchProfileData();
+  }, [fetchProfileData]);
 
   // Render user info card
   const renderUserInfoCard = () => (
@@ -137,9 +231,19 @@ export default function PassengerProfileScreen() {
     </View>
   );
 
-  // Render travel stats card
+  // 🔧 FIXED: Render travel stats with fallback handling
   const renderTravelStatsCard = () => {
-    if (!analytics) return null;
+    if (!analytics) {
+      return (
+        <View style={styles.statsCard}>
+          <Text style={styles.cardTitle}>Travel Statistics 📊</Text>
+          <View style={styles.statsLoadingContainer}>
+            <ActivityIndicator size="small" color="#0066cc" />
+            <Text style={styles.statsLoadingText}>Loading statistics...</Text>
+          </View>
+        </View>
+      );
+    }
 
     return (
       <View style={styles.statsCard}>
@@ -206,7 +310,7 @@ export default function PassengerProfileScreen() {
             <View key={booking.id} style={styles.bookingItem}>
               <View style={styles.bookingInfo}>
                 <Text style={styles.bookingRoute}>
-                  {booking.trip.route.startStation.name} → {booking.trip.route.endStation.name}
+                  {booking.trip?.route?.startStation?.name || 'Unknown'} → {booking.trip?.route?.endStation?.name || 'Unknown'}
                 </Text>
                 <Text style={styles.bookingDate}>
                   {new Date(booking.createdAt).toLocaleDateString('en-US', {
@@ -226,7 +330,7 @@ export default function PassengerProfileScreen() {
                   {getStatusIcon(booking.status)} {booking.status}
                 </Text>
                 <Text style={styles.bookingAmount}>
-                  ${booking.amount}
+                  ${booking.amount || '0.00'}
                 </Text>
               </View>
             </View>
@@ -400,6 +504,7 @@ export default function PassengerProfileScreen() {
   );
 }
 
+// Add new styles for loading states
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -524,6 +629,20 @@ const styles = StyleSheet.create({
     color: '#333',
     marginBottom: 16,
   },
+
+  // 🔧 NEW: Loading states for analytics
+  statsLoadingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 20,
+  },
+  statsLoadingText: {
+    marginLeft: 8,
+    fontSize: 14,
+    color: '#666',
+  },
+
   statsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',

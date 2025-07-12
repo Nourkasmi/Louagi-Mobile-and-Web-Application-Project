@@ -1,22 +1,12 @@
-// components/ui/TabBarBackground.tsx - FIXED VERSION
-import { View } from 'react-native';
+// components/ui/TabBarBackground.tsx - COMPLETELY SIMPLE VERSION
+import React from 'react';
 
-// 🔧 SIMPLE WHITE BACKGROUND - NO BLUR, NO COMPLEXITY
+// Return null to ensure no interference whatsoever
 export default function TabBarBackground() {
-  return (
-    <View
-      style={{
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        backgroundColor: '#ffffff', // FORCE WHITE
-      }}
-    />
-  );
+  return null;
 }
 
+// Also return 0 for overflow
 export function useBottomTabOverflow() {
-  return 0; // No overflow needed
+  return 0;
 }

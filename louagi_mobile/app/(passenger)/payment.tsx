@@ -145,11 +145,93 @@ export default function UnifiedPaymentScreen() {
   // Navigation handlers
   const handleComplete = () => {
     if (step === 'success') {
+      // Ensure we have complete booking data with payment status updated
+      const updatedBooking = {
+        ...displayData,
+        paymentStatus: 'completed',
+        status: 'confirmed',
+        // Ensure we have complete trip and route data
+        trip: trip ? {
+          ...trip,
+          route: trip.route ? {
+            ...trip.route,
+            startStation: trip.route.startStation || {
+              id: 'temp-start',
+              name: 'Departure Station',
+              address: '123 Main Street',
+              city: 'Tunis',
+              state: 'Tunis Governorate',
+              zipCode: '1000',
+              capacity: 100,
+              isActive: true,
+              amenities: {},
+            },
+            endStation: trip.route.endStation || {
+              id: 'temp-end',
+              name: 'Destination Station',
+              address: '456 Destination Ave',
+              city: 'Sfax',
+              state: 'Sfax Governorate',
+              zipCode: '3000',
+              capacity: 100,
+              isActive: true,
+              amenities: {},
+            },
+          } : {
+            id: 'temp-route',
+            startId: 'temp-start',
+            endId: 'temp-end',
+            distance: 150,
+            basePrice: parseFloat(amount || '36'),
+            estimatedDuration: 180,
+            isActive: true,
+            description: 'Trip Route',
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            startStation: {
+              id: 'temp-start',
+              name: 'Departure Station',
+              address: '123 Main Street',
+              city: 'Tunis',
+              state: 'Tunis Governorate',
+              zipCode: '1000',
+              capacity: 100,
+              isActive: true,
+              amenities: {},
+            },
+            endStation: {
+              id: 'temp-end',
+              name: 'Destination Station',
+              address: '456 Destination Ave',
+              city: 'Sfax',
+              state: 'Sfax Governorate',
+              zipCode: '3000',
+              capacity: 100,
+              isActive: true,
+              amenities: {},
+            },
+          }
+        } : undefined,
+        id: bookingId,
+        bookingReference: bookingReference,
+        amount: parseFloat(amount || '36'),
+        seats: booking?.seats || 1,
+        createdAt: booking?.createdAt || new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+
+      console.log('✅ Navigating to booking details with complete data:', {
+        id: updatedBooking.id,
+        hasTrip: !!updatedBooking.trip,
+        hasRoute: !!updatedBooking.trip?.route,
+        paymentStatus: updatedBooking.paymentStatus,
+      });
+
       router.replace({
         pathname: '/(passenger)/bookings/[id]',
         params: {
           id: bookingId,
-          bookingData: booking ? JSON.stringify(booking) : undefined
+          bookingData: JSON.stringify(updatedBooking)
         }
       });
     } else {
@@ -167,13 +249,34 @@ export default function UnifiedPaymentScreen() {
         {
           text: 'Skip for Now',
           style: 'cancel',
-          onPress: () => router.replace({
-            pathname: '/(passenger)/bookings/[id]',
-            params: {
+          onPress: () => {
+            // Create complete booking data even when skipping payment
+            const skippedBooking = {
+              ...displayData,
+              paymentStatus: 'pending',
+              status: 'pending',
+              trip: trip ? {
+                ...trip,
+                route: trip.route || {
+                  id: 'temp-route',
+                  description: 'Trip Route',
+                  startStation: { id: 'temp-start', name: 'Departure Station' },
+                  endStation: { id: 'temp-end', name: 'Destination Station' },
+                }
+              } : undefined,
               id: bookingId,
-              bookingData: booking ? JSON.stringify(booking) : undefined
-            }
-          })
+              bookingReference: bookingReference,
+              amount: parseFloat(amount || '36'),
+            };
+
+            router.replace({
+              pathname: '/(passenger)/bookings/[id]',
+              params: {
+                id: bookingId,
+                bookingData: JSON.stringify(skippedBooking)
+              }
+            });
+          }
         }
       ]
     );

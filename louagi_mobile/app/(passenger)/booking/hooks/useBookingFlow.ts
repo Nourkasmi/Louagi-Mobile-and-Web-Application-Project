@@ -203,7 +203,7 @@ export function useBookingFlow(tripId: string, initialTrip?: Trip, contextData?:
                     bookingId: state.createdBooking.id,
                     amount: calculateTotalAmount().toFixed(2),
                     bookingReference: state.createdBooking.bookingReference,
-                    tripData: state.createdBooking.trip ? JSON.stringify(state.createdBooking.trip) : undefined,
+                    tripData: JSON.stringify(state.createdBooking), // Pass complete booking as tripData
                 }
             });
         }

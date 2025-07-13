@@ -27,7 +27,7 @@ async function reindexQueuePositions(stationId, scheduleId, destinationId, trans
 }
 
 const bookingController = {
-  // ✅ FULLY UPDATED createBooking method
+  // ✅ FULLY UPDATED createBooking method (with extended window)
   createBooking: async (req, res) => {
     try {
       const { error } = validateBooking(req.body);
@@ -51,7 +51,17 @@ const bookingController = {
         ]);
 
         if (trip.status !== 'scheduled') throw new Error('Trip is not available for booking');
-        if (trip.departureTime && new Date(trip.departureTime) <= new Date()) throw new Error('Cannot book trips that have already departed');
+
+        // ✅ Allow booking up to 1 hour after departure time
+        if (trip.departureTime) {
+          const now = new Date();
+          const departureTime = new Date(trip.departureTime);
+          const bookingCutoff = new Date(departureTime.getTime() + 60 * 60 * 1000);
+          if (now > bookingCutoff) {
+            throw new Error('Cannot book this trip: booking allowed only up to 1 hour after departure.');
+          }
+        }
+
         if (trip.availableSeats < seats) throw new Error(`Only ${trip.availableSeats} seats available`);
 
         const existingBooking = await Booking.findOne({

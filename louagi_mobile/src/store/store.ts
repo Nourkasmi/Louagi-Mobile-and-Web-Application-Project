@@ -1,8 +1,47 @@
-// 📁 src/store/store.ts - FIXED Redux Store Configuration
+// 📁 src/store/store.ts - FINAL FIXED Redux Store with NaN/State Validation
 import { configureStore } from '@reduxjs/toolkit';
 import authReducer from './authSlice';
 
-// 🔧 FIXED: Enhanced store configuration with better error handling
+// NaN detection middleware
+const nanDetectionMiddleware = (store: any) => (next: any) => (action: any) => {
+  const checkForNaN = (obj: any, path = ''): boolean => {
+    if (obj === null || obj === undefined) return false;
+    if (typeof obj === 'number') {
+      if (isNaN(obj) || !isFinite(obj)) {
+        console.error(`🚨 NaN/Infinity detected at ${path}:`, obj);
+        return true;
+      }
+    }
+    if (typeof obj === 'object' && !Array.isArray(obj)) {
+      for (const [key, value] of Object.entries(obj)) {
+        if (checkForNaN(value, `${path}.${key}`)) return true;
+      }
+    }
+    if (Array.isArray(obj)) {
+      for (let i = 0; i < obj.length; i++) {
+        if (checkForNaN(obj[i], `${path}[${i}]`)) return true;
+      }
+    }
+    return false;
+  };
+
+  if (action.payload && checkForNaN(action.payload, `action.${action.type}.payload`)) {
+    console.error('🚨 Blocking action with NaN values:', action);
+    return;
+  }
+  const result = next(action);
+  try {
+    const state = store.getState();
+    if (checkForNaN(state, 'store.state')) {
+      console.error('🚨 NaN detected in store state after action:', action.type);
+    }
+  } catch (error) {
+    console.error('🚨 Error checking store state:', error);
+  }
+  return result;
+};
+
+// Store configuration
 const store = configureStore({
   reducer: {
     auth: authReducer,
@@ -10,57 +49,47 @@ const store = configureStore({
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({
       serializableCheck: {
-        // Ignore these action types for serialization checks
         ignoredActions: ['persist/PERSIST', 'persist/REHYDRATE'],
-        // Ignore these field paths in all actions
         ignoredActionsPaths: ['meta.arg', 'payload.timestamp'],
-        // Ignore these paths in the state
-        ignoredPaths: ['items.dates'],
-      },
-      // 🔧 FIXED: Disable immutable check to prevent precision loss errors
-      immutableCheck: {
-        warnAfter: 128,
         ignoredPaths: ['auth.user', 'auth.token'],
       },
-    }),
-  devTools: __DEV__, // Enable Redux DevTools only in development
+      immutableCheck: {
+        warnAfter: 256,
+        ignoredPaths: ['auth'],
+      },
+    }).concat(nanDetectionMiddleware),
+  devTools: __DEV__,
 });
 
-// 🔧 FIXED: Add error boundary for store
+// Safe getState and dispatch wrappers
 const originalGetState = store.getState;
 store.getState = () => {
   try {
-    return originalGetState();
+    const state = originalGetState();
+    if (!state || typeof state !== 'object') {
+      return { auth: { isAuthenticated: false, user: null, token: null } };
+    }
+    return state;
   } catch (error) {
     console.error('❌ Redux store getState error:', error);
-    // Return a safe fallback state
-    return {
-      auth: {
-        isAuthenticated: false,
-        user: null,
-        token: null,
-      },
-    };
+    return { auth: { isAuthenticated: false, user: null, token: null } };
   }
 };
 
-// 🔧 FIXED: Add safe dispatch wrapper
 const originalDispatch = store.dispatch;
 store.dispatch = ((action: any) => {
   try {
     return originalDispatch(action);
   } catch (error) {
     console.error('❌ Redux dispatch error:', error);
-    // Return a no-op function to prevent crashes
     return action;
   }
 }) as typeof originalDispatch;
 
-// Infer the `RootState` and `AppDispatch` types from the store itself
 export type RootState = ReturnType<typeof store.getState>;
 export type AppDispatch = typeof store.dispatch;
 
-// 🔧 FIXED: Add store health check
+// Health check
 export const isStoreHealthy = (): boolean => {
   try {
     const state = store.getState();
@@ -68,15 +97,6 @@ export const isStoreHealthy = (): boolean => {
   } catch (error) {
     console.error('❌ Store health check failed:', error);
     return false;
-  }
-};
-
-// 🔧 FIXED: Add store reset functionality
-export const resetStore = () => {
-  try {
-    store.dispatch({ type: 'RESET_STORE' });
-  } catch (error) {
-    console.error('❌ Store reset failed:', error);
   }
 };
 

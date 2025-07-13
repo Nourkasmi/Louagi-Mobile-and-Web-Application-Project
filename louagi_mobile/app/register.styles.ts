@@ -10,14 +10,11 @@ export const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: theme.colors.background.primary,
   },
-
   contentContainer: {
     flexGrow: 1,
     padding: theme.spacing.lg,
     paddingTop: Platform.OS === 'ios' ? 50 : 30,
   },
-
-  // Form container
   formContainer: {
     backgroundColor: theme.colors.background.secondary,
     borderRadius: theme.borderRadius.large,
@@ -25,15 +22,12 @@ export const styles = StyleSheet.create({
     ...theme.shadows.cardLarge,
     minHeight: height * 0.8,
   },
-
-  // Header section
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: theme.spacing.xl,
     paddingTop: theme.spacing.sm,
   },
-
   backButton: {
     padding: theme.spacing.sm,
     marginRight: theme.spacing.md,
@@ -41,34 +35,27 @@ export const styles = StyleSheet.create({
     backgroundColor: theme.colors.background.tertiary,
     ...theme.shadows.small,
   },
-
   headerContent: {
     flex: 1,
   },
-
   title: {
     ...theme.typography.heading2,
     marginBottom: theme.spacing.xs,
     color: theme.colors.text.primary,
   },
-
   subtitle: {
     ...theme.typography.body1,
     color: theme.colors.text.secondary,
   },
-
-  // Progress section
   progressContainer: {
     marginBottom: theme.spacing.xl,
     paddingHorizontal: theme.spacing.sm,
   },
-
   progressBar: {
     height: 6,
     borderRadius: 3,
     backgroundColor: theme.colors.background.tertiary,
   },
-
   progressText: {
     ...theme.typography.caption,
     color: theme.colors.text.tertiary,
@@ -76,33 +63,25 @@ export const styles = StyleSheet.create({
     marginTop: theme.spacing.sm,
     fontWeight: theme.typography.fontWeight.medium,
   },
-
-  // Step container
   stepContainer: {
     flex: 1,
     marginBottom: theme.spacing.xl,
   },
-
-  // Input styling
   input: {
     backgroundColor: theme.colors.background.secondary,
     marginBottom: theme.spacing.sm,
     fontSize: theme.typography.fontSize.lg,
     minHeight: 56,
   },
-
   inputContainer: {
     marginBottom: theme.spacing.md,
   },
-
-  // Section titles
   sectionTitle: {
     ...theme.typography.heading4,
     marginBottom: theme.spacing.lg,
     textAlign: 'center',
     color: theme.colors.text.primary,
   },
-
   sectionSubtitle: {
     ...theme.typography.body2,
     color: theme.colors.text.secondary,
@@ -110,8 +89,6 @@ export const styles = StyleSheet.create({
     marginBottom: theme.spacing.xl,
     lineHeight: 20,
   },
-
-  // Role selection cards
   roleCard: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -124,19 +101,16 @@ export const styles = StyleSheet.create({
     ...theme.shadows.small,
     minHeight: 80,
   },
-
   selectedRoleCard: {
     borderColor: theme.colors.primary,
     backgroundColor: theme.colors.background.accent,
     ...theme.shadows.medium,
   },
-
   roleInfo: {
     flex: 1,
     alignItems: 'center',
     marginLeft: theme.spacing.md,
   },
-
   roleIconContainer: {
     width: 48,
     height: 48,
@@ -146,25 +120,20 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: theme.spacing.sm,
   },
-
   selectedRoleIconContainer: {
     backgroundColor: theme.colors.primary,
   },
-
   roleTitle: {
     ...theme.typography.heading4,
     marginBottom: theme.spacing.xs,
     color: theme.colors.text.primary,
   },
-
   roleDescription: {
     ...theme.typography.body2,
     color: theme.colors.text.secondary,
     textAlign: 'center',
     lineHeight: 18,
   },
-
-  // Review section
   reviewCard: {
     padding: theme.spacing.lg,
     borderRadius: theme.borderRadius.medium,
@@ -173,7 +142,6 @@ export const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: theme.colors.border.light,
   },
-
   reviewSectionTitle: {
     ...theme.typography.subtitle1,
     color: theme.colors.text.primary,
@@ -182,7 +150,6 @@ export const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.border.light,
   },
-
   reviewRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -190,14 +157,12 @@ export const styles = StyleSheet.create({
     paddingVertical: theme.spacing.sm,
     minHeight: 32,
   },
-
   reviewLabel: {
     ...theme.typography.body2,
     color: theme.colors.text.secondary,
     fontWeight: theme.typography.fontWeight.medium,
     flex: 0.4,
   },
-
   reviewValue: {
     ...theme.typography.body2,
     color: theme.colors.text.primary,
@@ -205,8 +170,6 @@ export const styles = StyleSheet.create({
     textAlign: 'right',
     marginLeft: theme.spacing.md,
   },
-
-  // Terms and conditions
   termsContainer: {
     padding: theme.spacing.md,
     backgroundColor: theme.colors.background.info,
@@ -214,21 +177,17 @@ export const styles = StyleSheet.create({
     borderLeftWidth: 4,
     borderLeftColor: theme.colors.info,
   },
-
   termsText: {
     ...theme.typography.caption,
     color: theme.colors.text.secondary,
     textAlign: 'center',
     lineHeight: 16,
   },
-
   termsLink: {
     color: theme.colors.primary,
     fontWeight: theme.typography.fontWeight.medium,
     textDecorationLine: 'underline',
   },
-
-  // Button section
   buttonContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -236,36 +195,29 @@ export const styles = StyleSheet.create({
     marginBottom: theme.spacing.xl,
     paddingTop: theme.spacing.md,
   },
-
   backStepButton: {
     flex: 1,
     borderColor: theme.colors.primary,
     borderWidth: 1,
     minHeight: 48,
   },
-
   nextButton: {
     flex: 1,
     minHeight: 48,
   },
-
   fullWidthButton: {
     flex: 2,
   },
-
-  // Login link
   loginContainer: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
     paddingVertical: theme.spacing.sm,
   },
-
   loginText: {
     ...theme.typography.body2,
     color: theme.colors.text.secondary,
   },
-
   loginLink: {
     ...theme.typography.body2,
     color: theme.colors.primary,
@@ -273,8 +225,6 @@ export const styles = StyleSheet.create({
     paddingHorizontal: theme.spacing.xs,
     paddingVertical: theme.spacing.xs,
   },
-
-  // Driver details section
   driverDetailsContainer: {
     backgroundColor: theme.colors.background.light,
     padding: theme.spacing.lg,
@@ -283,14 +233,12 @@ export const styles = StyleSheet.create({
     borderLeftWidth: 4,
     borderLeftColor: theme.colors.primary,
   },
-
   driverDetailsTitle: {
     ...theme.typography.subtitle1,
     color: theme.colors.primary,
     marginBottom: theme.spacing.md,
     textAlign: 'center',
   },
-
   driverDetailsSubtitle: {
     ...theme.typography.caption,
     color: theme.colors.text.secondary,
@@ -298,8 +246,6 @@ export const styles = StyleSheet.create({
     marginBottom: theme.spacing.lg,
     lineHeight: 16,
   },
-
-  // Error states
   errorContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -310,15 +256,12 @@ export const styles = StyleSheet.create({
     borderLeftWidth: 4,
     borderLeftColor: theme.colors.danger,
   },
-
   errorText: {
     ...theme.typography.body2,
     color: theme.colors.text.danger,
     marginLeft: theme.spacing.sm,
     flex: 1,
   },
-
-  // Success states
   successContainer: {
     alignItems: 'center',
     justifyContent: 'center',
@@ -327,25 +270,20 @@ export const styles = StyleSheet.create({
     borderRadius: theme.borderRadius.medium,
     marginBottom: theme.spacing.lg,
   },
-
   successIcon: {
     marginBottom: theme.spacing.md,
   },
-
   successText: {
     ...theme.typography.heading3,
     color: theme.colors.success,
     textAlign: 'center',
     marginBottom: theme.spacing.sm,
   },
-
   successSubtext: {
     ...theme.typography.body2,
     color: theme.colors.text.secondary,
     textAlign: 'center',
   },
-
-  // Loading overlay
   loadingOverlay: {
     position: 'absolute',
     top: 0,
@@ -357,20 +295,16 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
     borderRadius: theme.borderRadius.large,
   },
-
   loadingText: {
     ...theme.typography.body1,
     color: theme.colors.text.primary,
     marginTop: theme.spacing.md,
     textAlign: 'center',
   },
-
-  // Password strength indicator
   passwordStrengthContainer: {
     marginTop: theme.spacing.sm,
     marginBottom: theme.spacing.md,
   },
-
   passwordStrengthBar: {
     height: 4,
     backgroundColor: theme.colors.background.tertiary,
@@ -378,59 +312,29 @@ export const styles = StyleSheet.create({
     overflow: 'hidden',
     marginBottom: theme.spacing.xs,
   },
-
   passwordStrengthFill: {
     height: '100%',
     borderRadius: 2,
-    transition: 'width 0.3s ease',
   },
-
   passwordStrengthText: {
     ...theme.typography.caption,
     textAlign: 'center',
   },
-
-  // Form validation
   requiredField: {
     color: theme.colors.danger,
     fontSize: theme.typography.fontSize.sm,
   },
-
-  // Responsive adjustments for small screens
   ...(width < 375 && {
-    formContainer: {
-      padding: theme.spacing.md,
-    },
-
-    title: {
-      fontSize: theme.typography.fontSize.xl,
-    },
-
-    roleCard: {
-      padding: theme.spacing.md,
-    },
-
-    buttonContainer: {
-      flexDirection: 'column',
-      gap: theme.spacing.sm,
-    },
-
-    backStepButton: {
-      flex: 0,
-    },
-
-    nextButton: {
-      flex: 0,
-    },
+    formContainer: { padding: theme.spacing.md },
+    title: { fontSize: theme.typography.fontSize.xl },
+    roleCard: { padding: theme.spacing.md },
+    buttonContainer: { flexDirection: 'column', gap: theme.spacing.sm },
+    backStepButton: { flex: 0 },
+    nextButton: { flex: 0 },
   }),
-
-  // Platform-specific adjustments
   ...Platform.select({
     ios: {
-      input: {
-        ...theme.shadows.none,
-      },
-
+      input: { ...theme.shadows.none },
       roleCard: {
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 1 },
@@ -439,22 +343,13 @@ export const styles = StyleSheet.create({
       },
     },
     android: {
-      input: {
-        elevation: 1,
-      },
-
-      roleCard: {
-        elevation: 2,
-      },
-
-      selectedRoleCard: {
-        elevation: 4,
-      },
+      input: { elevation: 1 },
+      roleCard: { elevation: 2 },
+      selectedRoleCard: { elevation: 4 },
     },
   }),
 });
 
-// Helper function for dynamic styles based on step and state
 export const getDynamicStyles = (state: {
   currentStep?: number;
   isLoading?: boolean;
@@ -462,7 +357,6 @@ export const getDynamicStyles = (state: {
   selectedRole?: 'passenger' | 'driver';
 }) => {
   return StyleSheet.create({
-    // Step-specific styles
     stepIndicator: {
       backgroundColor: state.currentStep !== undefined
         ? theme.colors.primary
@@ -472,8 +366,6 @@ export const getDynamicStyles = (state: {
       borderRadius: 6,
       marginHorizontal: theme.spacing.xs,
     },
-
-    // Role-specific styles
     roleSpecificContainer: {
       backgroundColor: state.selectedRole === 'driver'
         ? theme.colors.background.accent
@@ -481,16 +373,12 @@ export const getDynamicStyles = (state: {
       borderRadius: theme.borderRadius.medium,
       padding: theme.spacing.lg,
     },
-
-    // Error state styles
     errorInput: {
       borderColor: state.hasErrors
         ? theme.colors.border.error
         : theme.colors.border.light,
       borderWidth: state.hasErrors ? 2 : 1,
     },
-
-    // Loading state styles
     disabledButton: {
       opacity: state.isLoading ? theme.opacity.disabled : 1,
       backgroundColor: state.isLoading
@@ -500,7 +388,6 @@ export const getDynamicStyles = (state: {
   });
 };
 
-// Password strength calculator helper
 export const getPasswordStrength = (password: string) => {
   let strength = 0;
   const checks = {
@@ -510,9 +397,7 @@ export const getPasswordStrength = (password: string) => {
     number: /\d/.test(password),
     special: /[!@#$%^&*(),.?":{}|<>]/.test(password),
   };
-
   strength = Object.values(checks).filter(Boolean).length;
-
   const strengthLevels = {
     0: { color: theme.colors.border.light, text: 'Enter password', width: '0%' },
     1: { color: theme.colors.danger, text: 'Very weak', width: '20%' },
@@ -521,6 +406,8 @@ export const getPasswordStrength = (password: string) => {
     4: { color: theme.colors.success, text: 'Good', width: '80%' },
     5: { color: theme.colors.success, text: 'Strong', width: '100%' },
   };
-
   return strengthLevels[strength as keyof typeof strengthLevels] || strengthLevels[0];
 };
+
+// ** REQUIRED default export for Expo Router! **
+export default styles;

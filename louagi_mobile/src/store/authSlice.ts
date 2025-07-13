@@ -1,4 +1,4 @@
-// 📁 src/store/authSlice.ts - FIXED Auth Slice with Error Handling
+// 📁 src/store/authSlice.ts - FINAL FIXED Auth Slice with Input Validation
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 import type { User } from '../services/api';
 
@@ -10,7 +10,6 @@ type AuthState = {
   lastLogin?: string | null;
 };
 
-// 🔧 FIXED: Enhanced initial state with error handling
 const initialState: AuthState = {
   isAuthenticated: false,
   user: null,
@@ -19,132 +18,85 @@ const initialState: AuthState = {
   lastLogin: null,
 };
 
-type LoginSuccessPayload = {
-  user: User;
-  token: string;
+// Strict input validation
+const validateUser = (user: any): user is User => {
+  if (!user || typeof user !== 'object') return false;
+  if (!user.id || !user.username || typeof user.username !== 'string') return false;
+  if (!user.email || typeof user.email !== 'string') return false;
+  if (!user.role || !['passenger', 'driver', 'admin'].includes(user.role)) return false;
+  if (user.id && typeof user.id === 'number' && (isNaN(user.id) || !isFinite(user.id))) return false;
+  return true;
 };
 
-type LoginErrorPayload = {
-  error: string;
+const validateToken = (token: any): token is string => {
+  return typeof token === 'string' && token.length > 0;
 };
 
-// 🔧 FIXED: Enhanced auth slice with better error handling
 const authSlice = createSlice({
   name: 'auth',
   initialState,
   reducers: {
-    loginSuccess: (state, action: PayloadAction<LoginSuccessPayload>) => {
+    loginSuccess: (state, action: PayloadAction<{ user: User; token: string }>) => {
       try {
+        const { user, token } = action.payload;
+        if (!validateUser(user)) {
+          state.error = 'Invalid user data received';
+          return;
+        }
+        if (!validateToken(token)) {
+          state.error = 'Invalid authentication token';
+          return;
+        }
         state.isAuthenticated = true;
-        state.user = action.payload.user;
-        state.token = action.payload.token;
+        state.user = user;
+        state.token = token;
         state.error = null;
         state.lastLogin = new Date().toISOString();
       } catch (error) {
-        console.error('❌ Login success reducer error:', error);
-        // Fallback to safe state
-        return {
-          ...initialState,
-          error: 'Failed to process login',
-        };
-      }
-    },
-    
-    loginError: (state, action: PayloadAction<LoginErrorPayload>) => {
-      try {
+        state.error = 'Failed to process login';
         state.isAuthenticated = false;
         state.user = null;
         state.token = null;
-        state.error = action.payload.error;
-      } catch (error) {
-        console.error('❌ Login error reducer error:', error);
-        return initialState;
       }
     },
-    
+
+    loginError: (state, action: PayloadAction<{ error: string }>) => {
+      state.isAuthenticated = false;
+      state.user = null;
+      state.token = null;
+      state.error = action.payload.error || 'Login failed';
+    },
+
     logout: (state) => {
-      try {
-        state.isAuthenticated = false;
-        state.user = null;
-        state.token = null;
-        state.error = null;
-        state.lastLogin = null;
-      } catch (error) {
-        console.error('❌ Logout reducer error:', error);
-        return initialState;
-      }
+      Object.assign(state, initialState);
     },
-    
+
     clearError: (state) => {
-      try {
-        state.error = null;
-      } catch (error) {
-        console.error('❌ Clear error reducer error:', error);
-      }
+      state.error = null;
     },
-    
+
     updateUser: (state, action: PayloadAction<Partial<User>>) => {
-      try {
-        if (state.user) {
-          state.user = { ...state.user, ...action.payload };
+      if (state.user && action.payload) {
+        const updatedUser = { ...state.user, ...action.payload };
+        if (validateUser(updatedUser)) {
+          state.user = updatedUser;
+        } else {
+          state.error = 'Invalid user update data';
         }
-      } catch (error) {
-        console.error('❌ Update user reducer error:', error);
       }
     },
-    
-    // 🔧 FIXED: Add reset action for store health
-    resetAuth: () => {
-      try {
-        return initialState;
-      } catch (error) {
-        console.error('❌ Reset auth reducer error:', error);
-        return initialState;
-      }
-    },
-  },
-  
-  // 🔧 FIXED: Add extra reducers for global store reset
-  extraReducers: (builder) => {
-    builder.addCase('RESET_STORE', () => {
-      return initialState;
-    });
-  },
+
+    resetAuth: () => initialState,
+  }
 });
 
-// 🔧 FIXED: Safe action creators with error boundaries
-const safeActionCreator = <T extends any[]>(
-  actionCreator: (...args: T) => any,
-  fallbackAction: any
-) => {
-  return (...args: T) => {
-    try {
-      return actionCreator(...args);
-    } catch (error) {
-      console.error('❌ Action creator error:', error);
-      return fallbackAction;
-    }
-  };
-};
-
-export const { 
-  loginSuccess, 
-  loginError, 
-  logout, 
-  clearError, 
-  updateUser, 
-  resetAuth 
-} = authSlice.actions;
-
-// 🔧 FIXED: Export safe action creators
-export const safeLoginSuccess = safeActionCreator(
-  loginSuccess, 
-  { type: 'auth/loginError', payload: { error: 'Login processing failed' } }
-);
-
-export const safeLogout = safeActionCreator(
+export const {
+  loginSuccess,
+  loginError,
   logout,
-  { type: 'auth/resetAuth' }
-);
+  clearError,
+  updateUser,
+  resetAuth
+} = authSlice.actions;
 
 export default authSlice.reducer;

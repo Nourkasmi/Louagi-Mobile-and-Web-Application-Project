@@ -341,6 +341,15 @@ export const updateTripStatus = async (id: string, status: Trip['status']): Prom
   return res.data;
 };
 
+/**
+ * Mark a trip as completed.
+ * @param id - Trip ID
+ * @returns Updated Trip object
+ */
+export const completeTrip = async (id: string): Promise<ApiResponse<Trip>> => {
+  const res = await api.put(`/trips/${id}/complete`);
+  return res.data;
+};
 // ==================== ENHANCED DECLARE AVAILABILITY ====================
 
 export const declareAvailability = async (data: {
@@ -514,6 +523,19 @@ export const getDriverStatus = async (): Promise<ApiResponse<DriverStatus>> => {
   return res.data;
 };
 
+/**
+ * Get driver's earnings for a period.
+ * @param params { startDate?: string; endDate?: string }
+ * @returns { earnings: { totalEarnings, totalTrips, ... } }
+ */
+export const getDriverEarnings = async (params?: {
+  startDate?: string;
+  endDate?: string;
+}): Promise<ApiResponse<{ earnings: any }>> => {
+  const res = await api.get('/drivers/earnings', { params });
+  return res.data;
+};
+
 export const getTripCapacityStatus = async (): Promise<ApiResponse<TripCapacityStatus>> => {
   const res = await api.get('/drivers/trip-capacity');
   return res.data;
@@ -531,39 +553,62 @@ export const getDriverTrips = async (params?: {
   status?: string;
 }): Promise<ApiResponse<{ trips: Trip[] }>> => {
   try {
-    const res = await api.get('/drivers/trips', { params });
+    console.log('📡 API: getDriverTrips called with params:', params);
+
+    // Build query parameters properly
+    const queryParams: any = {};
+    
+    if (params?.page) queryParams.page = params.page;
+    if (params?.limit) queryParams.limit = params.limit;
+    if (params?.status && params.status !== 'all') {
+      queryParams.status = params.status;
+      console.log('🎯 Filtering by status:', params.status);
+    }
+
+    console.log('📡 Final query params:', queryParams);
+
+    const response = await api.get('/drivers/trips', { params: queryParams });
+    
+    console.log('📡 Raw API response:', {
+      status: response.status,
+      dataType: typeof response.data,
+      hasData: !!response.data,
+      dataKeys: response.data ? Object.keys(response.data) : [],
+    });
 
     // Handle different response structures from backend
     let normalizedResponse: ApiResponse<{ trips: Trip[] }>;
 
-    if (res.data?.success !== undefined) {
-      // Backend returns { success: true, trips: [...] }
+    if (response.data?.success !== undefined) {
+      // Backend returns { success: true, data: { trips: [...] } }
       normalizedResponse = {
-        success: res.data.success,
-        message: res.data.message,
-        data: { trips: res.data.trips || [] }
+        success: response.data.success,
+        message: response.data.message,
+        data: { 
+          trips: response.data.data?.trips || response.data.trips || [] 
+        }
       };
-    } else if (Array.isArray(res.data)) {
+    } else if (Array.isArray(response.data)) {
       // Backend returns trips array directly
       normalizedResponse = {
         success: true,
-        data: { trips: res.data }
+        data: { trips: response.data }
       };
-    } else if (res.data?.trips) {
+    } else if (response.data?.trips) {
       // Backend returns { trips: [...] } without success field
       normalizedResponse = {
         success: true,
-        data: { trips: res.data.trips }
+        data: { trips: response.data.trips }
       };
-    } else if (res.data?.data?.trips) {
+    } else if (response.data?.data?.trips) {
       // Backend returns { data: { trips: [...] } }
       normalizedResponse = {
-        success: res.data.success || true,
-        message: res.data.message,
-        data: { trips: res.data.data.trips }
+        success: true,
+        message: response.data.message,
+        data: { trips: response.data.data.trips }
       };
     } else {
-      // Unexpected structure
+      console.warn('⚠️ Unexpected response structure:', response.data);
       normalizedResponse = {
         success: false,
         message: 'Unexpected response format',
@@ -571,69 +616,56 @@ export const getDriverTrips = async (params?: {
       };
     }
 
+    console.log('✅ Normalized response:', {
+      success: normalizedResponse.success,
+      tripsCount: normalizedResponse.data?.trips?.length || 0,
+      message: normalizedResponse.message
+    });
+
+    // Log trip statuses for debugging
+    if (normalizedResponse.data?.trips?.length) {
+      const statusCounts = normalizedResponse.data.trips.reduce((acc, trip) => {
+        acc[trip.status] = (acc[trip.status] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>);
+      console.log('📊 API returned trips by status:', statusCounts);
+    }
+
     return normalizedResponse;
-  } catch (error) {
-    console.error('Failed to fetch driver trips:', error);
+  } catch (error: any) {
+    console.error('❌ getDriverTrips error:', {
+      message: error.message,
+      status: error.response?.status,
+      statusText: error.response?.statusText,
+      responseData: error.response?.data,
+    });
+
+    // Enhanced error handling
+    let errorMessage = 'Failed to fetch driver trips';
+    
+    if (error.response?.status === 401) {
+      errorMessage = 'Authentication required. Please log in again.';
+    } else if (error.response?.status === 403) {
+      errorMessage = 'Access denied. You don\'t have permission to view trips.';
+    } else if (error.response?.status === 404) {
+      errorMessage = 'Trips endpoint not found.';
+    } else if (error.response?.status >= 500) {
+      errorMessage = 'Server error. Please try again in a moment.';
+    } else if (!error.response) {
+      errorMessage = 'Network error. Please check your connection.';
+    }
+
     return {
       success: false,
-      message: 'Failed to fetch driver trips',
-      data: { trips: [] }
+      message: errorMessage,
+      data: { trips: [] },
+      error: {
+        status: error.response?.status,
+        message: error.message,
+        data: error.response?.data
+      }
     };
   }
-};
-
-export const completeTrip = async (tripId: string): Promise<ApiResponse<Trip>> => {
-  const res = await api.patch(`/drivers/trips/${tripId}/complete`);
-  return res.data;
-};
-
-export const getDriverProfile = async (): Promise<ApiResponse<Driver>> => {
-  const res = await api.get('/drivers/profile');
-  return res.data;
-};
-
-export const getDriverEarnings = async (params?: {
-  startDate?: string;
-  endDate?: string;
-}): Promise<ApiResponse<{
-  earnings: {
-    totalEarnings: number;
-    totalTrips: number;
-    totalPassengers: number;
-    averageEarningsPerTrip: number;
-    averagePassengersPerTrip: number;
-    period: { startDate: string; endDate: string };
-  };
-}>> => {
-  const res = await api.get('/drivers/earnings', { params });
-  return res.data;
-};
-
-export const getDriverQueue = async (): Promise<ApiResponse<{
-  inQueue: boolean;
-  queue?: {
-    position: number;
-    status: string;
-    waitingTimeMinutes: number;
-    estimatedDepartureTime: string;
-    station: string;
-    destination: string;
-    schedule: string;
-  };
-}>> => {
-  const res = await api.get('/drivers/queue');
-  return res.data;
-};
-
-export const updateDriverProfile = async (data: {
-  vehicleType?: string;
-  vehicleCapacity?: number;
-  experience?: number;
-  licenseNo?: string;
-  licenseExpiry?: string;
-}): Promise<ApiResponse<Driver>> => {
-  const res = await api.put('/drivers/profile', data);
-  return res.data;
 };
 
 // ==================== BOOKING ENDPOINTS ====================

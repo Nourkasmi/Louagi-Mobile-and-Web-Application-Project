@@ -1,4 +1,5 @@
-// 📁 app/register.tsx - COMPLETE FIXED Registration Component
+// 📁 app/register.tsx - FINAL, FULL, UNSKIPPED Registration Screen
+
 import React, { useState, useRef, useCallback, useMemo } from 'react';
 import {
   View,
@@ -7,7 +8,7 @@ import {
   Animated,
   TouchableOpacity,
   KeyboardAvoidingView,
-  Platform
+  Platform,
 } from 'react-native';
 import {
   TextInput,
@@ -19,20 +20,18 @@ import {
   ProgressBar,
   Chip,
   Surface,
-  ActivityIndicator
+  ActivityIndicator,
 } from 'react-native-paper';
 import { useRouter } from 'expo-router';
-import { useDispatch } from 'react-redux';
+import { useDispatch as useReduxDispatch } from 'react-redux';
 import { MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// Internal imports
 import { loginSuccess } from '../src/store/authSlice';
 import { register } from '../src/services/api';
+import styles, { getDynamicStyles, getPasswordStrength } from './register.styles';
 import { theme } from '../src/styles/theme';
-import { styles, getDynamicStyles, getPasswordStrength } from './register.styles';
 
-// Types
 interface FormState {
   username: string;
   email: string;
@@ -49,7 +48,6 @@ interface FormErrors {
   [key: string]: string;
 }
 
-// Constants
 const STEPS = {
   BASIC_INFO: 0,
   ACCOUNT_DETAILS: 1,
@@ -71,12 +69,31 @@ const INITIAL_FORM_STATE: FormState = {
 };
 
 const RegisterScreen: React.FC = () => {
-  // Hooks
   const router = useRouter();
-  const dispatch = useDispatch();
+  // Safe useDispatch wrapper
+  const dispatch = (() => {
+    try {
+      const d = useReduxDispatch();
+      return (action: any) => {
+        try {
+          return d(action);
+        } catch (error) {
+          console.error('❌ Dispatch error:', error);
+          return action;
+        }
+      };
+    } catch (error) {
+      console.error('❌ useDispatch hook error:', error);
+      return (action: any) => {
+        console.warn('⚠️ Dispatch not available, action ignored:', action);
+        return action;
+      };
+    }
+  })();
 
-  // State
-  const [currentStep, setCurrentStep] = useState(STEPS.BASIC_INFO);
+  const [currentStep, setCurrentStep] = useState(
+    typeof STEPS.BASIC_INFO === 'number' ? STEPS.BASIC_INFO : 0
+  );
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -84,12 +101,11 @@ const RegisterScreen: React.FC = () => {
   const [errors, setErrors] = useState<FormErrors>({});
   const [touchedFields, setTouchedFields] = useState<Set<string>>(new Set());
 
-  // Animation refs
+  // Animations
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(50)).current;
   const progressAnim = useRef(new Animated.Value(0)).current;
 
-  // Initialize animations
   React.useEffect(() => {
     Animated.parallel([
       Animated.timing(fadeAnim, {
@@ -105,117 +121,105 @@ const RegisterScreen: React.FC = () => {
     ]).start();
   }, []);
 
-  // Animate progress bar when step changes
+  // Progress value calculation (never NaN!)
+  const getProgressValue = useCallback(() => {
+    const totalSteps = form.role === 'driver' ? 5 : 4;
+    const progress = (currentStep + 1) / totalSteps;
+    if (isNaN(progress) || !isFinite(progress)) return 0.25;
+    const roundedProgress = Math.round(progress * 100) / 100;
+    return Math.max(0, Math.min(1, roundedProgress));
+  }, [currentStep, form.role]);
+
   React.useEffect(() => {
     Animated.timing(progressAnim, {
       toValue: getProgressValue(),
       duration: 300,
       useNativeDriver: false,
     }).start();
-  }, [currentStep, form.role]);
+  }, [currentStep, form.role, getProgressValue]);
 
-  // Handle form field changes
-  const handleFieldChange = useCallback((field: keyof FormState, value: string) => {
-    setForm(prev => ({ ...prev, [field]: value }));
+  // Fix: Ensure ProgressBar never gets NaN or undefined
+  const progressValue =
+    typeof progressAnim === 'number'
+      ? !isNaN(progressAnim) && isFinite(progressAnim)
+        ? progressAnim
+        : 0.25
+      : progressAnim && typeof progressAnim._value === 'number'
+      ? !isNaN(progressAnim._value) && isFinite(progressAnim._value)
+        ? progressAnim._value
+        : 0.25
+      : 0.25;
 
-    // Mark field as touched
-    setTouchedFields(prev => new Set(prev).add(field));
+  // Handle field change
+  const handleFieldChange = useCallback(
+    (field: keyof FormState, value: string) => {
+      setForm((prev) => ({ ...prev, [field]: value }));
+      setTouchedFields((prev) => new Set(prev).add(field));
+      if (errors[field]) {
+        setErrors((prev) => {
+          const newErrors = { ...prev };
+          delete newErrors[field];
+          return newErrors;
+        });
+      }
+    },
+    [errors]
+  );
 
-    // Clear field error if it exists
-    if (errors[field]) {
-      setErrors(prev => {
-        const newErrors = { ...prev };
-        delete newErrors[field];
-        return newErrors;
-      });
-    }
-  }, [errors]);
-
-  // Validation functions
-  const validateStep = useCallback((step: number): boolean => {
-    const newErrors: FormErrors = {};
-
-    switch (step) {
-      case STEPS.BASIC_INFO:
-        if (!form.username.trim()) {
-          newErrors.username = 'Full name is required';
-        } else if (form.username.length < 2) {
-          newErrors.username = 'Name must be at least 2 characters';
-        } else if (form.username.length > 50) {
-          newErrors.username = 'Name must be less than 50 characters';
-        }
-
-        if (!form.phone.trim()) {
-          newErrors.phone = 'Phone number is required';
-        } else if (!/^\+?[0-9]{10,15}$/.test(form.phone.replace(/\s/g, ''))) {
-          newErrors.phone = 'Please enter a valid phone number';
-        }
-        break;
-
-      case STEPS.ACCOUNT_DETAILS:
-        if (!form.email.trim()) {
-          newErrors.email = 'Email is required';
-        } else if (!/\S+@\S+\.\S+/.test(form.email)) {
-          newErrors.email = 'Please enter a valid email address';
-        }
-
-        if (!form.password) {
-          newErrors.password = 'Password is required';
-        } else if (form.password.length < 8) {
-          newErrors.password = 'Password must be at least 8 characters';
-        } else if (!/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(form.password)) {
-          newErrors.password = 'Password must contain uppercase, lowercase, and number';
-        }
-
-        if (!form.confirmPassword) {
-          newErrors.confirmPassword = 'Please confirm your password';
-        } else if (form.password !== form.confirmPassword) {
-          newErrors.confirmPassword = 'Passwords do not match';
-        }
-        break;
-
-      case STEPS.DRIVER_DETAILS:
-        if (form.role === 'driver') {
-          if (!form.license_no.trim()) {
-            newErrors.license_no = 'License number is required';
-          } else if (form.license_no.length < 5) {
-            newErrors.license_no = 'Please enter a valid license number';
-          }
-
-          if (!form.experience) {
-            newErrors.experience = 'Experience is required';
-          } else if (isNaN(Number(form.experience)) || Number(form.experience) < 0) {
-            newErrors.experience = 'Please enter valid years of experience';
-          } else if (Number(form.experience) > 50) {
-            newErrors.experience = 'Experience cannot exceed 50 years';
-          }
-
-          if (!form.license_expiry) {
-            newErrors.license_expiry = 'License expiry date is required';
-          } else {
-            const expiryDate = new Date(form.license_expiry);
-            const today = new Date();
-            if (isNaN(expiryDate.getTime())) {
-              newErrors.license_expiry = 'Please enter a valid date (YYYY-MM-DD)';
-            } else if (expiryDate <= today) {
-              newErrors.license_expiry = 'License expiry date must be in the future';
+  // Validation per step
+  const validateStep = useCallback(
+    (step: number): boolean => {
+      const newErrors: FormErrors = {};
+      switch (step) {
+        case STEPS.BASIC_INFO:
+          if (!form.username.trim()) newErrors.username = 'Full name is required';
+          else if (form.username.length < 2) newErrors.username = 'Name must be at least 2 characters';
+          else if (form.username.length > 50) newErrors.username = 'Name must be less than 50 characters';
+          if (!form.phone.trim()) newErrors.phone = 'Phone number is required';
+          else if (!/^\+?[0-9]{10,15}$/.test(form.phone.replace(/\s/g, ''))) newErrors.phone = 'Please enter a valid phone number';
+          break;
+        case STEPS.ACCOUNT_DETAILS:
+          if (!form.email.trim()) newErrors.email = 'Email is required';
+          else if (!/\S+@\S+\.\S+/.test(form.email)) newErrors.email = 'Please enter a valid email address';
+          if (!form.password) newErrors.password = 'Password is required';
+          else if (form.password.length < 8) newErrors.password = 'Password must be at least 8 characters';
+          else if (!/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(form.password))
+            newErrors.password = 'Password must contain uppercase, lowercase, and number';
+          if (!form.confirmPassword) newErrors.confirmPassword = 'Please confirm your password';
+          else if (form.password !== form.confirmPassword) newErrors.confirmPassword = 'Passwords do not match';
+          break;
+        case STEPS.DRIVER_DETAILS:
+          if (form.role === 'driver') {
+            if (!form.license_no.trim()) newErrors.license_no = 'License number is required';
+            else if (form.license_no.length < 5) newErrors.license_no = 'Please enter a valid license number';
+            if (!form.experience) newErrors.experience = 'Experience is required';
+            else if (isNaN(Number(form.experience)) || Number(form.experience) < 0)
+              newErrors.experience = 'Please enter valid years of experience';
+            else if (Number(form.experience) > 50)
+              newErrors.experience = 'Experience cannot exceed 50 years';
+            if (!form.license_expiry) newErrors.license_expiry = 'License expiry date is required';
+            else {
+              const expiryDate = new Date(form.license_expiry);
+              const today = new Date();
+              if (isNaN(expiryDate.getTime())) newErrors.license_expiry = 'Please enter a valid date (YYYY-MM-DD)';
+              else if (expiryDate <= today) newErrors.license_expiry = 'License expiry date must be in the future';
             }
           }
-        }
-        break;
-    }
+          break;
+      }
+      setErrors(newErrors);
+      return Object.keys(newErrors).length === 0;
+    },
+    [form]
+  );
 
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  }, [form]);
-
-  // Navigation handlers
+  // Navigation
   const handleNext = useCallback(() => {
     if (validateStep(currentStep)) {
       if (currentStep === STEPS.ROLE_SELECTION && form.role === 'passenger') {
         setCurrentStep(STEPS.REVIEW);
       } else {
-        setCurrentStep(prev => prev + 1);
+        setCurrentStep((prev) => prev + 1);
       }
     }
   }, [currentStep, form.role, validateStep]);
@@ -224,21 +228,14 @@ const RegisterScreen: React.FC = () => {
     if (currentStep === STEPS.REVIEW && form.role === 'passenger') {
       setCurrentStep(STEPS.ROLE_SELECTION);
     } else {
-      setCurrentStep(prev => prev - 1);
+      setCurrentStep((prev) => prev - 1);
     }
   }, [currentStep, form.role]);
 
-  // FIXED Submit handler with better debugging
+  // Submit
   const handleSubmit = useCallback(async (): Promise<void> => {
-    console.log('🚀 Starting registration process...');
-
-    if (!validateStep(currentStep)) {
-      console.log('❌ Validation failed at step:', currentStep);
-      return;
-    }
-
+    if (!validateStep(currentStep)) return;
     setIsLoading(true);
-
     try {
       const payload = {
         username: form.username.trim(),
@@ -252,147 +249,63 @@ const RegisterScreen: React.FC = () => {
           license_expiry: form.license_expiry,
         }),
       };
-
-      console.log('🚀 Submitting registration payload:', {
-        ...payload,
-        password: '[HIDDEN]'
-      });
-
       const res = await register(payload);
-
-      console.log('📡 Registration response received:', {
-        success: res.success,
-        hasUser: !!res.user,
-        hasToken: !!res.token,
-        message: res.message,
-        userRole: res.user?.role,
-        fullResponse: res, // Log full response for debugging
-      });
-
       if (!res.success) {
-        console.log('❌ Registration failed:', res.message);
         Alert.alert('Registration Failed', res.message || 'Please try again');
         return;
       }
-
       if (!res.user || !res.token) {
-        console.log('❌ Registration response missing user or token:', {
-          hasUser: !!res.user,
-          hasToken: !!res.token,
-          response: res
-        });
         Alert.alert('Registration Failed', 'Invalid response from server. Please try again.');
         return;
       }
-
-      console.log('✅ Registration successful, storing data...');
-
-      // Store authentication data
-      try {
-        await Promise.all([
-          AsyncStorage.setItem('louagi_token', res.token),
-          AsyncStorage.setItem('louagi_user', JSON.stringify(res.user)),
-        ]);
-        console.log('✅ Auth data stored successfully');
-      } catch (storageError) {
-        console.error('❌ Error storing auth data:', storageError);
-        Alert.alert('Warning', 'Registration successful but failed to save locally. You may need to log in again.');
-      }
-
-      // Set global token
+      await Promise.all([
+        AsyncStorage.setItem('louagi_token', res.token),
+        AsyncStorage.setItem('louagi_user', JSON.stringify(res.user)),
+      ]);
       global.authToken = res.token;
-      console.log('✅ Global token set');
-
-      // Update Redux state
       try {
         dispatch(loginSuccess({
           user: res.user,
           token: res.token,
         }));
-        console.log('✅ Redux state updated');
       } catch (reduxError) {
         console.error('❌ Error updating Redux:', reduxError);
       }
-
-      // Success feedback - Handle web vs mobile differently
-      console.log('🎉 Registration successful, navigating...');
-
       const routes = {
         passenger: '/(passenger)/home',
         driver: '/(driver)/dashboard',
         admin: '/(driver)/dashboard',
       } as const;
-
       const targetRoute = routes[res.user.role as keyof typeof routes] || routes.passenger;
-      console.log('🧭 Target route:', targetRoute);
-
-      try {
-        // On web, navigate immediately since Alert.alert doesn't work well
-        if (Platform.OS === 'web') {
-          router.replace(targetRoute);
-          console.log('✅ Web navigation successful');
-        } else {
-          // On mobile, show alert first
-          Alert.alert(
-            'Welcome to Louagi!',
-            `Account created successfully. Welcome ${res.user.username}!`,
-            [
-              {
-                text: 'Get Started',
-                onPress: () => {
-                  router.replace(targetRoute);
-                  console.log('✅ Mobile navigation successful');
-                },
-              },
-            ]
-          );
-        }
-      } catch (navError) {
-        console.error('❌ Navigation error:', navError);
-        // Fallback navigation attempt
-        setTimeout(() => {
-          try {
-            router.replace(targetRoute);
-          } catch (secondError) {
-            console.error('❌ Second navigation attempt failed:', secondError);
-          }
-        }, 100);
+      if (Platform.OS === 'web') {
+        router.replace(targetRoute);
+      } else {
+        Alert.alert(
+          'Welcome to Louagi!',
+          `Account created successfully. Welcome ${res.user.username}!`,
+          [
+            {
+              text: 'Get Started',
+              onPress: () => router.replace(targetRoute),
+            },
+          ]
+        );
       }
-
     } catch (error: any) {
-      console.error('💥 Registration error caught:', {
-        message: error.message,
-        status: error.response?.status,
-        data: error.response?.data,
-        stack: error.stack
-      });
-
-      const errorMessages = {
-        400: 'Invalid data provided. Please check your information.',
-        409: 'Email already exists. Please use a different email.',
-        network: 'Network error. Please check your connection.',
-        default: 'Registration failed. Please try again.',
-      };
-
-      let errorMessage = errorMessages.default;
-
+      let errorMessage = 'Registration failed. Please try again.';
       if (error.response?.status === 400) {
-        errorMessage = error.response.data?.message || errorMessages[400];
+        errorMessage = error.response.data?.message || 'Invalid data provided. Please check your information.';
       } else if (error.response?.status === 409) {
-        errorMessage = errorMessages[409];
+        errorMessage = 'Email already exists. Please use a different email.';
       } else if (error.message?.toLowerCase().includes('network')) {
-        errorMessage = errorMessages.network;
+        errorMessage = 'Network error. Please check your connection.';
       }
-
-      console.log('📢 Showing error alert:', errorMessage);
       Alert.alert('Registration Error', errorMessage);
     } finally {
-      console.log('🏁 Registration process completed, setting loading to false');
       setIsLoading(false);
     }
   }, [currentStep, form, validateStep, dispatch, router]);
 
-  // Helper functions
   const getStepTitle = useCallback(() => {
     const titles = {
       [STEPS.BASIC_INFO]: 'Personal Information',
@@ -404,17 +317,10 @@ const RegisterScreen: React.FC = () => {
     return titles[currentStep] || 'Registration';
   }, [currentStep]);
 
-  const getProgressValue = useCallback(() => {
-    const totalSteps = form.role === 'driver' ? 5 : 4;
-    return (currentStep + 1) / totalSteps;
-  }, [currentStep, form.role]);
-
-  // Memoized password strength
   const passwordStrength = useMemo(() => {
     return getPasswordStrength(form.password);
   }, [form.password]);
 
-  // Dynamic styles
   const dynamicStyles = getDynamicStyles({
     currentStep,
     isLoading,
@@ -422,7 +328,7 @@ const RegisterScreen: React.FC = () => {
     selectedRole: form.role,
   });
 
-  // Render step content
+  // RENDER STEP CONTENT
   const renderStep = useCallback(() => {
     switch (currentStep) {
       case STEPS.BASIC_INFO:
@@ -431,7 +337,6 @@ const RegisterScreen: React.FC = () => {
             <Text style={styles.sectionSubtitle}>
               Let's start with some basic information about you
             </Text>
-
             <View style={styles.inputContainer}>
               <TextInput
                 label="Full Name *"
@@ -449,7 +354,6 @@ const RegisterScreen: React.FC = () => {
                 {errors.username}
               </HelperText>
             </View>
-
             <View style={styles.inputContainer}>
               <TextInput
                 label="Phone Number *"
@@ -470,14 +374,12 @@ const RegisterScreen: React.FC = () => {
             </View>
           </View>
         );
-
       case STEPS.ACCOUNT_DETAILS:
         return (
           <View>
             <Text style={styles.sectionSubtitle}>
               Create your account credentials for secure access
             </Text>
-
             <View style={styles.inputContainer}>
               <TextInput
                 label="Email Address *"
@@ -497,7 +399,6 @@ const RegisterScreen: React.FC = () => {
                 {errors.email}
               </HelperText>
             </View>
-
             <View style={styles.inputContainer}>
               <TextInput
                 label="Password *"
@@ -518,8 +419,6 @@ const RegisterScreen: React.FC = () => {
                 theme={{ colors: { primary: theme.colors.primary } }}
                 accessibilityLabel="Password input"
               />
-
-              {/* Password Strength Indicator */}
               {form.password.length > 0 && (
                 <View style={styles.passwordStrengthContainer}>
                   <View style={styles.passwordStrengthBar}>
@@ -529,26 +428,24 @@ const RegisterScreen: React.FC = () => {
                         {
                           backgroundColor: passwordStrength.color,
                           width: passwordStrength.width,
-                        }
+                        },
                       ]}
                     />
                   </View>
                   <Text
                     style={[
                       styles.passwordStrengthText,
-                      { color: passwordStrength.color }
+                      { color: passwordStrength.color },
                     ]}
                   >
                     {passwordStrength.text}
                   </Text>
                 </View>
               )}
-
               <HelperText type="error" visible={!!errors.password}>
                 {errors.password}
               </HelperText>
             </View>
-
             <View style={styles.inputContainer}>
               <TextInput
                 label="Confirm Password *"
@@ -575,7 +472,6 @@ const RegisterScreen: React.FC = () => {
             </View>
           </View>
         );
-
       case STEPS.ROLE_SELECTION:
         return (
           <View>
@@ -583,7 +479,6 @@ const RegisterScreen: React.FC = () => {
             <Text style={styles.sectionSubtitle}>
               Choose your role to customize your Louagi experience
             </Text>
-
             <TouchableOpacity
               style={[
                 styles.roleCard,
@@ -616,7 +511,6 @@ const RegisterScreen: React.FC = () => {
                 </Text>
               </View>
             </TouchableOpacity>
-
             <TouchableOpacity
               style={[
                 styles.roleCard,
@@ -651,7 +545,6 @@ const RegisterScreen: React.FC = () => {
             </TouchableOpacity>
           </View>
         );
-
       case STEPS.DRIVER_DETAILS:
         return (
           <View>
@@ -661,7 +554,6 @@ const RegisterScreen: React.FC = () => {
                 This information will be verified before you can start driving
               </Text>
             </View>
-
             <View style={styles.inputContainer}>
               <TextInput
                 label="License Number *"
@@ -679,7 +571,6 @@ const RegisterScreen: React.FC = () => {
                 {errors.license_no}
               </HelperText>
             </View>
-
             <View style={styles.inputContainer}>
               <TextInput
                 label="Years of Experience *"
@@ -698,7 +589,6 @@ const RegisterScreen: React.FC = () => {
                 {errors.experience}
               </HelperText>
             </View>
-
             <View style={styles.inputContainer}>
               <TextInput
                 label="License Expiry Date *"
@@ -717,13 +607,11 @@ const RegisterScreen: React.FC = () => {
                 {errors.license_expiry}
               </HelperText>
             </View>
-
             <HelperText type="info">
               Your license information will be verified before you can start driving
             </HelperText>
           </View>
         );
-
       case STEPS.REVIEW:
         return (
           <View>
@@ -731,25 +619,20 @@ const RegisterScreen: React.FC = () => {
             <Text style={styles.sectionSubtitle}>
               Please verify all details before creating your account
             </Text>
-
             <Surface style={styles.reviewCard}>
               <Text style={styles.reviewSectionTitle}>Personal Information</Text>
-
               <View style={styles.reviewRow}>
                 <Text style={styles.reviewLabel}>Name:</Text>
                 <Text style={styles.reviewValue}>{form.username}</Text>
               </View>
-
               <View style={styles.reviewRow}>
                 <Text style={styles.reviewLabel}>Email:</Text>
                 <Text style={styles.reviewValue}>{form.email}</Text>
               </View>
-
               <View style={styles.reviewRow}>
                 <Text style={styles.reviewLabel}>Phone:</Text>
                 <Text style={styles.reviewValue}>{form.phone}</Text>
               </View>
-
               <View style={styles.reviewRow}>
                 <Text style={styles.reviewLabel}>Role:</Text>
                 <Chip
@@ -761,23 +644,19 @@ const RegisterScreen: React.FC = () => {
                   {form.role === 'driver' ? 'Driver' : 'Passenger'}
                 </Chip>
               </View>
-
               {form.role === 'driver' && (
                 <>
                   <Text style={[styles.reviewSectionTitle, { marginTop: theme.spacing.lg }]}>
                     Driver Information
                   </Text>
-
                   <View style={styles.reviewRow}>
                     <Text style={styles.reviewLabel}>License:</Text>
                     <Text style={styles.reviewValue}>{form.license_no}</Text>
                   </View>
-
                   <View style={styles.reviewRow}>
                     <Text style={styles.reviewLabel}>Experience:</Text>
                     <Text style={styles.reviewValue}>{form.experience} years</Text>
                   </View>
-
                   <View style={styles.reviewRow}>
                     <Text style={styles.reviewLabel}>License Expiry:</Text>
                     <Text style={styles.reviewValue}>{form.license_expiry}</Text>
@@ -785,7 +664,6 @@ const RegisterScreen: React.FC = () => {
                 </>
               )}
             </Surface>
-
             <View style={styles.termsContainer}>
               <Text style={styles.termsText}>
                 By creating an account, you agree to our{' '}
@@ -796,12 +674,21 @@ const RegisterScreen: React.FC = () => {
             </View>
           </View>
         );
-
       default:
         return null;
     }
-  }, [currentStep, form, errors, isLoading, showPassword, showConfirmPassword, passwordStrength, handleFieldChange]);
+  }, [
+    currentStep,
+    form,
+    errors,
+    isLoading,
+    showPassword,
+    showConfirmPassword,
+    passwordStrength,
+    handleFieldChange,
+  ]);
 
+  // Render main
   return (
     <KeyboardAvoidingView
       style={styles.container}
@@ -837,18 +724,16 @@ const RegisterScreen: React.FC = () => {
                 color={theme.colors.text.primary}
               />
             </TouchableOpacity>
-
             <View style={styles.headerContent}>
               <Title style={styles.title}>Create Account</Title>
               <Text style={styles.subtitle}>{getStepTitle()}</Text>
             </View>
           </View>
-
           {/* Progress Bar */}
           <View style={styles.progressContainer}>
             <Animated.View style={{ width: '100%' }}>
               <ProgressBar
-                progress={progressAnim}
+                progress={progressValue}
                 color={theme.colors.primary}
                 style={styles.progressBar}
               />
@@ -857,12 +742,8 @@ const RegisterScreen: React.FC = () => {
               Step {currentStep + 1} of {form.role === 'driver' ? 5 : 4}
             </Text>
           </View>
-
           {/* Form Content */}
-          <View style={styles.stepContainer}>
-            {renderStep()}
-          </View>
-
+          <View style={styles.stepContainer}>{renderStep()}</View>
           {/* Navigation Buttons */}
           <View style={styles.buttonContainer}>
             {currentStep > STEPS.BASIC_INFO && (
@@ -877,14 +758,13 @@ const RegisterScreen: React.FC = () => {
                 Back
               </Button>
             )}
-
             {currentStep < STEPS.REVIEW ? (
               <Button
                 mode="contained"
                 onPress={handleNext}
                 style={[
                   styles.nextButton,
-                  currentStep === STEPS.BASIC_INFO && styles.fullWidthButton
+                  currentStep === STEPS.BASIC_INFO && styles.fullWidthButton,
                 ]}
                 disabled={isLoading}
                 theme={{ colors: { primary: theme.colors.primary } }}
@@ -898,7 +778,7 @@ const RegisterScreen: React.FC = () => {
                 onPress={handleSubmit}
                 style={[
                   styles.nextButton,
-                  currentStep === STEPS.BASIC_INFO && styles.fullWidthButton
+                  currentStep === STEPS.BASIC_INFO && styles.fullWidthButton,
                 ]}
                 loading={isLoading}
                 disabled={isLoading}
@@ -909,7 +789,6 @@ const RegisterScreen: React.FC = () => {
               </Button>
             )}
           </View>
-
           {/* Login Link */}
           <View style={styles.loginContainer}>
             <Text style={styles.loginText}>Already have an account? </Text>
@@ -922,17 +801,11 @@ const RegisterScreen: React.FC = () => {
               <Text style={styles.loginLink}>Sign In</Text>
             </TouchableOpacity>
           </View>
-
           {/* Loading Overlay */}
           {isLoading && (
             <View style={styles.loadingOverlay}>
-              <ActivityIndicator
-                size="large"
-                color={theme.colors.primary}
-              />
-              <Text style={styles.loadingText}>
-                Creating your account...
-              </Text>
+              <ActivityIndicator size="large" color={theme.colors.primary} />
+              <Text style={styles.loadingText}>Creating your account...</Text>
             </View>
           )}
         </Animated.View>

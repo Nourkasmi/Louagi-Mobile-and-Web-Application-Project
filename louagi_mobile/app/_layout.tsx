@@ -1,13 +1,100 @@
-// 📁 app/_layout.tsx - FIXED Root Layout with Safe Redux Provider
+// 📁 app/_layout.tsx - FINAL FIXED Root Layout with Safe Redux Provider & Error Boundary
 import React, { useEffect, useState } from 'react';
 import { Stack } from 'expo-router';
 import { Provider } from 'react-redux';
 import { PaperProvider } from 'react-native-paper';
-import { View, Text, ActivityIndicator } from 'react-native';
+import { View, Text, ActivityIndicator, Alert, TouchableOpacity } from 'react-native';
 import store, { isStoreHealthy } from '../src/store/store';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// 🔧 FIXED: Safe Redux Provider with error boundary
+// Error Boundary for Redux and general crashes
+class ReduxErrorBoundary extends React.Component<
+  { children: React.ReactNode },
+  { hasError: boolean; error?: Error; retryCount: number }
+> {
+  constructor(props: { children: React.ReactNode }) {
+    super(props);
+    this.state = { hasError: false, retryCount: 0 };
+  }
+
+  static getDerivedStateFromError(error: Error) {
+    console.error('🚨 Redux Error Boundary caught:', error);
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    console.error('🚨 Redux Error Boundary details:', {
+      error: error.message,
+      stack: error.stack,
+      componentStack: errorInfo.componentStack,
+    });
+  }
+
+  handleRetry = async () => {
+    try {
+      // Clear potentially corrupted data
+      await AsyncStorage.multiRemove(['louagi_token', 'louagi_user']);
+      global.authToken = undefined;
+
+      this.setState({
+        hasError: false,
+        error: undefined,
+        retryCount: this.state.retryCount + 1,
+      });
+
+      console.log('🔄 Error boundary recovery attempted');
+    } catch (error) {
+      console.error('❌ Recovery failed:', error);
+      Alert.alert('Recovery Failed', 'Please restart the app manually.', [{ text: 'OK' }]);
+    }
+  };
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <View style={{
+          flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20, backgroundColor: '#f8f9fa'
+        }}>
+          <Text style={{
+            fontSize: 24, fontWeight: 'bold', marginBottom: 16, textAlign: 'center'
+          }}>
+            App Error Detected
+          </Text>
+          <Text style={{
+            fontSize: 16, color: '#666', textAlign: 'center', marginBottom: 20
+          }}>
+            The app encountered an error. This usually resolves with a restart.
+          </Text>
+          <TouchableOpacity
+            onPress={this.handleRetry}
+            style={{
+              backgroundColor: '#0066cc',
+              paddingHorizontal: 20,
+              paddingVertical: 12,
+              borderRadius: 8,
+              marginBottom: 12
+            }}
+          >
+            <Text style={{ color: 'white', fontWeight: '600' }}>
+              Try Recovery {this.state.retryCount > 0 && `(${this.state.retryCount})`}
+            </Text>
+          </TouchableOpacity>
+          {this.state.retryCount >= 2 && (
+            <Text style={{
+              fontSize: 12, color: '#999', textAlign: 'center'
+            }}>
+              If this persists, please restart the app completely.
+            </Text>
+          )}
+        </View>
+      );
+    }
+
+    return this.props.children;
+  }
+}
+
+// Safe Redux Provider with health checks
 const SafeReduxProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [isStoreReady, setIsStoreReady] = useState(false);
   const [storeError, setStoreError] = useState<string | null>(null);
@@ -15,46 +102,33 @@ const SafeReduxProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   useEffect(() => {
     const initializeStore = async () => {
       try {
-        // Check if store is healthy
-        if (isStoreHealthy()) {
-          console.log('✅ Redux store is healthy');
-          setIsStoreReady(true);
-        } else {
-          throw new Error('Store health check failed');
-        }
+        if (!isStoreHealthy()) throw new Error('Store failed health check');
+        setIsStoreReady(true);
       } catch (error) {
         console.error('❌ Store initialization error:', error);
         setStoreError('Failed to initialize app state');
-        
-        // Try to recover by providing a fallback
         setTimeout(() => {
-          console.log('🔄 Attempting store recovery...');
-          setIsStoreReady(true); // Allow app to continue without Redux
+          setIsStoreReady(true);
         }, 2000);
       }
     };
-
     initializeStore();
   }, []);
 
-  // Show loading while store is initializing
   if (!isStoreReady && !storeError) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
         <ActivityIndicator size="large" color="#0066cc" />
-        <Text style={{ marginTop: 16, fontSize: 16, color: '#666' }}>
-          Initializing app...
-        </Text>
+        <Text style={{ marginTop: 16, fontSize: 16, color: '#666' }}>Starting Louagi...</Text>
       </View>
     );
   }
 
-  // Show error state
   if (storeError && !isStoreReady) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 }}>
         <Text style={{ fontSize: 18, color: '#f44336', textAlign: 'center', marginBottom: 16 }}>
-          App Initialization Error
+          Initialization Error
         </Text>
         <Text style={{ fontSize: 14, color: '#666', textAlign: 'center' }}>
           {storeError}
@@ -63,55 +137,38 @@ const SafeReduxProvider: React.FC<{ children: React.ReactNode }> = ({ children }
     );
   }
 
-  // Render with Redux provider
-  try {
-    return (
-      <Provider store={store}>
-        {children}
-      </Provider>
-    );
-  } catch (error) {
-    console.error('❌ Provider render error:', error);
-    // Fallback: render children without Redux
-    return <>{children}</>;
-  }
+  return (
+    <Provider store={store}>{children}</Provider>
+  );
 };
 
 export default function RootLayout() {
   useEffect(() => {
-    // Load token from AsyncStorage at startup
     const restoreAuthToken = async () => {
       try {
         const token = await AsyncStorage.getItem('louagi_token');
-        if (token) {
-          global.authToken = token;
-          console.log('✅ JWT restored from AsyncStorage');
-        } else {
-          global.authToken = undefined;
-        }
+        global.authToken = token || undefined;
       } catch (error) {
         global.authToken = undefined;
         console.error('❌ Failed to restore token:', error);
       }
     };
-
     restoreAuthToken();
   }, []);
 
   return (
-    <SafeReduxProvider>
-      <PaperProvider>
-        <Stack screenOptions={{ headerShown: false }}>
-          {/* Authentication Screens */}
-          <Stack.Screen name="index" />
-          <Stack.Screen name="login" />
-          <Stack.Screen name="register" />
-
-          {/* Route Groups */}
-          <Stack.Screen name="(passenger)" />
-          <Stack.Screen name="(driver)" />
-        </Stack>
-      </PaperProvider>
-    </SafeReduxProvider>
+    <ReduxErrorBoundary>
+      <SafeReduxProvider>
+        <PaperProvider>
+          <Stack screenOptions={{ headerShown: false }}>
+            <Stack.Screen name="index" />
+            <Stack.Screen name="login" />
+            <Stack.Screen name="register" />
+            <Stack.Screen name="(passenger)" />
+            <Stack.Screen name="(driver)" />
+          </Stack>
+        </PaperProvider>
+      </SafeReduxProvider>
+    </ReduxErrorBoundary>
   );
 }

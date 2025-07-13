@@ -1,12 +1,7 @@
-// app/(passenger)/booking/index.tsx - CLEAN MAIN ENTRY POINT
+// app/(passenger)/booking/index.tsx - CLEAN Entry Point
 import React from 'react';
-import { MockStripeProvider } from '../../../src/services/mockPaymentService';
-import BookingScreen from './components/BookingScreen';
+import SimplifiedBookingScreen from './components/BookingScreen';
 
 export default function BookingIndex() {
-    return (
-        <MockStripeProvider publishableKey="mock_key">
-            <BookingScreen />
-        </MockStripeProvider>
-    );
+    return <SimplifiedBookingScreen />;
 }

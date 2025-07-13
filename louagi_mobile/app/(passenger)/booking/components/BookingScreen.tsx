@@ -1,17 +1,18 @@
-// 📁 app/(passenger)/booking/components/BookingScreen.tsx - UPDATED to Handle Context Data
+// app/(passenger)/booking/components/BookingScreen.tsx - SIMPLIFIED Without Payment Logic
 import React, { useMemo } from 'react';
-import { View, ScrollView, ActivityIndicator, Text, RefreshControl, StyleSheet, TouchableOpacity, Alert } from 'react-native';
+import { View, ScrollView, ActivityIndicator, Text, RefreshControl, StyleSheet, TouchableOpacity } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { MaterialIcons } from '@expo/vector-icons';
 import { useBookingFlow } from '../hooks/useBookingFlow';
 
-export default function BookingScreen() {
+export default function SimplifiedBookingScreen() {
     const params = useLocalSearchParams();
     const router = useRouter();
 
     const tripId = Array.isArray(params.tripId) ? params.tripId[0] : params.tripId;
     const tripData = Array.isArray(params.tripData) ? params.tripData[0] : params.tripData;
 
-    // 🆕 NEW: Extract context data from params
+    // Extract context data from params
     const stationName = Array.isArray(params.stationName) ? params.stationName[0] : params.stationName;
     const destinationName = Array.isArray(params.destinationName) ? params.destinationName[0] : params.destinationName;
     const stationId = Array.isArray(params.stationId) ? params.stationId[0] : params.stationId;
@@ -28,7 +29,7 @@ export default function BookingScreen() {
         }
     }, [tripData]);
 
-    // 🆕 NEW: Create context data for the booking flow
+    // Create context data for the booking flow
     const contextData = useMemo(() => ({
         stationName: stationName || 'Departure Station',
         destinationName: destinationName || 'Destination Station',
@@ -43,15 +44,10 @@ export default function BookingScreen() {
                 zipCode: '3000',
                 capacity: 100,
                 isActive: true,
-                contactPhone: '+216 XX XXX XXX',
-                contactEmail: 'destination@louagi.com',
                 amenities: {},
             }
         },
-        searchParams: {
-            stationId,
-            destinationId,
-        }
+        searchParams: { stationId, destinationId },
     }), [stationName, destinationName, stationId, destinationId]);
 
     const { state, actions } = useBookingFlow(tripId as string, initialTrip, contextData);
@@ -61,7 +57,6 @@ export default function BookingScreen() {
         hasTrip: !!state.trip,
         loading: state.loading,
         error: state.error,
-        contextData: contextData
     });
 
     if (!tripId) {
@@ -78,15 +73,7 @@ export default function BookingScreen() {
     if (state.loading && !state.trip) {
         return (
             <View style={styles.container}>
-                <View style={styles.header}>
-                    <TouchableOpacity onPress={actions.goBack} style={styles.backButton}>
-                        <Text style={styles.backButtonText}>← Back</Text>
-                    </TouchableOpacity>
-                    <Text style={styles.title}>Book Your Trip</Text>
-                    <View style={styles.mockBadge}>
-                        <Text style={styles.mockText}>Mock Pay</Text>
-                    </View>
-                </View>
+                {renderHeader()}
                 <View style={styles.centered}>
                     <ActivityIndicator size="large" color="#0066cc" />
                     <Text style={styles.loadingText}>Loading trip details...</Text>
@@ -98,12 +85,7 @@ export default function BookingScreen() {
     if (state.error && !state.trip) {
         return (
             <View style={styles.container}>
-                <View style={styles.header}>
-                    <TouchableOpacity onPress={actions.goBack} style={styles.backButton}>
-                        <Text style={styles.backButtonText}>← Back</Text>
-                    </TouchableOpacity>
-                    <Text style={styles.title}>Book Your Trip</Text>
-                </View>
+                {renderHeader()}
                 <View style={styles.centered}>
                     <Text style={styles.errorText}>Failed to Load Trip</Text>
                     <Text style={styles.errorSubtext}>{state.error}</Text>
@@ -118,12 +100,7 @@ export default function BookingScreen() {
     if (!state.trip) {
         return (
             <View style={styles.container}>
-                <View style={styles.header}>
-                    <TouchableOpacity onPress={actions.goBack} style={styles.backButton}>
-                        <Text style={styles.backButtonText}>← Back</Text>
-                    </TouchableOpacity>
-                    <Text style={styles.title}>Book Your Trip</Text>
-                </View>
+                {renderHeader()}
                 <View style={styles.centered}>
                     <Text style={styles.errorText}>Trip Not Available</Text>
                     <TouchableOpacity style={styles.button} onPress={actions.goBack}>
@@ -134,18 +111,22 @@ export default function BookingScreen() {
         );
     }
 
-    return (
-        <View style={styles.container}>
-            {/* Header */}
+    function renderHeader() {
+        return (
             <View style={styles.header}>
                 <TouchableOpacity onPress={actions.goBack} style={styles.backButton}>
-                    <Text style={styles.backButtonText}>← Back</Text>
+                    <MaterialIcons name="arrow-back" size={24} color="#0066cc" />
+                    <Text style={styles.backButtonText}>Back</Text>
                 </TouchableOpacity>
                 <Text style={styles.title}>Book Your Trip</Text>
-                <View style={styles.mockBadge}>
-                    <Text style={styles.mockText}>Mock Pay</Text>
-                </View>
+                <View style={styles.placeholder} />
             </View>
+        );
+    }
+
+    return (
+        <View style={styles.container}>
+            {renderHeader()}
 
             {/* Progress */}
             <View style={styles.progressContainer}>
@@ -153,11 +134,10 @@ export default function BookingScreen() {
                     <View style={[styles.progressFill, { width: `${state.progress * 100}%` }]} />
                 </View>
                 <Text style={styles.progressText}>
-                    {state.step === 'selecting' && 'Step 1: Select Seats'}
-                    {state.step === 'processing' && 'Step 2: Creating Booking...'}
-                    {state.step === 'payment' && 'Step 3: Mock Payment'}
-                    {state.step === 'completed' && 'Completed!'}
-                    {state.step === 'failed' && 'Please Try Again'}
+                    {state.step === 'selecting' && 'Select your seats and book'}
+                    {state.step === 'processing' && 'Creating your booking...'}
+                    {state.step === 'completed' && 'Booking created successfully!'}
+                    {state.step === 'failed' && 'Please try again'}
                 </Text>
             </View>
 
@@ -171,18 +151,10 @@ export default function BookingScreen() {
                     />
                 }
             >
-                {/* Mock Payment Notice */}
-                <View style={styles.mockNotice}>
-                    <Text style={styles.mockNoticeText}>
-                        🎭 Mock Payment Mode: No real money will be charged during testing!
-                    </Text>
-                </View>
-
                 {/* Trip Info */}
                 <View style={styles.card}>
                     <Text style={styles.cardTitle}>Trip Information</Text>
 
-                    {/* 🆕 NEW: Use real route names with fallbacks */}
                     <Text style={styles.tripRoute}>
                         {state.trip.route?.startStation?.name || contextData.stationName} → {state.trip.route?.endStation?.name || contextData.destinationName}
                     </Text>
@@ -191,7 +163,6 @@ export default function BookingScreen() {
                     <Text style={styles.tripDetail}>Available: {state.trip.availableSeats} seats</Text>
                     <Text style={styles.tripDetail}>Price: ${state.trip.currentPrice || state.trip.basePrice}</Text>
 
-                    {/* 🆕 NEW: Show route description */}
                     <Text style={styles.tripDescription}>
                         {state.trip.route?.description || `Trip from ${contextData.stationName} to ${contextData.destinationName}`}
                     </Text>
@@ -274,19 +245,14 @@ export default function BookingScreen() {
                 {state.step === 'completed' && (
                     <View style={styles.successCard}>
                         <Text style={styles.successIcon}>🎉</Text>
-                        <Text style={styles.successTitle}>Booking Completed!</Text>
-                        <Text style={styles.successText}>Your trip has been booked successfully!</Text>
+                        <Text style={styles.successTitle}>Booking Created!</Text>
+                        <Text style={styles.successText}>Your booking has been created successfully!</Text>
                         {state.createdBooking && (
                             <Text style={styles.bookingRef}>#{state.createdBooking.bookingReference}</Text>
                         )}
-                    </View>
-                )}
-
-                {state.step === 'payment' && (
-                    <View style={styles.paymentCard}>
-                        <Text style={styles.paymentIcon}>💳</Text>
-                        <Text style={styles.paymentTitle}>Ready for Payment</Text>
-                        <Text style={styles.paymentText}>Complete your mock payment to confirm booking</Text>
+                        <Text style={styles.nextStepText}>
+                            Complete payment to confirm your seat
+                        </Text>
                     </View>
                 )}
 
@@ -297,69 +263,53 @@ export default function BookingScreen() {
                         <Text style={styles.errorText}>{state.error}</Text>
                     </View>
                 )}
-
-                {/* Actions */}
-                <View style={styles.actionsContainer}>
-                    {state.step === 'completed' ? (
-                        <View style={styles.completedActions}>
-                            <TouchableOpacity style={styles.outlineButton} onPress={actions.viewBookingDetails}>
-                                <Text style={styles.outlineButtonText}>View Booking</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity style={styles.button} onPress={actions.goHome}>
-                                <Text style={styles.buttonText}>Go Home</Text>
-                            </TouchableOpacity>
-                        </View>
-                    ) : state.step === 'payment' ? (
-                        <View>
-                            <TouchableOpacity
-                                style={[styles.payButton, state.paymentLoading && styles.buttonDisabled]}
-                                onPress={actions.processPayment}
-                                disabled={state.paymentLoading}
-                            >
-                                {state.paymentLoading ? (
-                                    <ActivityIndicator color="white" size="small" />
-                                ) : (
-                                    <Text style={styles.buttonText}>🎭 Mock Pay ${actions.calculateTotalAmount().toFixed(2)}</Text>
-                                )}
-                            </TouchableOpacity>
-                            <TouchableOpacity style={styles.skipButton} onPress={actions.skipPayment}>
-                                <Text style={styles.skipButtonText}>Complete Later</Text>
-                            </TouchableOpacity>
-                        </View>
-                    ) : state.step === 'processing' ? (
-                        <View style={styles.processingContainer}>
-                            <ActivityIndicator size="large" color="#0066cc" />
-                            <Text style={styles.processingText}>Creating your booking...</Text>
-                        </View>
-                    ) : state.step === 'failed' ? (
-                        <TouchableOpacity style={styles.button} onPress={actions.createBooking}>
-                            <Text style={styles.buttonText}>Try Again</Text>
-                        </TouchableOpacity>
-                    ) : (
-                        <TouchableOpacity
-                            style={[styles.button, (state.trip.availableSeats === 0 || state.loading) && styles.buttonDisabled]}
-                            onPress={actions.createBooking}
-                            disabled={state.trip.availableSeats === 0 || state.loading}
-                        >
-                            {state.loading ? (
-                                <ActivityIndicator color="white" size="small" />
-                            ) : (
-                                <Text style={styles.buttonText}>
-                                    {state.trip.availableSeats === 0 ? 'Trip Full' : `Book Trip - $${actions.calculateTotalAmount().toFixed(2)}`}
-                                </Text>
-                            )}
-                        </TouchableOpacity>
-                    )}
-                </View>
-
-                {/* Mock Payment Info */}
-                <View style={styles.mockInfo}>
-                    <Text style={styles.mockInfoTitle}>🎭 Mock Payment Information:</Text>
-                    <Text style={styles.mockInfoText}>• This is a test environment - no real payments</Text>
-                    <Text style={styles.mockInfoText}>• Visa •••• 4242 and MasterCard •••• 5555 succeed</Text>
-                    <Text style={styles.mockInfoText}>• Amex •••• 1234 and Visa •••• 0000 fail for testing</Text>
-                </View>
             </ScrollView>
+
+            {/* Action Buttons */}
+            <View style={styles.actionsContainer}>
+                {state.step === 'completed' ? (
+                    <View style={styles.completedActions}>
+                        <TouchableOpacity style={styles.outlineButton} onPress={actions.viewBookingDetails}>
+                            <Text style={styles.outlineButtonText}>View Booking</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity style={styles.primaryButton} onPress={actions.proceedToPayment}>
+                            <MaterialIcons name="payment" size={20} color="white" />
+                            <Text style={styles.primaryButtonText}>Pay Now</Text>
+                        </TouchableOpacity>
+                    </View>
+                ) : state.step === 'processing' ? (
+                    <View style={styles.processingContainer}>
+                        <ActivityIndicator size="large" color="#0066cc" />
+                        <Text style={styles.processingText}>Creating your booking...</Text>
+                    </View>
+                ) : state.step === 'failed' ? (
+                    <TouchableOpacity style={styles.retryButton} onPress={actions.createBooking}>
+                        <MaterialIcons name="refresh" size={20} color="white" />
+                        <Text style={styles.retryButtonText}>Try Again</Text>
+                    </TouchableOpacity>
+                ) : (
+                    <TouchableOpacity
+                        style={[styles.bookButton, (state.trip.availableSeats === 0 || state.loading) && styles.buttonDisabled]}
+                        onPress={actions.createBooking}
+                        disabled={state.trip.availableSeats === 0 || state.loading}
+                    >
+                        {state.loading ? (
+                            <ActivityIndicator color="white" size="small" />
+                        ) : (
+                            <View style={styles.buttonContent}>
+                                <MaterialIcons
+                                    name={state.trip.availableSeats === 0 ? 'block' : 'confirmation-number'}
+                                    size={20}
+                                    color="white"
+                                />
+                                <Text style={styles.bookButtonText}>
+                                    {state.trip.availableSeats === 0 ? 'Trip Full' : `Create Booking - $${actions.calculateTotalAmount().toFixed(2)}`}
+                                </Text>
+                            </View>
+                        )}
+                    </TouchableOpacity>
+                )}
+            </View>
         </View>
     );
 }
@@ -369,12 +319,14 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: '#f8f9fa',
     },
+
     centered: {
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
         padding: 20,
     },
+
     header: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -385,14 +337,20 @@ const styles = StyleSheet.create({
         borderBottomColor: '#eee',
         justifyContent: 'space-between',
     },
+
     backButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
         padding: 8,
     },
+
     backButtonText: {
         fontSize: 16,
         color: '#0066cc',
         fontWeight: '600',
+        marginLeft: 4,
     },
+
     title: {
         fontSize: 20,
         fontWeight: 'bold',
@@ -400,57 +358,42 @@ const styles = StyleSheet.create({
         flex: 1,
         textAlign: 'center',
     },
-    mockBadge: {
-        backgroundColor: '#fff3cd',
-        paddingHorizontal: 8,
-        paddingVertical: 4,
-        borderRadius: 12,
+
+    placeholder: {
+        width: 60,
     },
-    mockText: {
-        fontSize: 12,
-        color: '#856404',
-        fontWeight: '600',
-    },
+
     progressContainer: {
         backgroundColor: 'white',
         padding: 16,
         borderBottomWidth: 1,
         borderBottomColor: '#eee',
     },
+
     progressBar: {
         height: 4,
         backgroundColor: '#e9ecef',
         borderRadius: 2,
         marginBottom: 8,
     },
+
     progressFill: {
         height: '100%',
         backgroundColor: '#0066cc',
         borderRadius: 2,
     },
+
     progressText: {
         fontSize: 14,
         color: '#666',
         textAlign: 'center',
         fontWeight: '500',
     },
+
     scrollContainer: {
         flex: 1,
     },
-    mockNotice: {
-        backgroundColor: '#fff3cd',
-        margin: 16,
-        padding: 12,
-        borderRadius: 8,
-        borderLeftWidth: 4,
-        borderLeftColor: '#ff9800',
-    },
-    mockNoticeText: {
-        fontSize: 14,
-        color: '#856404',
-        fontWeight: '500',
-        textAlign: 'center',
-    },
+
     card: {
         backgroundColor: 'white',
         marginHorizontal: 16,
@@ -463,33 +406,39 @@ const styles = StyleSheet.create({
         shadowRadius: 4,
         elevation: 3,
     },
+
     cardTitle: {
         fontSize: 18,
         fontWeight: '600',
         color: '#333',
         marginBottom: 16,
     },
+
     tripRoute: {
         fontSize: 18,
         fontWeight: 'bold',
         color: '#0066cc',
         marginBottom: 8,
     },
+
     tripDetail: {
         fontSize: 14,
         color: '#666',
         marginBottom: 4,
     },
+
     tripDescription: {
         fontSize: 14,
         color: '#888',
         fontStyle: 'italic',
         marginTop: 8,
     },
+
     driverSection: {
         flexDirection: 'row',
         alignItems: 'center',
     },
+
     driverAvatar: {
         width: 60,
         height: 60,
@@ -499,48 +448,58 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         marginRight: 16,
     },
+
     driverInitial: {
         fontSize: 24,
         fontWeight: 'bold',
         color: 'white',
     },
+
     driverInfo: {
         flex: 1,
     },
+
     driverName: {
         fontSize: 18,
         fontWeight: 'bold',
         color: '#333',
         marginBottom: 4,
     },
+
     driverMeta: {
         flexDirection: 'row',
         alignItems: 'center',
         marginBottom: 4,
     },
+
     driverRating: {
         fontSize: 14,
         fontWeight: '500',
         color: '#666',
     },
+
     driverExperience: {
         fontSize: 14,
         color: '#666',
     },
+
     vehicleInfo: {
         fontSize: 14,
         color: '#888',
         marginBottom: 2,
     },
+
     licenseInfo: {
         fontSize: 12,
         color: '#aaa',
     },
+
     seatSelector: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
     },
+
     seatButton: {
         width: 50,
         height: 50,
@@ -549,43 +508,52 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
     },
+
     seatButtonDisabled: {
         backgroundColor: '#ccc',
     },
+
     seatButtonText: {
         color: 'white',
         fontSize: 24,
         fontWeight: 'bold',
     },
+
     seatDisplay: {
         marginHorizontal: 40,
         alignItems: 'center',
     },
+
     seatCount: {
         fontSize: 32,
         fontWeight: 'bold',
         color: '#333',
     },
+
     seatLabel: {
         fontSize: 14,
         color: '#666',
         marginTop: 4,
     },
+
     priceRow: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
         marginBottom: 8,
     },
+
     priceLabel: {
         fontSize: 16,
         color: '#666',
     },
+
     priceValue: {
         fontSize: 16,
         fontWeight: '500',
         color: '#333',
     },
+
     totalRow: {
         flexDirection: 'row',
         justifyContent: 'space-between',
@@ -595,16 +563,19 @@ const styles = StyleSheet.create({
         borderTopColor: '#eee',
         marginTop: 8,
     },
+
     totalLabel: {
         fontSize: 18,
         fontWeight: 'bold',
         color: '#333',
     },
+
     totalValue: {
         fontSize: 20,
         fontWeight: 'bold',
         color: '#0066cc',
     },
+
     successCard: {
         backgroundColor: '#e8f5e8',
         margin: 16,
@@ -612,13 +583,40 @@ const styles = StyleSheet.create({
         borderRadius: 12,
         alignItems: 'center',
     },
-    paymentCard: {
-        backgroundColor: '#fff3cd',
-        margin: 16,
-        padding: 20,
-        borderRadius: 12,
-        alignItems: 'center',
+
+    successIcon: {
+        fontSize: 48,
+        marginBottom: 12,
     },
+
+    successTitle: {
+        fontSize: 20,
+        fontWeight: 'bold',
+        color: '#2e7d32',
+        marginBottom: 8,
+    },
+
+    successText: {
+        fontSize: 14,
+        color: '#2e7d32',
+        textAlign: 'center',
+        marginBottom: 8,
+    },
+
+    bookingRef: {
+        fontSize: 16,
+        color: '#2e7d32',
+        fontWeight: '600',
+        marginBottom: 8,
+    },
+
+    nextStepText: {
+        fontSize: 14,
+        color: '#2e7d32',
+        textAlign: 'center',
+        fontWeight: '500',
+    },
+
     errorCard: {
         backgroundColor: '#ffebee',
         margin: 16,
@@ -626,113 +624,95 @@ const styles = StyleSheet.create({
         borderRadius: 12,
         alignItems: 'center',
     },
-    successIcon: {
-        fontSize: 48,
-        marginBottom: 12,
-    },
-    successTitle: {
-        fontSize: 20,
-        fontWeight: 'bold',
-        color: '#2e7d32',
-        marginBottom: 8,
-    },
-    successText: {
-        fontSize: 14,
-        color: '#2e7d32',
-        textAlign: 'center',
-        marginBottom: 8,
-    },
-    bookingRef: {
-        fontSize: 16,
-        color: '#2e7d32',
-        fontWeight: '600',
-    },
-    paymentIcon: {
-        fontSize: 48,
-        marginBottom: 12,
-    },
-    paymentTitle: {
-        fontSize: 20,
-        fontWeight: 'bold',
-        color: '#856404',
-        marginBottom: 8,
-    },
-    paymentText: {
-        fontSize: 14,
-        color: '#856404',
-        textAlign: 'center',
-    },
+
     errorIcon: {
         fontSize: 48,
         marginBottom: 12,
     },
+
     errorTitle: {
         fontSize: 20,
         fontWeight: 'bold',
         color: '#d32f2f',
         marginBottom: 8,
     },
+
     errorText: {
         fontSize: 14,
         color: '#d32f2f',
         textAlign: 'center',
     },
+
     errorSubtext: {
         fontSize: 14,
         color: '#666',
         marginBottom: 20,
         textAlign: 'center',
     },
+
     loadingText: {
         marginTop: 12,
         fontSize: 16,
         color: '#666',
         textAlign: 'center',
     },
+
     actionsContainer: {
         marginHorizontal: 16,
         marginBottom: 16,
     },
-    button: {
+
+    bookButton: {
         backgroundColor: '#0066cc',
         padding: 18,
         borderRadius: 12,
         alignItems: 'center',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+        elevation: 3,
         minHeight: 56,
     },
-    buttonDisabled: {
-        backgroundColor: '#ccc',
-    },
-    buttonText: {
-        color: 'white',
-        fontSize: 18,
-        fontWeight: 'bold',
-    },
-    payButton: {
-        backgroundColor: '#ff9800',
+
+    retryButton: {
+        backgroundColor: '#f44336',
         padding: 18,
         borderRadius: 12,
         alignItems: 'center',
-        marginBottom: 12,
+        flexDirection: 'row',
+        justifyContent: 'center',
         minHeight: 56,
     },
-    skipButton: {
-        backgroundColor: 'transparent',
-        padding: 16,
-        borderRadius: 8,
+
+    retryButtonText: {
+        color: 'white',
+        fontSize: 18,
+        fontWeight: 'bold',
+        marginLeft: 8,
+    },
+
+    buttonDisabled: {
+        backgroundColor: '#ccc',
+    },
+
+    buttonContent: {
+        flexDirection: 'row',
         alignItems: 'center',
-        borderWidth: 1,
-        borderColor: '#ff9800',
     },
-    skipButtonText: {
-        color: '#ff9800',
-        fontSize: 16,
-        fontWeight: '600',
+
+    bookButtonText: {
+        color: 'white',
+        fontSize: 18,
+        fontWeight: 'bold',
+        marginLeft: 8,
     },
+
     completedActions: {
         flexDirection: 'row',
         gap: 12,
     },
+
     outlineButton: {
         flex: 1,
         paddingVertical: 14,
@@ -743,38 +723,56 @@ const styles = StyleSheet.create({
         backgroundColor: 'white',
         alignItems: 'center',
     },
+
     outlineButtonText: {
         fontSize: 16,
         fontWeight: '600',
         color: '#0066cc',
     },
+
+    primaryButton: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 14,
+        paddingHorizontal: 16,
+        borderRadius: 8,
+        backgroundColor: '#0066cc',
+    },
+
+    primaryButtonText: {
+        fontSize: 16,
+        fontWeight: '600',
+        color: 'white',
+        marginLeft: 8,
+    },
+
     processingContainer: {
         alignItems: 'center',
         padding: 30,
     },
+
     processingText: {
         fontSize: 16,
         color: '#666',
         marginTop: 12,
         textAlign: 'center',
     },
-    mockInfo: {
-        backgroundColor: '#fff3cd',
-        margin: 16,
-        padding: 16,
+
+    button: {
+        backgroundColor: '#0066cc',
+        paddingHorizontal: 20,
+        paddingVertical: 12,
         borderRadius: 8,
-        borderLeftWidth: 4,
-        borderLeftColor: '#ff9800',
+        minHeight: 44,
+        justifyContent: 'center',
+        alignItems: 'center',
     },
-    mockInfoTitle: {
+
+    buttonText: {
+        color: 'white',
         fontSize: 16,
         fontWeight: '600',
-        color: '#856404',
-        marginBottom: 12,
-    },
-    mockInfoText: {
-        fontSize: 14,
-        color: '#856404',
-        marginBottom: 4,
     },
 });

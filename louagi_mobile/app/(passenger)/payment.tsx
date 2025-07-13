@@ -1,4 +1,4 @@
-// app/(passenger)/payment.tsx - FIXED Payment Screen with Working Mock Payment
+// app/(passenger)/payment.tsx - UNIFIED Payment Screen
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -8,23 +8,51 @@ import {
   Alert,
   ActivityIndicator,
   ScrollView,
-  Platform,
+  StatusBar,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
-
-// Import FIXED mock payment service
-import {
-  MockStripeProvider,
-  useMockPaymentSheet,
-  mockPaymentService,
-  MOCK_CARDS
-} from '../../src/services/mockPaymentService';
-
 import { getBookingById, type Booking } from '../../src/services/api';
 
-// Payment Content Component with FIXED Mock Payment
-function PaymentContent() {
+// Mock payment service for demonstration
+const MOCK_CARDS = [
+  {
+    id: 'visa_4242',
+    brand: 'Visa',
+    last4: '4242',
+    success: true,
+    description: 'Always succeeds',
+    delay: 2000,
+  },
+  {
+    id: 'mastercard_5555',
+    brand: 'MasterCard',
+    last4: '5555',
+    success: true,
+    description: 'Always succeeds',
+    delay: 1800,
+  },
+  {
+    id: 'amex_1234',
+    brand: 'Amex',
+    last4: '1234',
+    success: false,
+    description: 'Always declines',
+    delay: 2500,
+    error: 'Card declined - Insufficient funds',
+  },
+  {
+    id: 'visa_0000',
+    brand: 'Visa',
+    last4: '0000',
+    success: false,
+    description: 'Insufficient funds',
+    delay: 2200,
+    error: 'Insufficient funds',
+  },
+];
+
+export default function UnifiedPaymentScreen() {
   const {
     bookingId,
     amount,
@@ -39,171 +67,66 @@ function PaymentContent() {
 
   const router = useRouter();
 
-  // Use FIXED mock payment hook
-  const { initPaymentSheet, presentPaymentSheet, loading: mockLoading } = useMockPaymentSheet();
-
+  // State management
   const [booking, setBooking] = useState<Booking | null>(null);
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
-  const [paymentInitialized, setPaymentInitialized] = useState(false);
+  const [step, setStep] = useState<'select' | 'processing' | 'success' | 'failed'>('select');
+  const [selectedCard, setSelectedCard] = useState<typeof MOCK_CARDS[0] | null>(null);
 
   // Parse trip data if available
   const tripInfo = tripData ? JSON.parse(tripData) : null;
 
   // Fetch booking details
   useEffect(() => {
-    const fetchData = async () => {
+    const fetchBookingData = async () => {
       try {
         setLoading(true);
         if (bookingId) {
-          const bookingResponse = await getBookingById(bookingId);
-          if (bookingResponse.success && bookingResponse.data) {
-            setBooking(bookingResponse.data);
+          const response = await getBookingById(bookingId);
+          if (response.success && response.data) {
+            setBooking(response.data);
           }
         }
       } catch (error) {
-        console.error('Error fetching booking data:', error);
+        console.error('Error fetching booking:', error);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchData();
+    fetchBookingData();
   }, [bookingId]);
 
-  // Initialize FIXED Mock Payment Sheet
-  useEffect(() => {
-    const initializePayment = async () => {
-      if (paymentInitialized) return;
+  // Get display data
+  const displayData = booking || tripInfo;
+  const trip = displayData?.trip || tripInfo;
 
-      try {
-        console.log('🎭 Initializing FIXED mock payment sheet...');
-
-        // Create mock client secret
-        const mockClientSecret = `pi_mock_${Date.now()}_secret_${Math.random().toString(36).substr(2, 9)}`;
-
-        const { error } = await initPaymentSheet({
-          merchantDisplayName: 'Louagi',
-          paymentIntentClientSecret: mockClientSecret,
-          defaultBillingDetails: {
-            name: 'Test Customer',
-          },
-          allowsDelayedPaymentMethods: false,
-          returnURL: 'louagi://payment-success',
-        });
-
-        if (error) {
-          console.error('❌ Mock payment sheet initialization error:', error);
-          Alert.alert('Mock Payment Error', error.message || 'Failed to initialize mock payment');
-          return;
-        }
-
-        setPaymentInitialized(true);
-        console.log('✅ FIXED mock payment sheet initialized successfully');
-
-      } catch (error: any) {
-        console.error('❌ Mock payment initialization failed:', error);
-        Alert.alert('Mock Payment Error', 'Failed to setup mock payment. Please try again.');
-      }
-    };
-
-    initializePayment();
-  }, [paymentInitialized, initPaymentSheet]);
-
-  // Handle mock payment process
-  const handlePayment = async () => {
-    if (!paymentInitialized) {
-      Alert.alert('Mock Payment Error', 'Mock payment not ready. Please wait a moment and try again.');
-      return;
-    }
-
+  // Process payment with selected card
+  const processPayment = async (card: typeof MOCK_CARDS[0]) => {
     try {
+      setSelectedCard(card);
+      setStep('processing');
       setProcessing(true);
 
-      console.log('🎭 Starting FIXED mock payment process...');
-      const { error } = await presentPaymentSheet();
+      console.log(`🎭 Processing ${card.brand} •••• ${card.last4}...`);
 
-      if (error) {
-        console.log('❌ Mock payment error:', error);
+      // Simulate processing time
+      await new Promise(resolve => setTimeout(resolve, card.delay));
 
-        if (error.code === 'Canceled') {
-          // User cancelled payment
-          Alert.alert('Mock Payment Cancelled', 'You can complete mock payment later from "My Bookings".');
-          return;
-        }
-
-        // Payment failed
-        Alert.alert(
-          'Mock Payment Failed',
-          `${error.message}\n\n🎭 This is a test environment - try again with a different mock card!`,
-          [
-            { text: 'Try Again', onPress: () => handlePayment() },
-            { text: 'Cancel', style: 'cancel' }
-          ]
-        );
-        return;
+      if (card.success) {
+        setStep('success');
+        console.log('✅ Payment successful');
+      } else {
+        setStep('failed');
+        console.log('❌ Payment failed:', card.error);
       }
-
-      // Payment completed successfully
-      console.log('✅ FIXED mock payment completed successfully!');
-
-      Alert.alert(
-        '🎭 Mock Payment Successful! ✅',
-        `Your mock payment has been processed successfully.\n\nBooking Reference: ${bookingReference}\nAmount: $${amount}\n\n⚠️ This was a test payment - no real money was charged!`,
-        [
-          {
-            text: 'View Booking',
-            onPress: () => router.replace({
-              pathname: '/(passenger)/bookings/[id]',
-              params: {
-                id: bookingId,
-                bookingData: booking ? JSON.stringify(booking) : undefined
-              }
-            })
-          }
-        ]
-      );
-
-    } catch (error: any) {
-      console.error('❌ Unexpected mock payment error:', error);
-
-      Alert.alert(
-        'Mock Payment Error',
-        `An unexpected error occurred: ${error.message || 'Unknown error'}\n\n🎭 This is a test environment.`,
-        [
-          { text: 'Try Again', onPress: () => handlePayment() },
-          { text: 'Cancel', style: 'cancel' }
-        ]
-      );
+    } catch (error) {
+      console.error('Payment processing error:', error);
+      setStep('failed');
     } finally {
       setProcessing(false);
     }
-  };
-
-  // Handle skip payment
-  const handleSkipPayment = () => {
-    Alert.alert(
-      'Skip Mock Payment?',
-      'You can complete mock payment later from "My Bookings". Your seat will be reserved temporarily.',
-      [
-        {
-          text: 'Complete Mock Payment Now',
-          style: 'default',
-          onPress: () => handlePayment(),
-        },
-        {
-          text: 'Skip for Now',
-          style: 'cancel',
-          onPress: () => router.replace({
-            pathname: '/(passenger)/bookings/[id]',
-            params: {
-              id: bookingId,
-              bookingData: booking ? JSON.stringify(booking) : undefined
-            }
-          }),
-        },
-      ]
-    );
   };
 
   // Show test card info
@@ -219,269 +142,284 @@ function PaymentContent() {
     );
   };
 
-  // Loading state
-  if (loading) {
-    return (
-      <View style={styles.centered}>
-        <ActivityIndicator size="large" color="#ff9800" />
-        <Text style={styles.loadingText}>Loading payment details...</Text>
-      </View>
+  // Navigation handlers
+  const handleComplete = () => {
+    if (step === 'success') {
+      router.replace({
+        pathname: '/(passenger)/bookings/[id]',
+        params: {
+          id: bookingId,
+          bookingData: booking ? JSON.stringify(booking) : undefined
+        }
+      });
+    } else {
+      setStep('select');
+      setSelectedCard(null);
+    }
+  };
+
+  const handleSkip = () => {
+    Alert.alert(
+      'Skip Payment?',
+      'You can complete payment later from "My Bookings".',
+      [
+        { text: 'Complete Now', style: 'default' },
+        {
+          text: 'Skip for Now',
+          style: 'cancel',
+          onPress: () => router.replace({
+            pathname: '/(passenger)/bookings/[id]',
+            params: {
+              id: bookingId,
+              bookingData: booking ? JSON.stringify(booking) : undefined
+            }
+          })
+        }
+      ]
     );
-  }
+  };
 
-  // Error state - booking not found
-  if (!booking && !tripInfo) {
-    return (
-      <View style={styles.centered}>
-        <MaterialIcons name="error-outline" size={64} color="#f44336" />
-        <Text style={styles.errorText}>Booking information not available</Text>
-        <TouchableOpacity style={styles.actionButton} onPress={() => router.back()}>
-          <Text style={styles.actionButtonText}>← Go Back</Text>
+  // Render header
+  const renderHeader = () => (
+    <View style={styles.header}>
+      <StatusBar barStyle="light-content" backgroundColor="#ff9800" />
+
+      <View style={styles.headerTop}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+          <MaterialIcons name="arrow-back" size={24} color="#ffffff" />
         </TouchableOpacity>
-      </View>
-    );
-  }
 
-  // Use booking data or trip data for display
-  const displayData = booking || tripInfo;
-  const trip = displayData?.trip || tripInfo;
+        <Text style={styles.headerTitle}>Complete Payment</Text>
 
-  return (
-    <ScrollView style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.cancelButton}>
-          <MaterialIcons name="arrow-back" size={24} color="#ff9800" />
-          <Text style={styles.cancelButtonText}>Back</Text>
-        </TouchableOpacity>
-        <Text style={styles.title}>Complete Mock Payment</Text>
-
-        {/* Mock payment indicator */}
         <View style={styles.mockIndicator}>
           <View style={styles.statusDot} />
           <Text style={styles.mockText}>Mock</Text>
         </View>
       </View>
+    </View>
+  );
 
-      {/* Mock Payment Status */}
-      <View style={styles.mockPaymentStatus}>
-        <MaterialIcons name="info" size={48} color="#ff9800" />
-        <Text style={styles.statusTitle}>🎭 Mock Payment Ready</Text>
-        <Text style={styles.statusText}>
-          Your booking has been created successfully!
-        </Text>
-        <Text style={styles.statusSubtext}>
-          Complete your mock payment to confirm your trip booking. This is a test environment - no real money will be charged.
-        </Text>
+  // Render booking summary
+  const renderBookingSummary = () => (
+    <View style={styles.summaryCard}>
+      <Text style={styles.summaryTitle}>Payment Summary</Text>
+
+      <View style={styles.summaryRow}>
+        <Text style={styles.summaryLabel}>Booking Reference</Text>
+        <Text style={styles.summaryValue}>#{bookingReference}</Text>
       </View>
 
-      {/* Mock Payment Method Card */}
-      <View style={styles.paymentMethodCard}>
-        <View style={styles.paymentMethodHeader}>
-          <MaterialIcons name="credit-card" size={24} color="#ff9800" />
-          <View style={styles.paymentMethodInfo}>
-            <Text style={styles.paymentMethodName}>Test Credit/Debit Cards</Text>
-            <Text style={styles.paymentMethodDesc}>Simulated Visa, MasterCard, Amex</Text>
-          </View>
-          <MaterialIcons name="check-circle" size={20} color="#ff9800" />
-        </View>
-      </View>
-
-      {/* Available Test Cards */}
-      <View style={styles.testCardsSection}>
-        <View style={styles.testCardsHeader}>
-          <Text style={styles.testCardsTitle}>🎭 Available Test Cards:</Text>
-          <TouchableOpacity onPress={showTestCardInfo} style={styles.infoButton}>
-            <MaterialIcons name="info-outline" size={20} color="#ff9800" />
-          </TouchableOpacity>
-        </View>
-
-        {MOCK_CARDS.map((card, index) => (
-          <View key={card.id} style={styles.testCard}>
-            <Text style={[styles.testCardText, { color: card.success ? '#28a745' : '#dc3545' }]}>
-              {card.success ? '✅' : '❌'} {card.brand} •••• {card.last4} - {card.description}
+      {trip && (
+        <>
+          <View style={styles.summaryRow}>
+            <Text style={styles.summaryLabel}>Route</Text>
+            <Text style={styles.summaryValue}>
+              {trip.route?.startStation?.name || 'Departure'} → {trip.route?.endStation?.name || 'Destination'}
             </Text>
           </View>
-        ))}
-      </View>
 
-      {/* Booking Summary */}
-      <View style={styles.bookingSummary}>
-        <Text style={styles.summaryTitle}>Booking Summary</Text>
+          <View style={styles.summaryRow}>
+            <Text style={styles.summaryLabel}>Departure</Text>
+            <Text style={styles.summaryValue}>
+              {trip.departureTime ?
+                new Date(trip.departureTime).toLocaleString('en-US', {
+                  weekday: 'short',
+                  month: 'short',
+                  day: 'numeric',
+                  hour: '2-digit',
+                  minute: '2-digit',
+                }) : 'When trip is full'
+              }
+            </Text>
+          </View>
 
-        <View style={styles.summaryItem}>
-          <Text style={styles.summaryLabel}>Reference</Text>
-          <Text style={styles.summaryValue}>#{bookingReference}</Text>
-        </View>
-
-        {trip && (
-          <>
-            <View style={styles.summaryItem}>
-              <Text style={styles.summaryLabel}>Route</Text>
-              <Text style={styles.summaryValue}>{trip.route?.description || 'Trip Route'}</Text>
-            </View>
-
-            <View style={styles.summaryItem}>
-              <Text style={styles.summaryLabel}>From → To</Text>
-              <Text style={styles.summaryValue}>
-                {trip.route?.startStation?.name || 'Departure'} → {trip.route?.endStation?.name || 'Destination'}
-              </Text>
-            </View>
-
-            <View style={styles.summaryItem}>
-              <Text style={styles.summaryLabel}>Departure</Text>
-              <Text style={styles.summaryValue}>
-                {trip.departureTime ?
-                  new Date(trip.departureTime).toLocaleString('en-US', {
-                    weekday: 'short',
-                    month: 'short',
-                    day: 'numeric',
-                    hour: '2-digit',
-                    minute: '2-digit',
-                    hour12: true,
-                  }) : 'When trip is full'
-                }
-              </Text>
-            </View>
-
-            {trip.driver && (
-              <View style={styles.summaryItem}>
-                <Text style={styles.summaryLabel}>Driver</Text>
-                <Text style={styles.summaryValue}>
-                  {trip.driver.user?.username || 'Driver'} ⭐ {trip.driver.rating?.toFixed(1) || '5.0'}
-                </Text>
-              </View>
-            )}
-          </>
-        )}
-
-        <View style={styles.summaryItem}>
-          <Text style={styles.summaryLabel}>Seats</Text>
-          <Text style={styles.summaryValue}>{booking?.seats || '1'}</Text>
-        </View>
-
-        <View style={[styles.summaryItem, styles.totalItem]}>
-          <Text style={styles.totalLabel}>Total Amount</Text>
-          <Text style={styles.totalValue}>${amount}</Text>
-        </View>
-      </View>
-
-      {/* Security Notice */}
-      <View style={styles.securityNotice}>
-        <MaterialIcons name="security" size={20} color="#ff9800" />
-        <Text style={styles.securityText}>
-          🎭 This is a test environment. No real payment processing or card details are involved.
-        </Text>
-      </View>
-
-      {/* Payment Buttons */}
-      <View style={styles.buttonContainer}>
-        <TouchableOpacity
-          style={[
-            styles.payButton,
-            (!paymentInitialized || processing || mockLoading) && styles.payButtonDisabled
-          ]}
-          onPress={handlePayment}
-          disabled={!paymentInitialized || processing || mockLoading}
-        >
-          {processing || mockLoading ? (
-            <View style={styles.processingContainer}>
-              <ActivityIndicator color="white" size="small" />
-              <Text style={styles.payButtonText}>
-                {mockLoading ? 'Preparing...' : 'Processing...'}
-              </Text>
-            </View>
-          ) : (
-            <View style={styles.buttonContent}>
-              <MaterialIcons name="payment" size={20} color="white" />
-              <Text style={styles.payButtonText}>🎭 Mock Pay ${amount}</Text>
-            </View>
-          )}
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.skipButton}
-          onPress={handleSkipPayment}
-          disabled={processing}
-        >
-          <Text style={styles.skipButtonText}>Complete Mock Payment Later</Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Trip Capacity Info */}
-      {trip && (
-        <View style={styles.capacityInfo}>
-          <MaterialIcons name="directions-car" size={20} color="#ff9800" />
-          <Text style={styles.capacityTitle}>Trip Status</Text>
-          <Text style={styles.capacityText}>
-            Current capacity: {(trip.capacity || 4) - (trip.availableSeats || 0)}/{trip.capacity || 4} passengers
-          </Text>
-          <Text style={styles.capacitySubtext}>
-            {trip.availableSeats || 0} seat{(trip.availableSeats || 0) !== 1 ? 's' : ''} remaining
-          </Text>
-
-          {(trip.availableSeats || 0) <= 2 && (
-            <View style={styles.urgentNotice}>
-              <Text style={styles.urgentText}>
-                🔥 Almost full! Complete mock payment to secure your seat.
-              </Text>
-            </View>
-          )}
-        </View>
+          <View style={styles.summaryRow}>
+            <Text style={styles.summaryLabel}>Seats</Text>
+            <Text style={styles.summaryValue}>{booking?.seats || '1'}</Text>
+          </View>
+        </>
       )}
 
-      {/* Important Information */}
-      <View style={styles.infoSection}>
-        <Text style={styles.infoTitle}>🎭 After Mock Payment:</Text>
-        <View style={styles.infoItem}>
-          <MaterialIcons name="check-circle" size={16} color="#ff9800" />
-          <Text style={styles.infoText}>Instant booking confirmation (simulated)</Text>
-        </View>
-        <View style={styles.infoItem}>
-          <MaterialIcons name="email" size={16} color="#ff9800" />
-          <Text style={styles.infoText}>Test receipt generated</Text>
-        </View>
-        <View style={styles.infoItem}>
-          <MaterialIcons name="smartphone" size={16} color="#ff9800" />
-          <Text style={styles.infoText}>Track trip status in "My Bookings"</Text>
-        </View>
-        <View style={styles.infoItem}>
-          <MaterialIcons name="directions-car" size={16} color="#ff9800" />
-          <Text style={styles.infoText}>Driver notified of your booking</Text>
-        </View>
-        <View style={styles.infoItem}>
-          <MaterialIcons name="flash-on" size={16} color="#ff9800" />
-          <Text style={styles.infoText}>Trip starts when capacity is full</Text>
-        </View>
+      <View style={[styles.summaryRow, styles.totalRow]}>
+        <Text style={styles.totalLabel}>Total Amount</Text>
+        <Text style={styles.totalValue}>${amount}</Text>
       </View>
-
-      {/* Support */}
-      <View style={styles.support}>
-        <Text style={styles.supportTitle}>Need Help with Mock Payment?</Text>
-        <Text style={styles.supportText}>
-          This is a test environment for development purposes. Contact development team for technical support.
-        </Text>
-        <TouchableOpacity
-          style={styles.supportButton}
-          onPress={() => Alert.alert(
-            'Mock Payment Support',
-            '🎭 This is a development environment:\n\n• No real payments are processed\n• All transactions are simulated\n• Use test cards provided above\n\nFor development support, contact the tech team.'
-          )}
-        >
-          <MaterialIcons name="help-outline" size={16} color="#ff9800" />
-          <Text style={styles.supportButtonText}>Mock Payment Help</Text>
-        </TouchableOpacity>
-      </View>
-    </ScrollView>
+    </View>
   );
-}
 
-// Main component with Mock Stripe Provider
-export default function EnhancedPaymentScreen() {
+  // Render card selection
+  const renderCardSelection = () => (
+    <View style={styles.paymentSection}>
+      <Text style={styles.sectionTitle}>Choose Payment Method</Text>
+
+      {MOCK_CARDS.map((card) => (
+        <TouchableOpacity
+          key={card.id}
+          style={[
+            styles.cardOption,
+            { borderColor: card.success ? '#28a745' : '#dc3545' }
+          ]}
+          onPress={() => processPayment(card)}
+          disabled={processing}
+        >
+          <View style={styles.cardContent}>
+            <View style={styles.cardLeft}>
+              <MaterialIcons
+                name="credit-card"
+                size={24}
+                color={card.success ? '#28a745' : '#dc3545'}
+              />
+              <View style={styles.cardInfo}>
+                <Text style={styles.cardBrand}>{card.brand}</Text>
+                <Text style={styles.cardNumber}>•••• •••• •••• {card.last4}</Text>
+                <Text style={styles.cardDescription}>{card.description}</Text>
+              </View>
+            </View>
+            <Text style={[
+              styles.cardStatus,
+              { color: card.success ? '#28a745' : '#dc3545' }
+            ]}>
+              {card.success ? '✅ Success' : '❌ Fails'}
+            </Text>
+          </View>
+        </TouchableOpacity>
+      ))}
+
+      <TouchableOpacity style={styles.infoButton} onPress={showTestCardInfo}>
+        <MaterialIcons name="info" size={20} color="#ff9800" />
+        <Text style={styles.infoButtonText}>View Test Card Details</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity style={styles.skipButton} onPress={handleSkip}>
+        <Text style={styles.skipButtonText}>Complete Payment Later</Text>
+      </TouchableOpacity>
+    </View>
+  );
+
+  // Render processing state
+  const renderProcessing = () => (
+    <View style={styles.centeredContent}>
+      <ActivityIndicator size="large" color="#ff9800" />
+      <Text style={styles.processingTitle}>Processing Payment</Text>
+      <Text style={styles.processingText}>
+        Processing {selectedCard?.brand} •••• {selectedCard?.last4}
+      </Text>
+      <Text style={styles.processingSubtext}>Please wait...</Text>
+    </View>
+  );
+
+  // Render success state
+  const renderSuccess = () => (
+    <View style={styles.centeredContent}>
+      <View style={styles.successIcon}>
+        <MaterialIcons name="check-circle" size={64} color="#28a745" />
+      </View>
+      <Text style={styles.successTitle}>🎭 Payment Successful!</Text>
+      <Text style={styles.successText}>
+        Your mock payment has been processed successfully!
+      </Text>
+      <Text style={styles.successDetails}>
+        Card: {selectedCard?.brand} •••• {selectedCard?.last4}
+      </Text>
+      <Text style={styles.successAmount}>Amount: ${amount}</Text>
+      <Text style={styles.mockNotice}>
+        ⚠️ This was a test payment - no real money was charged!
+      </Text>
+
+      <TouchableOpacity style={styles.primaryButton} onPress={handleComplete}>
+        <MaterialIcons name="visibility" size={20} color="white" />
+        <Text style={styles.primaryButtonText}>View Booking</Text>
+      </TouchableOpacity>
+    </View>
+  );
+
+  // Render failed state
+  const renderFailed = () => (
+    <View style={styles.centeredContent}>
+      <View style={styles.errorIcon}>
+        <MaterialIcons name="error" size={64} color="#dc3545" />
+      </View>
+      <Text style={styles.errorTitle}>Payment Failed</Text>
+      <Text style={styles.errorText}>
+        {selectedCard?.error || 'Payment could not be processed'}
+      </Text>
+      <Text style={styles.errorDetails}>
+        Card: {selectedCard?.brand} •••• {selectedCard?.last4}
+      </Text>
+      <Text style={styles.mockNotice}>
+        🎭 This is a test failure - try a different test card
+      </Text>
+
+      <TouchableOpacity style={styles.retryButton} onPress={handleComplete}>
+        <MaterialIcons name="refresh" size={20} color="white" />
+        <Text style={styles.retryButtonText}>Try Again</Text>
+      </TouchableOpacity>
+    </View>
+  );
+
+  // Loading state
+  if (loading) {
+    return (
+      <View style={styles.container}>
+        {renderHeader()}
+        <View style={styles.centeredContent}>
+          <ActivityIndicator size="large" color="#ff9800" />
+          <Text style={styles.loadingText}>Loading payment details...</Text>
+        </View>
+      </View>
+    );
+  }
+
+  // Error state
+  if (!booking && !tripInfo) {
+    return (
+      <View style={styles.container}>
+        {renderHeader()}
+        <View style={styles.centeredContent}>
+          <MaterialIcons name="error-outline" size={64} color="#dc3545" />
+          <Text style={styles.errorText}>Booking information not available</Text>
+          <TouchableOpacity style={styles.primaryButton} onPress={() => router.back()}>
+            <Text style={styles.primaryButtonText}>← Go Back</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
+
   return (
-    <MockStripeProvider publishableKey="mock_key">
-      <PaymentContent />
-    </MockStripeProvider>
+    <View style={styles.container}>
+      {renderHeader()}
+
+      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+        {/* Mock payment notice */}
+        <View style={styles.mockNoticeCard}>
+          <MaterialIcons name="info" size={20} color="#ff9800" />
+          <Text style={styles.mockNoticeText}>
+            🎭 Mock Payment Mode: No real money will be charged during testing!
+          </Text>
+        </View>
+
+        {/* Booking summary */}
+        {renderBookingSummary()}
+
+        {/* Step-specific content */}
+        {step === 'select' && renderCardSelection()}
+        {step === 'processing' && renderProcessing()}
+        {step === 'success' && renderSuccess()}
+        {step === 'failed' && renderFailed()}
+
+        {/* Additional info */}
+        {step === 'select' && (
+          <View style={styles.infoCard}>
+            <Text style={styles.infoTitle}>🎭 Test Environment Info:</Text>
+            <Text style={styles.infoText}>• No real payment processing</Text>
+            <Text style={styles.infoText}>• All transactions are simulated</Text>
+            <Text style={styles.infoText}>• Use test cards provided above</Text>
+            <Text style={styles.infoText}>• Trip starts when capacity is full</Text>
+          </View>
+        )}
+      </ScrollView>
+    </View>
   );
 }
 
@@ -490,188 +428,99 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#f8f9fa',
   },
-  centered: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  loadingText: {
-    marginTop: 12,
-    fontSize: 16,
-    color: '#666',
-    textAlign: 'center',
-  },
-  errorText: {
-    fontSize: 18,
-    color: '#f44336',
-    marginBottom: 20,
-    textAlign: 'center',
-    paddingHorizontal: 20,
-  },
+
+  // Header
   header: {
+    backgroundColor: '#ff9800',
+    paddingBottom: 20,
+  },
+
+  headerTop: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'white',
-    padding: 16,
-    paddingTop: 60,
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+    paddingHorizontal: 16,
+    paddingTop: 50,
+    paddingBottom: 16,
     justifyContent: 'space-between',
   },
-  cancelButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 8,
-    paddingHorizontal: 8,
-    minHeight: 44,
+
+  backButton: {
+    padding: 8,
   },
-  cancelButtonText: {
-    fontSize: 16,
-    color: '#ff9800',
-    fontWeight: '600',
-    marginLeft: 4,
-  },
-  title: {
+
+  headerTitle: {
     fontSize: 20,
-    fontWeight: 'bold',
-    color: '#333',
+    fontWeight: '700',
+    color: '#ffffff',
     flex: 1,
     textAlign: 'center',
   },
 
-  // Mock payment indicator styles
   mockIndicator: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff3cd',
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 12,
   },
+
   statusDot: {
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: '#ff9800',
+    backgroundColor: '#ffffff',
     marginRight: 4,
   },
+
   mockText: {
     fontSize: 12,
-    color: '#856404',
+    color: '#ffffff',
     fontWeight: '600',
   },
 
-  // Mock payment status
-  mockPaymentStatus: {
-    backgroundColor: '#fff3cd',
-    margin: 16,
-    padding: 24,
-    borderRadius: 12,
+  // Content
+  content: {
+    flex: 1,
+  },
+
+  centeredContent: {
+    flex: 1,
     alignItems: 'center',
-    borderLeftWidth: 4,
-    borderLeftColor: '#ff9800',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    justifyContent: 'center',
+    padding: 40,
+    minHeight: 400,
   },
-  statusTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#856404',
-    marginTop: 12,
-    marginBottom: 8,
-  },
-  statusText: {
+
+  loadingText: {
     fontSize: 16,
-    color: '#856404',
-    fontWeight: '600',
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-  statusSubtext: {
-    fontSize: 14,
-    color: '#856404',
-    lineHeight: 20,
+    color: '#666',
+    marginTop: 16,
     textAlign: 'center',
   },
 
-  // Payment method card
-  paymentMethodCard: {
-    backgroundColor: 'white',
-    margin: 16,
-    padding: 20,
-    borderRadius: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  paymentMethodHeader: {
+  // Mock notice
+  mockNoticeCard: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#fff3cd',
+    margin: 16,
     padding: 16,
     borderRadius: 8,
-    borderWidth: 2,
-    borderColor: '#ff9800',
-  },
-  paymentMethodInfo: {
-    flex: 1,
-    marginLeft: 12,
-  },
-  paymentMethodName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#856404',
-    marginBottom: 2,
-  },
-  paymentMethodDesc: {
-    fontSize: 12,
-    color: '#856404',
+    borderLeftWidth: 4,
+    borderLeftColor: '#ff9800',
   },
 
-  // Test cards section
-  testCardsSection: {
-    backgroundColor: 'white',
-    margin: 16,
-    padding: 20,
-    borderRadius: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  testCardsHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  testCardsTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
-  },
-  infoButton: {
-    padding: 4,
-  },
-  testCard: {
-    backgroundColor: '#f8f9fa',
-    padding: 12,
-    borderRadius: 6,
-    marginBottom: 8,
-  },
-  testCardText: {
+  mockNoticeText: {
     fontSize: 14,
+    color: '#856404',
     fontWeight: '500',
+    marginLeft: 8,
+    flex: 1,
   },
 
-  bookingSummary: {
+  // Summary card
+  summaryCard: {
     backgroundColor: 'white',
     margin: 16,
     padding: 20,
@@ -682,24 +531,27 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 3,
   },
+
   summaryTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
+    fontWeight: '600',
     color: '#333',
     marginBottom: 16,
   },
-  summaryItem: {
+
+  summaryRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 12,
-    paddingVertical: 4,
   },
+
   summaryLabel: {
     fontSize: 14,
     color: '#666',
     flex: 1,
   },
+
   summaryValue: {
     fontSize: 14,
     fontWeight: '500',
@@ -707,74 +559,112 @@ const styles = StyleSheet.create({
     textAlign: 'right',
     flex: 2,
   },
-  totalItem: {
+
+  totalRow: {
     borderTopWidth: 1,
     borderTopColor: '#eee',
     paddingTop: 12,
     marginTop: 8,
   },
+
   totalLabel: {
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: '600',
     color: '#333',
   },
+
   totalValue: {
-    fontSize: 18,
-    fontWeight: 'bold',
+    fontSize: 20,
+    fontWeight: '700',
     color: '#ff9800',
   },
 
-  securityNotice: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#fff3cd',
-    padding: 16,
+  // Payment section
+  paymentSection: {
     margin: 16,
-    borderRadius: 8,
-  },
-  securityText: {
-    fontSize: 13,
-    color: '#856404',
-    flex: 1,
-    marginLeft: 8,
-    lineHeight: 18,
-    fontWeight: '500',
   },
 
-  buttonContainer: {
-    marginHorizontal: 16,
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#333',
     marginBottom: 16,
   },
-  payButton: {
-    backgroundColor: '#ff9800',
-    padding: 18,
+
+  // Card options
+  cardOption: {
+    backgroundColor: 'white',
+    padding: 16,
     borderRadius: 12,
-    alignItems: 'center',
     marginBottom: 12,
+    borderWidth: 2,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-    minHeight: 56,
+    shadowRadius: 2,
+    elevation: 2,
   },
-  payButtonDisabled: {
-    backgroundColor: '#ccc',
-  },
-  payButtonText: {
-    color: 'white',
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginLeft: 8,
-  },
-  processingContainer: {
+
+  cardContent: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
   },
-  buttonContent: {
+
+  cardLeft: {
     flexDirection: 'row',
     alignItems: 'center',
+    flex: 1,
   },
+
+  cardInfo: {
+    marginLeft: 12,
+  },
+
+  cardBrand: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 2,
+  },
+
+  cardNumber: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 2,
+  },
+
+  cardDescription: {
+    fontSize: 12,
+    color: '#888',
+  },
+
+  cardStatus: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+
+  // Buttons
+  infoButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#fff3cd',
+    padding: 12,
+    borderRadius: 8,
+    marginTop: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#ff9800',
+  },
+
+  infoButtonText: {
+    color: '#856404',
+    fontSize: 14,
+    fontWeight: '500',
+    marginLeft: 4,
+  },
+
   skipButton: {
     backgroundColor: 'transparent',
     padding: 16,
@@ -783,50 +673,142 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#ff9800',
   },
+
   skipButtonText: {
     color: '#ff9800',
     fontSize: 16,
     fontWeight: '600',
   },
 
-  capacityInfo: {
-    backgroundColor: '#fff3cd',
-    margin: 16,
-    padding: 16,
+  primaryButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#ff9800',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
     borderRadius: 8,
-    borderLeftWidth: 4,
-    borderLeftColor: '#ff9800',
+    marginTop: 20,
   },
-  capacityTitle: {
+
+  primaryButtonText: {
+    color: 'white',
     fontSize: 16,
     fontWeight: '600',
-    color: '#856404',
     marginLeft: 8,
+  },
+
+  retryButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#dc3545',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
+    marginTop: 20,
+  },
+
+  retryButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
+    marginLeft: 8,
+  },
+
+  // Processing state
+  processingTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: '#333',
+    marginTop: 20,
     marginBottom: 8,
   },
-  capacityText: {
-    fontSize: 14,
-    color: '#856404',
+
+  processingText: {
+    fontSize: 16,
+    color: '#666',
     marginBottom: 4,
   },
-  capacitySubtext: {
-    fontSize: 12,
-    color: '#856404',
-  },
-  urgentNotice: {
-    backgroundColor: '#ffebee',
-    padding: 8,
-    borderRadius: 6,
-    marginTop: 8,
-  },
-  urgentText: {
-    fontSize: 12,
-    color: '#c62828',
-    fontWeight: '600',
+
+  processingSubtext: {
+    fontSize: 14,
+    color: '#888',
     textAlign: 'center',
   },
 
-  infoSection: {
+  // Success state
+  successIcon: {
+    marginBottom: 20,
+  },
+
+  successTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#28a745',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+
+  successText: {
+    fontSize: 16,
+    color: '#666',
+    marginBottom: 16,
+    textAlign: 'center',
+    lineHeight: 22,
+  },
+
+  successDetails: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 8,
+  },
+
+  successAmount: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#28a745',
+    marginBottom: 16,
+  },
+
+  // Error state
+  errorIcon: {
+    marginBottom: 20,
+  },
+
+  errorTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#dc3545',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+
+  errorText: {
+    fontSize: 16,
+    color: '#dc3545',
+    marginBottom: 12,
+    textAlign: 'center',
+    lineHeight: 22,
+  },
+
+  errorDetails: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 16,
+  },
+
+  mockNotice: {
+    fontSize: 12,
+    color: '#ff9800',
+    textAlign: 'center',
+    marginBottom: 20,
+    fontWeight: '500',
+    backgroundColor: '#fff3cd',
+    padding: 8,
+    borderRadius: 6,
+  },
+
+  // Info card
+  infoCard: {
     backgroundColor: '#fff3cd',
     margin: 16,
     padding: 16,
@@ -834,78 +816,17 @@ const styles = StyleSheet.create({
     borderLeftWidth: 4,
     borderLeftColor: '#ff9800',
   },
+
   infoTitle: {
     fontSize: 16,
     fontWeight: '600',
     color: '#856404',
     marginBottom: 12,
   },
-  infoItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
+
   infoText: {
     fontSize: 14,
     color: '#856404',
-    marginLeft: 8,
-    flex: 1,
-  },
-
-  support: {
-    backgroundColor: 'white',
-    margin: 16,
-    padding: 16,
-    borderRadius: 8,
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  supportTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 8,
-  },
-  supportText: {
-    fontSize: 12,
-    color: '#666',
-    textAlign: 'center',
-    lineHeight: 16,
-    marginBottom: 12,
-  },
-  supportButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#fff3cd',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: '#ff9800',
-  },
-  supportButtonText: {
-    color: '#856404',
-    fontSize: 14,
-    fontWeight: '500',
-    marginLeft: 4,
-  },
-
-  actionButton: {
-    backgroundColor: '#ff9800',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 8,
-    minHeight: 44,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  actionButtonText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: '600',
+    marginBottom: 4,
   },
 });

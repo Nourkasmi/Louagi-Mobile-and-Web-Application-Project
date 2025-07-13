@@ -1,12 +1,12 @@
-// 📁 app/(passenger)/booking/components/BookingActions.tsx - ACTION BUTTONS COMPONENT
+// app/(passenger)/booking/components/BookingActions.tsx - FIXED Action Buttons Component
 import React from 'react';
-import { View, TouchableOpacity, Text, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, TouchableOpacity, Text, ActivityIndicator, StyleSheet, Alert } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useBookingFlow } from '../hooks/useBookingFlow';
 
 export default function BookingActions() {
     const { state, actions } = useBookingFlow();
-    const { step, trip, validation, paymentLoading } = state;
+    const { step, trip, validation, paymentLoading, createdBooking } = state;
 
     if (!trip) return null;
 
@@ -15,13 +15,16 @@ export default function BookingActions() {
     const hasErrors = Object.keys(validation.errors).length > 0;
     const tripFull = trip.availableSeats === 0;
 
-    // Payment step
+    // Payment step - FIXED mock payment
     if (step === 'payment') {
         return (
             <View style={styles.container}>
                 <TouchableOpacity
                     style={[styles.payButton, isProcessing && styles.buttonDisabled]}
-                    onPress={actions.processPayment}
+                    onPress={() => {
+                        console.log('🎭 Mock Pay button pressed - processing payment...');
+                        actions.processPayment();
+                    }}
                     disabled={isProcessing}
                     activeOpacity={0.8}
                     hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
@@ -43,10 +46,40 @@ export default function BookingActions() {
 
                 <TouchableOpacity
                     style={styles.skipButton}
-                    onPress={actions.skipPayment}
+                    onPress={() => {
+                        Alert.alert(
+                            'Skip Mock Payment?',
+                            'You can complete mock payment later from "My Bookings".',
+                            [
+                                { text: 'Complete Now', onPress: () => actions.processPayment() },
+                                { text: 'Skip', onPress: () => actions.skipPayment() }
+                            ]
+                        );
+                    }}
                     disabled={isProcessing}
                 >
                     <Text style={styles.skipButtonText}>Complete Mock Payment Later</Text>
+                </TouchableOpacity>
+
+                {/* Test card info */}
+                <TouchableOpacity
+                    style={styles.infoButton}
+                    onPress={() => {
+                        Alert.alert(
+                            '💳 Mock Test Cards',
+                            '✅ SUCCESS CARDS:\n' +
+                            '• Visa •••• 4242 - Always succeeds\n' +
+                            '• MasterCard •••• 5555 - Always succeeds\n\n' +
+                            '❌ FAILURE CARDS:\n' +
+                            '• Amex •••• 1234 - Always declines\n' +
+                            '• Visa •••• 0000 - Insufficient funds\n\n' +
+                            '🎭 This is a test environment - no real money charged!',
+                            [{ text: 'Got it!', style: 'default' }]
+                        );
+                    }}
+                >
+                    <MaterialIcons name="info" size={16} color="#ff9800" />
+                    <Text style={styles.infoButtonText}>View Test Cards</Text>
                 </TouchableOpacity>
             </View>
         );
@@ -79,6 +112,22 @@ export default function BookingActions() {
         );
     }
 
+    // Failed step
+    if (step === 'failed') {
+        return (
+            <View style={styles.container}>
+                <TouchableOpacity
+                    style={styles.retryButton}
+                    onPress={actions.createBooking}
+                    activeOpacity={0.8}
+                >
+                    <MaterialIcons name="refresh" size={20} color="white" />
+                    <Text style={styles.retryButtonText}>Try Again</Text>
+                </TouchableOpacity>
+            </View>
+        );
+    }
+
     // Main booking button
     return (
         <View style={styles.container}>
@@ -87,7 +136,10 @@ export default function BookingActions() {
                     styles.bookButton,
                     (isProcessing || tripFull || hasErrors) && styles.buttonDisabled
                 ]}
-                onPress={actions.createBooking}
+                onPress={() => {
+                    console.log('🎯 Book Trip button pressed - creating booking...');
+                    actions.createBooking();
+                }}
                 disabled={isProcessing || tripFull || hasErrors}
                 activeOpacity={0.8}
                 hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
@@ -110,6 +162,18 @@ export default function BookingActions() {
                     </View>
                 )}
             </TouchableOpacity>
+
+            {/* Validation errors */}
+            {hasErrors && (
+                <View style={styles.errorContainer}>
+                    {Object.entries(validation.errors).map(([field, error]) => (
+                        <View key={field} style={styles.errorRow}>
+                            <MaterialIcons name="error" size={16} color="#f44336" />
+                            <Text style={styles.errorText}>{error}</Text>
+                        </View>
+                    ))}
+                </View>
+            )}
         </View>
     );
 }
@@ -144,6 +208,18 @@ const styles = StyleSheet.create({
         elevation: 3,
         minHeight: 56,
     },
+    retryButton: {
+        backgroundColor: '#f44336',
+        padding: 18,
+        borderRadius: 12,
+        alignItems: 'center',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+        elevation: 3,
+        minHeight: 56,
+    },
     buttonDisabled: {
         backgroundColor: '#ccc',
     },
@@ -167,6 +243,12 @@ const styles = StyleSheet.create({
         fontWeight: 'bold',
         marginLeft: 8,
     },
+    retryButtonText: {
+        color: 'white',
+        fontSize: 18,
+        fontWeight: 'bold',
+        marginLeft: 8,
+    },
     skipButton: {
         backgroundColor: 'transparent',
         padding: 16,
@@ -174,15 +256,34 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         borderWidth: 1,
         borderColor: '#ff9800',
+        marginBottom: 12,
     },
     skipButtonText: {
         color: '#ff9800',
         fontSize: 16,
         fontWeight: '600',
     },
+    infoButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: '#fff3cd',
+        padding: 12,
+        borderRadius: 8,
+        borderWidth: 1,
+        borderColor: '#ff9800',
+    },
+    infoButtonText: {
+        color: '#856404',
+        fontSize: 14,
+        fontWeight: '500',
+        marginLeft: 4,
+    },
     successActions: {
         flexDirection: 'row',
         gap: 12,
+        marginHorizontal: 16,
+        marginBottom: 16,
     },
     successButton: {
         flex: 1,
@@ -206,5 +307,24 @@ const styles = StyleSheet.create({
         fontWeight: '600',
         color: '#0066cc',
         marginLeft: 8,
+    },
+    errorContainer: {
+        marginTop: 12,
+        backgroundColor: '#ffebee',
+        padding: 12,
+        borderRadius: 8,
+        borderLeftWidth: 4,
+        borderLeftColor: '#f44336',
+    },
+    errorRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 4,
+    },
+    errorText: {
+        fontSize: 14,
+        color: '#f44336',
+        marginLeft: 8,
+        flex: 1,
     },
 });

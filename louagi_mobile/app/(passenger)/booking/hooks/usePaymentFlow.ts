@@ -1,6 +1,6 @@
-// app/(passenger)/booking/hooks/usePaymentFlow.ts - PAYMENT MANAGEMENT HOOK
+// app/(passenger)/booking/hooks/usePaymentFlow.ts - FIXED Payment Hook
 import { useState } from 'react';
-import { useMockPaymentSheet } from '../../../../src/services/mockPaymentService';
+import { useMockPaymentSheet, mockPaymentService } from '../../../../src/services/mockPaymentService';
 import type { Booking } from '../../../../src/services/api';
 
 export function usePaymentFlow() {
@@ -8,6 +8,7 @@ export function usePaymentFlow() {
     const [error, setError] = useState<string | null>(null);
     const [clientSecret, setClientSecret] = useState<string | null>(null);
 
+    // Use FIXED mock payment service
     const { initPaymentSheet, presentPaymentSheet } = useMockPaymentSheet();
 
     const initPayment = async (booking: Booking) => {
@@ -15,12 +16,12 @@ export function usePaymentFlow() {
             setLoading(true);
             setError(null);
 
-            console.log('💳 Initializing mock payment for booking:', booking.id);
+            console.log('💳 Initializing FIXED mock payment for booking:', booking.id);
 
-            // Create mock payment intent
+            // Create mock payment intent client secret
             const mockClientSecret = `pi_mock_${booking.id}_secret_${Date.now()}`;
 
-            // Initialize mock payment sheet
+            // Initialize FIXED mock payment sheet
             const { error: initError } = await initPaymentSheet({
                 merchantDisplayName: 'Louagi Mock',
                 paymentIntentClientSecret: mockClientSecret,
@@ -35,7 +36,7 @@ export function usePaymentFlow() {
             }
 
             setClientSecret(mockClientSecret);
-            console.log('✅ Mock payment sheet initialized successfully');
+            console.log('✅ FIXED mock payment sheet initialized successfully');
 
             return { success: true };
         } catch (err: any) {
@@ -53,7 +54,7 @@ export function usePaymentFlow() {
             setLoading(true);
             setError(null);
 
-            console.log('💳 Presenting mock payment sheet...');
+            console.log('💳 Presenting FIXED mock payment sheet...');
 
             const { error: paymentError } = await presentPaymentSheet();
 
@@ -65,7 +66,7 @@ export function usePaymentFlow() {
                 throw new Error(paymentError.message);
             }
 
-            console.log('✅ Mock payment completed successfully');
+            console.log('✅ FIXED mock payment completed successfully');
             return { success: true };
 
         } catch (err: any) {
@@ -82,6 +83,7 @@ export function usePaymentFlow() {
         setLoading(false);
         setError(null);
         setClientSecret(null);
+        mockPaymentService.reset();
     };
 
     return {

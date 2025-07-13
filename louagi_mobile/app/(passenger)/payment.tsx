@@ -1,4 +1,4 @@
-// app/(passenger)/payment.tsx - Updated Payment Screen with Mock Payment Integration
+// app/(passenger)/payment.tsx - FIXED Payment Screen with Working Mock Payment
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -13,30 +13,25 @@ import {
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
 
-// 🎭 UPDATED: Import mock payment service instead of real Stripe
+// Import FIXED mock payment service
 import {
   MockStripeProvider,
   useMockPaymentSheet,
-  mockPaymentService
+  mockPaymentService,
+  MOCK_CARDS
 } from '../../src/services/mockPaymentService';
 
-import {
-  getBookingById,
-  type Booking
-} from '../../src/services/api';
-import Config from '../../src/config';
+import { getBookingById, type Booking } from '../../src/services/api';
 
-// Payment Content Component with Mock Stripe
-function MockPaymentContent() {
+// Payment Content Component with FIXED Mock Payment
+function PaymentContent() {
   const {
     bookingId,
-    clientSecret,
     amount,
     bookingReference,
     tripData,
   } = useLocalSearchParams<{
     bookingId: string;
-    clientSecret: string;
     amount: string;
     bookingReference: string;
     tripData?: string;
@@ -44,8 +39,8 @@ function MockPaymentContent() {
 
   const router = useRouter();
 
-  // 🎭 UPDATED: Use mock payment sheet instead of real one
-  const { initPaymentSheet, presentPaymentSheet, loading: stripeLoading } = useMockPaymentSheet();
+  // Use FIXED mock payment hook
+  const { initPaymentSheet, presentPaymentSheet, loading: mockLoading } = useMockPaymentSheet();
 
   const [booking, setBooking] = useState<Booking | null>(null);
   const [loading, setLoading] = useState(true);
@@ -76,17 +71,20 @@ function MockPaymentContent() {
     fetchData();
   }, [bookingId]);
 
-  // 🎭 UPDATED: Initialize Mock Payment Sheet
+  // Initialize FIXED Mock Payment Sheet
   useEffect(() => {
     const initializePayment = async () => {
-      if (!clientSecret || paymentInitialized) return;
+      if (paymentInitialized) return;
 
       try {
-        console.log('🎭 Initializing mock payment sheet with clientSecret:', clientSecret);
+        console.log('🎭 Initializing FIXED mock payment sheet...');
+
+        // Create mock client secret
+        const mockClientSecret = `pi_mock_${Date.now()}_secret_${Math.random().toString(36).substr(2, 9)}`;
 
         const { error } = await initPaymentSheet({
-          merchantDisplayName: Config.APP_NAME || 'Louagi',
-          paymentIntentClientSecret: clientSecret,
+          merchantDisplayName: 'Louagi',
+          paymentIntentClientSecret: mockClientSecret,
           defaultBillingDetails: {
             name: 'Test Customer',
           },
@@ -96,12 +94,12 @@ function MockPaymentContent() {
 
         if (error) {
           console.error('❌ Mock payment sheet initialization error:', error);
-          Alert.alert('Mock Payment Error', 'Failed to initialize mock payment. Please try again.');
+          Alert.alert('Mock Payment Error', error.message || 'Failed to initialize mock payment');
           return;
         }
 
         setPaymentInitialized(true);
-        console.log('✅ Mock payment sheet initialized successfully');
+        console.log('✅ FIXED mock payment sheet initialized successfully');
 
       } catch (error: any) {
         console.error('❌ Mock payment initialization failed:', error);
@@ -110,9 +108,9 @@ function MockPaymentContent() {
     };
 
     initializePayment();
-  }, [clientSecret, paymentInitialized, initPaymentSheet]);
+  }, [paymentInitialized, initPaymentSheet]);
 
-  // 🎭 UPDATED: Handle mock payment process
+  // Handle mock payment process
   const handlePayment = async () => {
     if (!paymentInitialized) {
       Alert.alert('Mock Payment Error', 'Mock payment not ready. Please wait a moment and try again.');
@@ -122,11 +120,11 @@ function MockPaymentContent() {
     try {
       setProcessing(true);
 
-      console.log('🎭 Presenting mock payment sheet...');
+      console.log('🎭 Starting FIXED mock payment process...');
       const { error } = await presentPaymentSheet();
 
       if (error) {
-        console.error('❌ Mock payment sheet error:', error);
+        console.log('❌ Mock payment error:', error);
 
         if (error.code === 'Canceled') {
           // User cancelled payment
@@ -134,11 +132,20 @@ function MockPaymentContent() {
           return;
         }
 
-        throw new Error(`Mock payment failed: ${error.message}`);
+        // Payment failed
+        Alert.alert(
+          'Mock Payment Failed',
+          `${error.message}\n\n🎭 This is a test environment - try again with a different mock card!`,
+          [
+            { text: 'Try Again', onPress: () => handlePayment() },
+            { text: 'Cancel', style: 'cancel' }
+          ]
+        );
+        return;
       }
 
       // Payment completed successfully
-      console.log('✅ Mock payment completed successfully!');
+      console.log('✅ FIXED mock payment completed successfully!');
 
       Alert.alert(
         '🎭 Mock Payment Successful! ✅',
@@ -158,11 +165,11 @@ function MockPaymentContent() {
       );
 
     } catch (error: any) {
-      console.error('❌ Mock payment error:', error);
+      console.error('❌ Unexpected mock payment error:', error);
 
       Alert.alert(
-        'Mock Payment Failed',
-        `${error.message || 'Mock payment could not be processed.'}\n\n🎭 This is just a test - try again with a different mock card!`,
+        'Mock Payment Error',
+        `An unexpected error occurred: ${error.message || 'Unknown error'}\n\n🎭 This is a test environment.`,
         [
           { text: 'Try Again', onPress: () => handlePayment() },
           { text: 'Cancel', style: 'cancel' }
@@ -173,7 +180,7 @@ function MockPaymentContent() {
     }
   };
 
-  // Handle skip payment (go to bookings)
+  // Handle skip payment
   const handleSkipPayment = () => {
     Alert.alert(
       'Skip Mock Payment?',
@@ -199,11 +206,24 @@ function MockPaymentContent() {
     );
   };
 
+  // Show test card info
+  const showTestCardInfo = () => {
+    const cardInfo = MOCK_CARDS.map(card =>
+      `${card.success ? '✅' : '❌'} ${card.brand} •••• ${card.last4} - ${card.description}`
+    ).join('\n');
+
+    Alert.alert(
+      '💳 Available Test Cards',
+      `Use these mock cards for testing:\n\n${cardInfo}\n\n🎭 No real money will be charged!`,
+      [{ text: 'Got it!', style: 'default' }]
+    );
+  };
+
   // Loading state
   if (loading) {
     return (
       <View style={styles.centered}>
-        <ActivityIndicator size="large" color="#0066cc" />
+        <ActivityIndicator size="large" color="#ff9800" />
         <Text style={styles.loadingText}>Loading payment details...</Text>
       </View>
     );
@@ -215,33 +235,9 @@ function MockPaymentContent() {
       <View style={styles.centered}>
         <MaterialIcons name="error-outline" size={64} color="#f44336" />
         <Text style={styles.errorText}>Booking information not available</Text>
-        <TouchableOpacity
-          style={styles.actionButton}
-          onPress={() => router.back()}
-        >
+        <TouchableOpacity style={styles.actionButton} onPress={() => router.back()}>
           <Text style={styles.actionButtonText}>← Go Back</Text>
         </TouchableOpacity>
-      </View>
-    );
-  }
-
-  // Web Platform Notice
-  if (Platform.OS === 'web') {
-    return (
-      <View style={styles.container}>
-        <View style={styles.webNotice}>
-          <MaterialIcons name="web" size={64} color="#ff9800" />
-          <Text style={styles.webTitle}>🎭 Mock Payment Notice</Text>
-          <Text style={styles.webText}>
-            Mock payment testing works best on iOS or Android. This is a simulated payment environment for development purposes.
-          </Text>
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={() => router.back()}
-          >
-            <Text style={styles.actionButtonText}>← Go Back</Text>
-          </TouchableOpacity>
-        </View>
       </View>
     );
   }
@@ -255,14 +251,14 @@ function MockPaymentContent() {
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.cancelButton}>
-          <MaterialIcons name="arrow-back" size={24} color="#0066cc" />
+          <MaterialIcons name="arrow-back" size={24} color="#ff9800" />
           <Text style={styles.cancelButtonText}>Back</Text>
         </TouchableOpacity>
         <Text style={styles.title}>Complete Mock Payment</Text>
 
         {/* Mock payment indicator */}
         <View style={styles.mockIndicator}>
-          <View style={[styles.statusDot, { backgroundColor: '#ff9800' }]} />
+          <View style={styles.statusDot} />
           <Text style={styles.mockText}>Mock</Text>
         </View>
       </View>
@@ -277,6 +273,36 @@ function MockPaymentContent() {
         <Text style={styles.statusSubtext}>
           Complete your mock payment to confirm your trip booking. This is a test environment - no real money will be charged.
         </Text>
+      </View>
+
+      {/* Mock Payment Method Card */}
+      <View style={styles.paymentMethodCard}>
+        <View style={styles.paymentMethodHeader}>
+          <MaterialIcons name="credit-card" size={24} color="#ff9800" />
+          <View style={styles.paymentMethodInfo}>
+            <Text style={styles.paymentMethodName}>Test Credit/Debit Cards</Text>
+            <Text style={styles.paymentMethodDesc}>Simulated Visa, MasterCard, Amex</Text>
+          </View>
+          <MaterialIcons name="check-circle" size={20} color="#ff9800" />
+        </View>
+      </View>
+
+      {/* Available Test Cards */}
+      <View style={styles.testCardsSection}>
+        <View style={styles.testCardsHeader}>
+          <Text style={styles.testCardsTitle}>🎭 Available Test Cards:</Text>
+          <TouchableOpacity onPress={showTestCardInfo} style={styles.infoButton}>
+            <MaterialIcons name="info-outline" size={20} color="#ff9800" />
+          </TouchableOpacity>
+        </View>
+
+        {MOCK_CARDS.map((card, index) => (
+          <View key={card.id} style={styles.testCard}>
+            <Text style={[styles.testCardText, { color: card.success ? '#28a745' : '#dc3545' }]}>
+              {card.success ? '✅' : '❌'} {card.brand} •••• {card.last4} - {card.description}
+            </Text>
+          </View>
+        ))}
       </View>
 
       {/* Booking Summary */}
@@ -340,41 +366,6 @@ function MockPaymentContent() {
         </View>
       </View>
 
-      {/* Mock Payment Method */}
-      <View style={styles.paymentMethods}>
-        <Text style={styles.paymentMethodsTitle}>🎭 Mock Payment Method</Text>
-
-        <View style={styles.paymentMethodCard}>
-          <MaterialIcons name="credit-card" size={24} color="#ff9800" />
-          <View style={styles.paymentMethodInfo}>
-            <Text style={styles.paymentMethodName}>Test Credit/Debit Cards</Text>
-            <Text style={styles.paymentMethodDesc}>Simulated Visa, MasterCard, Amex</Text>
-          </View>
-          <MaterialIcons name="check-circle" size={20} color="#ff9800" />
-        </View>
-      </View>
-
-      {/* Mock Payment Options */}
-      <View style={styles.mockOptions}>
-        <Text style={styles.mockOptionsTitle}>🎭 Available Test Cards:</Text>
-
-        <View style={styles.mockCard}>
-          <Text style={styles.mockCardText}>✅ Visa •••• 4242 - Success</Text>
-        </View>
-
-        <View style={styles.mockCard}>
-          <Text style={styles.mockCardText}>✅ MasterCard •••• 5555 - Success</Text>
-        </View>
-
-        <View style={styles.mockCard}>
-          <Text style={styles.mockCardText}>❌ Amex •••• 1234 - Declined</Text>
-        </View>
-
-        <View style={styles.mockCard}>
-          <Text style={styles.mockCardText}>❌ Visa •••• 0000 - Insufficient Funds</Text>
-        </View>
-      </View>
-
       {/* Security Notice */}
       <View style={styles.securityNotice}>
         <MaterialIcons name="security" size={20} color="#ff9800" />
@@ -388,24 +379,22 @@ function MockPaymentContent() {
         <TouchableOpacity
           style={[
             styles.payButton,
-            (!paymentInitialized || processing) && styles.payButtonDisabled
+            (!paymentInitialized || processing || mockLoading) && styles.payButtonDisabled
           ]}
           onPress={handlePayment}
-          disabled={!paymentInitialized || processing || stripeLoading}
+          disabled={!paymentInitialized || processing || mockLoading}
         >
-          {processing || stripeLoading ? (
+          {processing || mockLoading ? (
             <View style={styles.processingContainer}>
               <ActivityIndicator color="white" size="small" />
               <Text style={styles.payButtonText}>
-                {stripeLoading ? 'Preparing...' : 'Processing...'}
+                {mockLoading ? 'Preparing...' : 'Processing...'}
               </Text>
             </View>
           ) : (
             <View style={styles.buttonContent}>
               <MaterialIcons name="payment" size={20} color="white" />
-              <Text style={styles.payButtonText}>
-                🎭 Mock Pay ${amount}
-              </Text>
+              <Text style={styles.payButtonText}>🎭 Mock Pay ${amount}</Text>
             </View>
           )}
         </TouchableOpacity>
@@ -487,11 +476,11 @@ function MockPaymentContent() {
   );
 }
 
-// 🎭 UPDATED: Main component with Mock Stripe Provider
+// Main component with Mock Stripe Provider
 export default function EnhancedPaymentScreen() {
   return (
     <MockStripeProvider publishableKey="mock_key">
-      <MockPaymentContent />
+      <PaymentContent />
     </MockStripeProvider>
   );
 }
@@ -539,7 +528,7 @@ const styles = StyleSheet.create({
   },
   cancelButtonText: {
     fontSize: 16,
-    color: '#0066cc',
+    color: '#ff9800',
     fontWeight: '600',
     marginLeft: 4,
   },
@@ -551,7 +540,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 
-  // 🎭 NEW: Mock payment indicator styles
+  // Mock payment indicator styles
   mockIndicator: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -564,6 +553,7 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
+    backgroundColor: '#ff9800',
     marginRight: 4,
   },
   mockText: {
@@ -572,7 +562,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 
-  // 🎭 UPDATED: Mock payment status (instead of regular payment status)
+  // Mock payment status
   mockPaymentStatus: {
     backgroundColor: '#fff3cd',
     margin: 16,
@@ -606,6 +596,79 @@ const styles = StyleSheet.create({
     color: '#856404',
     lineHeight: 20,
     textAlign: 'center',
+  },
+
+  // Payment method card
+  paymentMethodCard: {
+    backgroundColor: 'white',
+    margin: 16,
+    padding: 20,
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  paymentMethodHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff3cd',
+    padding: 16,
+    borderRadius: 8,
+    borderWidth: 2,
+    borderColor: '#ff9800',
+  },
+  paymentMethodInfo: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  paymentMethodName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#856404',
+    marginBottom: 2,
+  },
+  paymentMethodDesc: {
+    fontSize: 12,
+    color: '#856404',
+  },
+
+  // Test cards section
+  testCardsSection: {
+    backgroundColor: 'white',
+    margin: 16,
+    padding: 20,
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  testCardsHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  testCardsTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+  },
+  infoButton: {
+    padding: 4,
+  },
+  testCard: {
+    backgroundColor: '#f8f9fa',
+    padding: 12,
+    borderRadius: 6,
+    marginBottom: 8,
+  },
+  testCardText: {
+    fontSize: 14,
+    fontWeight: '500',
   },
 
   bookingSummary: {
@@ -658,78 +721,7 @@ const styles = StyleSheet.create({
   totalValue: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#ff9800', // Orange for mock payment
-  },
-
-  paymentMethods: {
-    backgroundColor: 'white',
-    margin: 16,
-    padding: 20,
-    borderRadius: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  paymentMethodsTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 12,
-  },
-  paymentMethodCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#fff3cd',
-    padding: 16,
-    borderRadius: 8,
-    borderWidth: 2,
-    borderColor: '#ff9800',
-  },
-  paymentMethodInfo: {
-    flex: 1,
-    marginLeft: 12,
-  },
-  paymentMethodName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#856404',
-    marginBottom: 2,
-  },
-  paymentMethodDesc: {
-    fontSize: 12,
-    color: '#856404',
-  },
-
-  // 🎭 NEW: Mock payment options
-  mockOptions: {
-    backgroundColor: 'white',
-    margin: 16,
-    padding: 20,
-    borderRadius: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  mockOptionsTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 12,
-  },
-  mockCard: {
-    backgroundColor: '#f8f9fa',
-    padding: 12,
-    borderRadius: 6,
-    marginBottom: 8,
-  },
-  mockCardText: {
-    fontSize: 14,
-    color: '#333',
-    fontWeight: '500',
+    color: '#ff9800',
   },
 
   securityNotice: {
@@ -754,7 +746,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   payButton: {
-    backgroundColor: '#ff9800', // Orange for mock payment
+    backgroundColor: '#ff9800',
     padding: 18,
     borderRadius: 12,
     alignItems: 'center',
@@ -902,28 +894,6 @@ const styles = StyleSheet.create({
     marginLeft: 4,
   },
 
-  // Web-specific styles
-  webNotice: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 40,
-  },
-  webTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#856404',
-    marginBottom: 16,
-    marginTop: 16,
-    textAlign: 'center',
-  },
-  webText: {
-    fontSize: 16,
-    color: '#856404',
-    textAlign: 'center',
-    lineHeight: 24,
-    marginBottom: 32,
-  },
   actionButton: {
     backgroundColor: '#ff9800',
     paddingHorizontal: 20,

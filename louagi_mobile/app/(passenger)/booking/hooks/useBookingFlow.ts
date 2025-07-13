@@ -1,4 +1,4 @@
-// 📁 app/(passenger)/booking/hooks/useBookingFlow.ts - FIXED Data Management
+// app/(passenger)/booking/hooks/useBookingFlow.ts - FIXED Complete Booking Flow
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { Alert, Platform, Vibration } from 'react-native';
 import { useRouter } from 'expo-router';
@@ -41,6 +41,7 @@ export interface BookingState {
     // Context data for fallbacks
     contextData?: {
         stationName?: string;
+        destinationName?: string;
         selectedDestination?: Destination;
     };
 }
@@ -85,7 +86,6 @@ export function useBookingFlow(tripId: string, initialTrip?: Trip, contextData?:
         contextData: contextData || undefined,
     });
 
-    // 🔧 FIXED: Use refs to prevent infinite loops
     const lastTripUpdateRef = useRef<string>('');
     const isCreatingBookingRef = useRef(false);
     const hasInitializedRef = useRef(false);
@@ -104,12 +104,12 @@ export function useBookingFlow(tripId: string, initialTrip?: Trip, contextData?:
     const { initPaymentSheet, presentPaymentSheet, loading: paymentLoading } = usePaymentFlow();
     const { validateBooking } = useBookingValidation();
 
-    // 🔧 FIXED: Update state only when trip data actually changes
+    // Update state when trip data changes
     useEffect(() => {
         const tripKey = trip ? `${trip.id}-${trip.availableSeats}-${loading}-${error}` : `loading-${loading}-error-${error}`;
 
         if (lastTripUpdateRef.current === tripKey) {
-            return; // No change, skip update
+            return;
         }
 
         lastTripUpdateRef.current = tripKey;
@@ -131,22 +131,20 @@ export function useBookingFlow(tripId: string, initialTrip?: Trip, contextData?:
         }));
     }, [trip, loading, refreshing, error]);
 
-    // 🆕 NEW: Complete booking data with fallbacks before navigation
+    // Complete booking data with fallbacks before navigation
     const completeBookingData = useCallback((booking: Booking): Booking => {
         console.log('📊 Completing booking data with fallbacks...');
 
-        // Get context data from URL params or router state
-        const urlParams = new URLSearchParams(window.location?.search || '');
-        const stationName = state.contextData?.stationName || urlParams.get('stationName') || 'Departure Station';
-        const destinationName = state.contextData?.selectedDestination?.endStation?.name || 'Destination Station';
+        const stationName = state.contextData?.stationName || 'Departure Station';
+        const destinationName = state.contextData?.destinationName || 'Destination Station';
 
         const completeBooking: Booking = {
             ...booking,
+            // Ensure we have the trip data
             trip: booking.trip ? {
                 ...booking.trip,
                 route: booking.trip.route ? {
                     ...booking.trip.route,
-                    // Ensure start station has proper data
                     startStation: booking.trip.route.startStation?.id ? booking.trip.route.startStation : {
                         id: booking.trip.route.startId || 'temp-start',
                         name: stationName,
@@ -160,7 +158,6 @@ export function useBookingFlow(tripId: string, initialTrip?: Trip, contextData?:
                         contactEmail: 'station@louagi.com',
                         amenities: {},
                     },
-                    // Ensure end station has proper data
                     endStation: booking.trip.route.endStation?.id ? booking.trip.route.endStation : {
                         id: booking.trip.route.endId || 'temp-end',
                         name: destinationName,
@@ -174,15 +171,13 @@ export function useBookingFlow(tripId: string, initialTrip?: Trip, contextData?:
                         contactEmail: 'destination@louagi.com',
                         amenities: {},
                     },
-                    // Ensure description exists
                     description: booking.trip.route.description || `${stationName} to ${destinationName}`,
                 } : {
-                    // Create complete route if missing
                     id: `temp-route-${booking.id}`,
                     startId: 'temp-start',
                     endId: 'temp-end',
                     distance: 150,
-                    basePrice: parseFloat(booking.trip.basePrice || '36.00'),
+                    basePrice: parseFloat(booking.amount?.toString() || '36.00'),
                     estimatedDuration: 180,
                     isActive: true,
                     description: `${stationName} to ${destinationName}`,
@@ -215,7 +210,6 @@ export function useBookingFlow(tripId: string, initialTrip?: Trip, contextData?:
                         amenities: {},
                     },
                 },
-                // Ensure driver has proper data
                 driver: booking.trip.driver?.id ? booking.trip.driver : {
                     id: 'temp-driver',
                     user: {
@@ -239,6 +233,9 @@ export function useBookingFlow(tripId: string, initialTrip?: Trip, contextData?:
                     documents: {},
                 },
             } : undefined,
+            // Ensure we have all required fields
+            amount: booking.amount || calculateTotalAmount(),
+            seats: booking.seats || state.selectedSeats,
         };
 
         console.log('✅ Booking data completed:', {
@@ -246,12 +243,14 @@ export function useBookingFlow(tripId: string, initialTrip?: Trip, contextData?:
             startStationName: completeBooking.trip?.route?.startStation?.name,
             endStationName: completeBooking.trip?.route?.endStation?.name,
             driverName: completeBooking.trip?.driver?.user?.username,
+            amount: completeBooking.amount,
+            seats: completeBooking.seats,
         });
 
         return completeBooking;
-    }, [state.contextData]);
+    }, [state.contextData, state.selectedSeats]);
 
-    // Calculate total amount with memoization
+    // Calculate total amount
     const calculateTotalAmount = useCallback(() => {
         if (!state.trip) return 0;
 
@@ -262,11 +261,11 @@ export function useBookingFlow(tripId: string, initialTrip?: Trip, contextData?:
             return Math.round(totalAmount * 100) / 100;
         } catch (error) {
             console.error('❌ Error calculating price:', error);
-            return state.selectedSeats * 9; // Default fallback price
+            return state.selectedSeats * 9;
         }
     }, [state.trip?.currentPrice, state.trip?.basePrice, state.trip?.capacity, state.selectedSeats]);
 
-    // 🔧 FIXED: Update seats without causing loops
+    // Update seats
     const updateSeats = useCallback((seats: number) => {
         if (!state.trip || seats === state.selectedSeats) return;
 
@@ -312,8 +311,14 @@ export function useBookingFlow(tripId: string, initialTrip?: Trip, contextData?:
 
     const viewBookingDetails = useCallback(() => {
         if (state.createdBooking) {
-            // Complete the booking data before navigation
             const completeBooking = completeBookingData(state.createdBooking);
+
+            console.log('📍 Navigating to booking details with data:', {
+                id: completeBooking.id,
+                reference: completeBooking.bookingReference,
+                hasTrip: !!completeBooking.trip,
+                hasRoute: !!completeBooking.trip?.route,
+            });
 
             router.replace({
                 pathname: '/(passenger)/bookings/[id]',
@@ -323,6 +328,7 @@ export function useBookingFlow(tripId: string, initialTrip?: Trip, contextData?:
                 }
             });
         } else {
+            console.log('⚠️ No created booking, navigating to bookings list');
             router.replace('/(passenger)/bookings');
         }
     }, [state.createdBooking, router, completeBookingData]);
@@ -330,14 +336,13 @@ export function useBookingFlow(tripId: string, initialTrip?: Trip, contextData?:
     const refreshTripData = useCallback(() => refreshTrip(), [refreshTrip]);
     const retryLoading = useCallback(() => retryLoad(), [retryLoad]);
 
-    // 🔧 FIXED: Create booking with proper error handling and complete data
+    // Create booking with proper error handling
     const createBooking = useCallback(async () => {
         if (!state.trip || isCreatingBookingRef.current) {
             console.log('❌ Cannot create booking:', { hasTrip: !!state.trip, isCreating: isCreatingBookingRef.current });
             return;
         }
 
-        // Prevent multiple simultaneous booking attempts
         isCreatingBookingRef.current = true;
 
         console.log('📝 Starting booking creation:', {
@@ -365,7 +370,6 @@ export function useBookingFlow(tripId: string, initialTrip?: Trip, contextData?:
         }
 
         try {
-            // Set processing state ONCE
             setState(prev => ({
                 ...prev,
                 step: 'processing',
@@ -374,7 +378,6 @@ export function useBookingFlow(tripId: string, initialTrip?: Trip, contextData?:
                 error: null,
             }));
 
-            // Call booking service
             const result = await BookingService.createBooking({
                 tripId: state.trip.id,
                 seats: state.selectedSeats,
@@ -384,12 +387,9 @@ export function useBookingFlow(tripId: string, initialTrip?: Trip, contextData?:
             console.log('✅ Booking created successfully:', result.booking.id);
 
             const { booking, wasAutoStarted, autoConfirmedBookings } = result;
-
-            // 🆕 NEW: Complete the booking data with fallbacks
             const completeBooking = completeBookingData(booking);
 
             if (wasAutoStarted) {
-                // Trip auto-started - complete immediately
                 setState(prev => ({
                     ...prev,
                     createdBooking: completeBooking,
@@ -404,7 +404,6 @@ export function useBookingFlow(tripId: string, initialTrip?: Trip, contextData?:
                     [{ text: 'View Booking', onPress: viewBookingDetails }]
                 );
             } else {
-                // Regular booking - go to payment
                 setState(prev => ({
                     ...prev,
                     createdBooking: completeBooking,
@@ -416,12 +415,11 @@ export function useBookingFlow(tripId: string, initialTrip?: Trip, contextData?:
 
                 console.log('💳 Booking created, proceeding to payment');
 
-                // Try to initialize payment (non-blocking)
+                // Initialize payment
                 try {
                     await initPaymentSheet(completeBooking);
                 } catch (paymentError) {
                     console.warn('⚠️ Payment initialization failed:', paymentError);
-                    // Don't fail the booking, just warn
                 }
             }
 
@@ -441,7 +439,6 @@ export function useBookingFlow(tripId: string, initialTrip?: Trip, contextData?:
                 [{
                     text: 'OK',
                     onPress: () => {
-                        // Reset to selecting after delay
                         setTimeout(() => {
                             setState(prev => ({
                                 ...prev,

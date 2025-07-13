@@ -1,4 +1,4 @@
-// app/(passenger)/bookings/components/BookingCard.tsx - FIXED Route Names
+// app/(passenger)/bookings/components/BookingCard.tsx - FIXED with Real Status Display
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
@@ -12,7 +12,44 @@ interface BookingCardProps {
     onAction: (action: BookingAction) => void;
 }
 
+// 🔧 FIXED: Real status determination function
+const getActualBookingStatus = (booking: Booking) => {
+    // Priority 1: Check payment status (most accurate indicator)
+    if (booking.paymentStatus === 'completed') {
+        return 'confirmed';
+    }
+
+    if (booking.paymentStatus === 'pending' || booking.paymentStatus === 'failed') {
+        return 'pending';
+    }
+
+    // Priority 2: Check trip status
+    if (booking.trip?.status === 'completed') {
+        return 'completed';
+    }
+
+    if (booking.trip?.status === 'cancelled' || booking.status === 'cancelled') {
+        return 'cancelled';
+    }
+
+    // Priority 3: Check booking status with normalization
+    const statusMap: Record<string, string> = {
+        'pending': 'pending',
+        'confirmed': 'confirmed',
+        'completed': 'completed',
+        'cancelled': 'cancelled',
+        'canceled': 'cancelled',
+        'no_show': 'cancelled',
+        'in_progress': 'confirmed',
+    };
+
+    return statusMap[booking.status.toLowerCase()] || 'pending';
+};
+
 export default function BookingCard({ booking, onPress, onAction }: BookingCardProps) {
+    // 🔧 FIXED: Get real status instead of just using booking.status
+    const actualStatus = getActualBookingStatus(booking);
+
     // 🔧 FIXED: Enhanced route name resolution
     const getRoute = () => {
         let startName = 'Departure';
@@ -29,9 +66,7 @@ export default function BookingCard({ booking, onPress, onAction }: BookingCardP
         // Strategy 2: Parse from route description if stations are missing
         if ((startName === 'Departure' || endName === 'Destination') && booking.trip?.route?.description) {
             const description = booking.trip.route.description;
-            console.log('🔍 Parsing route from description:', description);
 
-            // Try different patterns: "Djerba to Gafsa", "Djerba → Gafsa", "Djerba - Gafsa"
             const patterns = [
                 /(.+?)\s*(?:to|→|-|->|–)\s*(.+)/i,
                 /from\s+(.+?)\s+to\s+(.+)/i,
@@ -43,13 +78,12 @@ export default function BookingCard({ booking, onPress, onAction }: BookingCardP
                 if (match && match[1] && match[2]) {
                     if (startName === 'Departure') startName = match[1].trim();
                     if (endName === 'Destination') endName = match[2].trim();
-                    console.log('✅ Parsed route:', { startName, endName });
                     break;
                 }
             }
         }
 
-        // Strategy 3: From booking metadata (if stored during booking creation)
+        // Strategy 3: From booking metadata
         if (startName === 'Departure' && booking.metadata?.startStationName) {
             startName = booking.metadata.startStationName;
         }
@@ -57,65 +91,20 @@ export default function BookingCard({ booking, onPress, onAction }: BookingCardP
             endName = booking.metadata.endStationName;
         }
 
-        // Strategy 4: From booking special requests or notes (sometimes users add context)
-        if ((startName === 'Departure' || endName === 'Destination') && booking.specialRequests) {
-            const routePattern = /(?:from|trip)\s+(.+?)\s+(?:to|→)\s+(.+?)(?:\s|$|\.)/i;
-            const match = booking.specialRequests.match(routePattern);
-            if (match) {
-                if (startName === 'Departure') startName = match[1].trim();
-                if (endName === 'Destination') endName = match[2].trim();
-            }
-        }
-
-        // Strategy 5: Use trip route IDs as fallback (better than "Unknown")
-        if (startName === 'Departure' && booking.trip?.route?.startId) {
-            startName = `Station ${booking.trip.route.startId.slice(-4)}`;
-        }
-        if (endName === 'Destination' && booking.trip?.route?.endId) {
-            endName = `Station ${booking.trip.route.endId.slice(-4)}`;
-        }
-
-        // Strategy 6: Use booking reference pattern (some systems encode route info)
-        if ((startName === 'Departure' || endName === 'Destination') && booking.bookingReference) {
-            // If booking reference follows pattern like "BK-DJE-GAF-123456"
-            const refParts = booking.bookingReference.split('-');
-            if (refParts.length >= 3) {
-                const stationCodes = ['DJE', 'GAF', 'TUN', 'SFX', 'SOU', 'KAI', 'TOZ', 'GBE'];
-                const startCode = refParts.find(part => stationCodes.includes(part.toUpperCase()));
-                const endCode = refParts.slice(refParts.indexOf(startCode) + 1).find(part => stationCodes.includes(part.toUpperCase()));
-
-                if (startCode && startName === 'Departure') {
-                    const stationMap = {
-                        'DJE': 'Djerba', 'GAF': 'Gafsa', 'TUN': 'Tunis',
-                        'SFX': 'Sfax', 'SOU': 'Sousse', 'KAI': 'Kairouan',
-                        'TOZ': 'Tozeur', 'GBE': 'Gabès'
-                    };
-                    startName = stationMap[startCode.toUpperCase()] || startCode;
-                }
-                if (endCode && endName === 'Destination') {
-                    const stationMap = {
-                        'DJE': 'Djerba', 'GAF': 'Gafsa', 'TUN': 'Tunis',
-                        'SFX': 'Sfax', 'SOU': 'Sousse', 'KAI': 'Kairouan',
-                        'TOZ': 'Tozeur', 'GBE': 'Gabès'
-                    };
-                    endName = stationMap[endCode.toUpperCase()] || endCode;
-                }
-            }
-        }
-
         const route = `${startName} → ${endName}`;
-        console.log('🗺️ Final route for booking:', booking.id, '→', route);
         return route;
     };
 
-    // Helper functions
-    const getStatusInfo = (status: string) => {
+    // 🔧 FIXED: Real status info based on actual status and payment
+    const getStatusInfo = (status: string, booking: Booking) => {
+        const needsPayment = booking.paymentStatus === 'pending' || booking.paymentStatus === 'failed';
+
         switch (status.toLowerCase()) {
             case 'pending':
                 return {
-                    icon: 'schedule',
+                    icon: needsPayment ? 'payment' : 'schedule',
                     color: theme.colors.status.pending,
-                    text: 'Pending Payment',
+                    text: needsPayment ? 'Payment Required' : 'Pending Confirmation',
                     bgColor: theme.colors.background.warning
                 };
             case 'confirmed':
@@ -152,11 +141,18 @@ export default function BookingCard({ booking, onPress, onAction }: BookingCardP
     const formatDate = (dateString: string) => {
         try {
             const date = new Date(dateString);
+            const today = new Date();
+            const tomorrow = new Date(today);
+            tomorrow.setDate(today.getDate() + 1);
+
+            if (date.toDateString() === today.toDateString()) return 'Today';
+            if (date.toDateString() === tomorrow.toDateString()) return 'Tomorrow';
+
             return date.toLocaleDateString('en-US', {
                 weekday: 'short',
                 month: 'short',
                 day: 'numeric',
-                year: '2-digit'
+                year: date.getFullYear() !== today.getFullYear() ? '2-digit' : undefined
             });
         } catch {
             return 'Invalid Date';
@@ -176,9 +172,11 @@ export default function BookingCard({ booking, onPress, onAction }: BookingCardP
         }
     };
 
-    const statusInfo = getStatusInfo(booking.status);
-    const isPending = booking.status.toLowerCase() === 'pending';
-    const canCancel = ['pending', 'confirmed'].includes(booking.status.toLowerCase());
+    const statusInfo = getStatusInfo(actualStatus, booking);
+    const needsPayment = booking.paymentStatus === 'pending' || booking.paymentStatus === 'failed';
+    const canCancel = ['pending', 'confirmed'].includes(actualStatus.toLowerCase()) &&
+        booking.trip?.departureTime &&
+        new Date(booking.trip.departureTime) > new Date();
     const departureTime = booking.trip?.departureTime || booking.createdAt;
 
     return (
@@ -211,7 +209,7 @@ export default function BookingCard({ booking, onPress, onAction }: BookingCardP
                 </TouchableOpacity>
             </View>
 
-            {/* Route Information - FIXED */}
+            {/* Route Information */}
             <View style={styles.routeContainer}>
                 <MaterialIcons name="route" size={20} color={theme.colors.primary} />
                 <Text style={styles.route}>{getRoute()}</Text>
@@ -237,6 +235,25 @@ export default function BookingCard({ booking, onPress, onAction }: BookingCardP
                 </View>
             </View>
 
+            {/* 🔧 FIXED: Payment Status Display */}
+            {booking.paymentStatus && (
+                <View style={styles.paymentStatusContainer}>
+                    <MaterialIcons
+                        name={booking.paymentStatus === 'completed' ? 'check-circle' : 'payment'}
+                        size={14}
+                        color={booking.paymentStatus === 'completed' ? theme.colors.status.confirmed : theme.colors.status.pending}
+                    />
+                    <Text style={[
+                        styles.paymentStatusText,
+                        { color: booking.paymentStatus === 'completed' ? theme.colors.status.confirmed : theme.colors.status.pending }
+                    ]}>
+                        Payment: {booking.paymentStatus === 'completed' ? 'Paid' :
+                            booking.paymentStatus === 'pending' ? 'Pending' :
+                                booking.paymentStatus === 'failed' ? 'Failed' : booking.paymentStatus}
+                    </Text>
+                </View>
+            )}
+
             {/* Amount and Actions */}
             <View style={styles.footer}>
                 <View style={styles.amountContainer}>
@@ -245,13 +262,13 @@ export default function BookingCard({ booking, onPress, onAction }: BookingCardP
                 </View>
 
                 <View style={styles.actions}>
-                    {isPending && (
+                    {needsPayment && (
                         <TouchableOpacity
                             style={[styles.actionButton, styles.paymentButton]}
                             onPress={() => onAction('retry_payment')}
                         >
                             <MaterialIcons name="payment" size={16} color="white" />
-                            <Text style={styles.actionButtonText}>Pay</Text>
+                            <Text style={styles.actionButtonText}>Pay Now</Text>
                         </TouchableOpacity>
                     )}
 
@@ -270,7 +287,7 @@ export default function BookingCard({ booking, onPress, onAction }: BookingCardP
             </View>
 
             {/* Trip Capacity Info (for confirmed bookings) */}
-            {booking.status === 'confirmed' && booking.trip && (
+            {actualStatus === 'confirmed' && booking.trip && (
                 <View style={styles.capacityInfo}>
                     <MaterialIcons name="info" size={14} color={theme.colors.text.info} />
                     <Text style={styles.capacityText}>
@@ -279,17 +296,11 @@ export default function BookingCard({ booking, onPress, onAction }: BookingCardP
                 </View>
             )}
 
-            {/* Debug info (remove in production) */}
+            {/* 🔧 FIXED: Debug info for development (shows real vs displayed status) */}
             {__DEV__ && (
                 <View style={styles.debugInfo}>
                     <Text style={styles.debugText}>
-                        🔍 Route data: {booking.trip?.route?.description || 'No description'}
-                    </Text>
-                    <Text style={styles.debugText}>
-                        🏁 Start: {booking.trip?.route?.startStation?.name || 'Missing'}
-                    </Text>
-                    <Text style={styles.debugText}>
-                        🎯 End: {booking.trip?.route?.endStation?.name || 'Missing'}
+                        📊 Status: {booking.status} → {actualStatus} | Payment: {booking.paymentStatus || 'unknown'}
                     </Text>
                 </View>
             )}
@@ -375,6 +386,23 @@ const styles = StyleSheet.create({
         ...theme.typography.body2,
         marginLeft: theme.spacing.xs,
         color: theme.colors.text.secondary,
+    },
+
+    // 🔧 NEW: Payment status display
+    paymentStatusContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: theme.spacing.sm,
+        paddingVertical: theme.spacing.xs,
+        paddingHorizontal: theme.spacing.sm,
+        backgroundColor: theme.colors.background.tertiary,
+        borderRadius: theme.borderRadius.small,
+    },
+
+    paymentStatusText: {
+        ...theme.typography.caption,
+        fontWeight: theme.typography.fontWeight.medium,
+        marginLeft: theme.spacing.xs,
     },
 
     footer: {

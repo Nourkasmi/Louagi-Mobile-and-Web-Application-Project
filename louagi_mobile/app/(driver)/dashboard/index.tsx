@@ -1,4 +1,4 @@
-// 📁 louagi_mobile/app/(driver)/dashboard/index.tsx - SAFE PROPERTY ACCESS VERSION
+// 📁 louagi_mobile/app/(driver)/dashboard/index.tsx - UPDATED: Active Trip Section Removed
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
   View,
@@ -413,72 +413,7 @@ export default function DriverDashboard() {
           </View>
         </View>
 
-        {/* Active Trip Section */}
-        {driverStatus?.activeTrip && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Active Trip 🚗</Text>
-            <View style={styles.tripCard}>
-              <View style={styles.tripHeader}>
-                <Text style={styles.tripTitle}>Current Trip</Text>
-                <View style={[
-                  styles.tripStatus,
-                  { backgroundColor: getStatusColor(driverStatus?.activeTrip?.status || '') }
-                ]}>
-                  <Text style={styles.tripStatusText}>
-                    {driverStatus?.activeTrip?.status || 'N/A'}
-                  </Text>
-                </View>
-              </View>
-
-              <View style={styles.tripContent}>
-                <Text style={styles.routeText}>
-                  📍 {driverStatus?.activeTrip?.route?.startStation?.name || 'Unknown'}
-                </Text>
-                <Text style={styles.routeArrow}>↓</Text>
-                <Text style={styles.routeText}>
-                  📍 {driverStatus?.activeTrip?.route?.endStation?.name || 'Unknown'}
-                </Text>
-
-                <View style={styles.tripDetails}>
-                  <View style={styles.tripDetailItem}>
-                    <Text style={styles.tripDetailLabel}>Departure</Text>
-                    <Text style={styles.tripDetailValue}>
-                      {formatTime(driverStatus?.activeTrip?.departureTime || null)}
-                    </Text>
-                  </View>
-
-                  <View style={styles.tripDetailItem}>
-                    <Text style={styles.tripDetailLabel}>Passengers</Text>
-                    <Text style={styles.tripDetailValue}>
-                      {(driverStatus?.activeTrip?.capacity ?? 0) - (driverStatus?.activeTrip?.availableSeats ?? 0)}/
-                      {driverStatus?.activeTrip?.capacity ?? 'N/A'}
-                    </Text>
-                  </View>
-                </View>
-
-                {/* Trip Actions */}
-                <View style={styles.tripActions}>
-                  {driverStatus?.activeTrip?.status === 'scheduled' && (
-                    <>
-                      <TouchableOpacity style={[styles.actionButton, styles.startButton]}>
-                        <Text style={styles.actionButtonText}>▶️ Start Trip</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity style={[styles.actionButton, styles.cancelButton]}>
-                        <Text style={styles.actionButtonText}>❌ Cancel</Text>
-                      </TouchableOpacity>
-                    </>
-                  )}
-
-                  {driverStatus?.activeTrip?.status === 'in_progress' && (
-                    <TouchableOpacity style={[styles.actionButton, styles.completeButton]}>
-                      <Text style={styles.actionButtonText}>✅ Complete Trip</Text>
-                    </TouchableOpacity>
-                  )}
-                </View>
-              </View>
-            </View>
-          </View>
-        )}
+        {/* Active Trip Section - REMOVED PERMANENTLY */}
 
         {/* Recent Trips History */}
         {recentTrips && recentTrips.length > 0 && (

@@ -12,6 +12,14 @@ router.post(
   queueController.declareAvailability
 );
 
+// ✅ NEW: DRIVER: Leave queue (the missing route!)
+router.post(
+  '/leave',
+  authMiddleware.authenticate,
+  authMiddleware.hasRole('driver'),
+  queueController.leaveQueue
+);
+
 // ✅ ADMIN: View queue by station, schedule, destination
 router.get(
   '/',
@@ -44,6 +52,5 @@ router.get(
   authMiddleware.hasRole('admin'),
   queueController.getAllQueuesByStation
 );
-
 
 module.exports = router;

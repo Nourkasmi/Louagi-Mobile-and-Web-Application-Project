@@ -1,4 +1,4 @@
-// 📁 app/(driver)/dashboard/index.tsx - FIXED VERSION
+// 📁 louagi_mobile/app/(driver)/dashboard/index.tsx - SAFE PROPERTY ACCESS VERSION
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
   View,
@@ -20,8 +20,10 @@ import {
   getDriverStatus,
   getDriverEarnings,
   getDriverTrips,
+  leaveQueue,
   type DriverStatus,
 } from '../../../src/services/api';
+import { QueueStatusCard } from '../../../components/QueueStatusCard';
 import { styles } from './index.style';
 import { theme } from '../../../src/styles/theme';
 
@@ -106,6 +108,25 @@ export default function DriverDashboard() {
         }
       ]
     );
+  };
+
+  // 🆕 Handle leave queue function
+  const handleLeaveQueue = async () => {
+    try {
+      const response = await leaveQueue();
+      if (response.success) {
+        console.log('✅ Successfully left queue');
+        Alert.alert('Success', 'You have left the queue successfully.');
+        // Refresh dashboard data
+        fetchDashboardData(true);
+      } else {
+        console.error('❌ Failed to leave queue:', response.message);
+        Alert.alert('Error', response.message || 'Failed to leave queue');
+      }
+    } catch (error) {
+      console.error('❌ Error leaving queue:', error);
+      Alert.alert('Error', 'Failed to leave queue. Please try again.');
+    }
   };
 
   // Fetch all dashboard data
@@ -313,6 +334,12 @@ export default function DriverDashboard() {
         }
         showsVerticalScrollIndicator={false}
       >
+        {/* 🆕 Queue Status Card - Shows only when driver is in queue */}
+        <QueueStatusCard
+          onRefresh={() => fetchDashboardData(true)}
+          onLeaveQueue={handleLeaveQueue}
+        />
+
         {/* Declare Availability Button */}
         <View style={styles.declareSection}>
           <TouchableOpacity
@@ -395,43 +422,43 @@ export default function DriverDashboard() {
                 <Text style={styles.tripTitle}>Current Trip</Text>
                 <View style={[
                   styles.tripStatus,
-                  { backgroundColor: getStatusColor(driverStatus.activeTrip.status) }
+                  { backgroundColor: getStatusColor(driverStatus?.activeTrip?.status || '') }
                 ]}>
                   <Text style={styles.tripStatusText}>
-                    {driverStatus.activeTrip.status}
+                    {driverStatus?.activeTrip?.status || 'N/A'}
                   </Text>
                 </View>
               </View>
 
               <View style={styles.tripContent}>
                 <Text style={styles.routeText}>
-                  📍 {driverStatus.activeTrip.route.startStation.name}
+                  📍 {driverStatus?.activeTrip?.route?.startStation?.name || 'Unknown'}
                 </Text>
                 <Text style={styles.routeArrow}>↓</Text>
                 <Text style={styles.routeText}>
-                  📍 {driverStatus.activeTrip.route.endStation.name}
+                  📍 {driverStatus?.activeTrip?.route?.endStation?.name || 'Unknown'}
                 </Text>
 
                 <View style={styles.tripDetails}>
                   <View style={styles.tripDetailItem}>
                     <Text style={styles.tripDetailLabel}>Departure</Text>
                     <Text style={styles.tripDetailValue}>
-                      {formatTime(driverStatus.activeTrip.departureTime)}
+                      {formatTime(driverStatus?.activeTrip?.departureTime || null)}
                     </Text>
                   </View>
 
                   <View style={styles.tripDetailItem}>
                     <Text style={styles.tripDetailLabel}>Passengers</Text>
                     <Text style={styles.tripDetailValue}>
-                      {driverStatus.activeTrip.capacity - driverStatus.activeTrip.availableSeats}/
-                      {driverStatus.activeTrip.capacity}
+                      {(driverStatus?.activeTrip?.capacity ?? 0) - (driverStatus?.activeTrip?.availableSeats ?? 0)}/
+                      {driverStatus?.activeTrip?.capacity ?? 'N/A'}
                     </Text>
                   </View>
                 </View>
 
                 {/* Trip Actions */}
                 <View style={styles.tripActions}>
-                  {driverStatus.activeTrip.status === 'scheduled' && (
+                  {driverStatus?.activeTrip?.status === 'scheduled' && (
                     <>
                       <TouchableOpacity style={[styles.actionButton, styles.startButton]}>
                         <Text style={styles.actionButtonText}>▶️ Start Trip</Text>
@@ -442,7 +469,7 @@ export default function DriverDashboard() {
                     </>
                   )}
 
-                  {driverStatus.activeTrip.status === 'in_progress' && (
+                  {driverStatus?.activeTrip?.status === 'in_progress' && (
                     <TouchableOpacity style={[styles.actionButton, styles.completeButton]}>
                       <Text style={styles.actionButtonText}>✅ Complete Trip</Text>
                     </TouchableOpacity>
@@ -468,23 +495,23 @@ export default function DriverDashboard() {
                 <View style={styles.recentTripHeader}>
                   <View style={styles.recentTripRoute}>
                     <Text style={styles.recentTripText}>
-                      {trip.route?.startStation?.name || 'Unknown'} → {trip.route?.endStation?.name || 'Unknown'}
+                      {trip?.route?.startStation?.name || 'Unknown'} → {trip?.route?.endStation?.name || 'Unknown'}
                     </Text>
                     <Text style={styles.recentTripDate}>
-                      {new Date(trip.createdAt).toLocaleDateString()}
+                      {trip?.createdAt ? new Date(trip.createdAt).toLocaleDateString() : ''}
                     </Text>
                   </View>
 
                   <View style={styles.recentTripDetails}>
                     <Text style={styles.recentTripEarnings}>
-                      {formatCurrency(trip.currentPrice * 0.8 || 0)}
+                      {formatCurrency((trip?.currentPrice ?? 0) * 0.8 || 0)}
                     </Text>
                     <View style={[
                       styles.recentTripStatus,
-                      { backgroundColor: getStatusColor(trip.status) }
+                      { backgroundColor: getStatusColor(trip?.status || '') }
                     ]}>
                       <Text style={styles.recentTripStatusText}>
-                        {trip.status}
+                        {trip?.status || 'N/A'}
                       </Text>
                     </View>
                   </View>
@@ -501,14 +528,14 @@ export default function DriverDashboard() {
             <View style={styles.weeklyStats}>
               <View style={styles.weeklyStat}>
                 <Text style={styles.weeklyStatNumber}>
-                  {formatCurrency((earnings?.totalEarnings || 0) * 6.2)}
+                  {formatCurrency(((earnings?.totalEarnings ?? 0) * 6.2) || 0)}
                 </Text>
                 <Text style={styles.weeklyStatLabel}>Weekly Earnings</Text>
               </View>
 
               <View style={styles.weeklyStat}>
                 <Text style={styles.weeklyStatNumber}>
-                  {(earnings?.totalTrips || 0) * 5}
+                  {(earnings?.totalTrips ?? 0) * 5}
                 </Text>
                 <Text style={styles.weeklyStatLabel}>Total Trips</Text>
               </View>
@@ -520,13 +547,13 @@ export default function DriverDashboard() {
                 <View style={[
                   styles.progressFill,
                   {
-                    width: `${Math.min(((earnings?.totalEarnings || 0) * 6.2) / 500 * 100, 100)}%`,
+                    width: `${Math.min((((earnings?.totalEarnings ?? 0) * 6.2) / 500) * 100, 100)}%`,
                     backgroundColor: theme.colors.success
                   }
                 ]} />
               </View>
               <Text style={styles.weeklyProgressText}>
-                {Math.round(((earnings?.totalEarnings || 0) * 6.2) / 500 * 100)}% of 500 TND goal
+                {Math.round((((earnings?.totalEarnings ?? 0) * 6.2) / 500) * 100)}% of 500 TND goal
               </Text>
             </View>
           </View>

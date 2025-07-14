@@ -518,9 +518,90 @@ export const declareAvailability = async (data: {
 
 // ==================== DRIVER ENDPOINTS ====================
 
-export const getDriverStatus = async (): Promise<ApiResponse<DriverStatus>> => {
-  const res = await api.get('/drivers/status');
-  return res.data;
+export const getDriverStatus = async (): Promise<ApiResponse<DriverStatus & { queueInfo?: any }>> => {
+  try {
+    console.log('📡 API: Getting driver status...');
+    const res = await api.get('/drivers/status');
+    console.log('📡 API: Driver status response:', res.data);
+    
+    // Handle different response structures
+    let normalizedResponse: ApiResponse<DriverStatus & { queueInfo?: any }>;
+    
+    if (res.data?.success !== undefined) {
+      normalizedResponse = {
+        success: res.data.success,
+        message: res.data.message,
+        data: res.data.data || res.data.driver || res.data
+      };
+    } else {
+      normalizedResponse = {
+        success: true,
+        data: res.data
+      };
+    }
+    
+    // If driver has queue entry, format it for the queue status card
+    if (normalizedResponse.data?.queueEntry) {
+      const queueEntry = normalizedResponse.data.queueEntry;
+      normalizedResponse.data.queueInfo = {
+        inQueue: true,
+        position: queueEntry.position,
+        status: queueEntry.status,
+        waitingTimeMinutes: Math.round((new Date().getTime() - new Date(queueEntry.joinedAt || queueEntry.createdAt).getTime()) / (1000 * 60)),
+        estimatedDepartureTime: queueEntry.estimatedDepartureTime,
+        formattedDepartureTime: queueEntry.formattedDepartureTime,
+        minutesUntilDeparture: queueEntry.minutesUntilDeparture,
+        station: queueEntry.station?.name,
+        destination: queueEntry.destination?.description,
+        schedule: queueEntry.schedule ? `${queueEntry.schedule.startTime} - ${queueEntry.schedule.endTime}` : undefined,
+        scheduleStatus: queueEntry.scheduleStatus,
+      };
+    } else {
+      normalizedResponse.data.queueInfo = { inQueue: false };
+    }
+    
+    console.log('✅ Driver status processed:', {
+      success: normalizedResponse.success,
+      hasQueueEntry: !!normalizedResponse.data?.queueEntry,
+      inQueue: normalizedResponse.data?.queueInfo?.inQueue
+    });
+    
+    return normalizedResponse;
+  } catch (error: any) {
+    console.error('❌ Get driver status error:', error);
+    
+    let errorMessage = 'Failed to get driver status';
+    
+    if (error.response?.status === 401) {
+      errorMessage = 'Authentication required. Please log in again.';
+    } else if (error.response?.status === 403) {
+      errorMessage = 'Access denied. Driver permissions required.';
+    } else if (error.response?.status === 404) {
+      errorMessage = 'Driver profile not found.';
+    } else if (error.response?.status >= 500) {
+      errorMessage = 'Server error. Please try again in a moment.';
+    } else if (!error.response) {
+      errorMessage = 'Network error. Please check your connection.';
+    }
+    
+    return {
+      success: false,
+      message: errorMessage,
+      data: {
+        profile: null,
+        availabilityStatus: 'available',
+        statusMessage: 'Status unavailable',
+        canDeclareAvailability: true,
+        canDeclareFull: false,
+        systemType: 'time-based',
+        queueInfo: { inQueue: false }
+      } as any,
+      error: {
+        status: error.response?.status,
+        data: error.response?.data
+      }
+    };
+  }
 };
 
 /**
@@ -1136,4 +1217,105 @@ export const testBookingsAPI = async () => {
     throw error;
   }
 };
+
+
+/**
+ * Leave current queue
+ */
+export const leaveQueue = async (): Promise<ApiResponse> => {
+  try {
+    console.log('📡 API: Leaving queue...');
+    const res = await api.post('/queues/leave');
+    console.log('📡 API: Leave queue response:', res.data);
+    return res.data;
+  } catch (error: any) {
+    console.error('❌ Leave queue error:', error);
+    
+    let errorMessage = 'Failed to leave queue';
+    
+    if (error.response?.status === 404) {
+      errorMessage = 'You are not currently in any queue';
+    } else if (error.response?.status === 400) {
+      errorMessage = error.response?.data?.message || 'Cannot leave queue at this time';
+    } else if (error.response?.status === 401) {
+      errorMessage = 'Authentication required. Please log in again.';
+    } else if (error.response?.status >= 500) {
+      errorMessage = 'Server error. Please try again in a moment.';
+    } else if (!error.response) {
+      errorMessage = 'Network error. Please check your connection.';
+    }
+    
+    return {
+      success: false,
+      message: errorMessage,
+      error: {
+        status: error.response?.status,
+        data: error.response?.data
+      }
+    };
+  }
+};
+
+/**
+ * Get queue information for a specific station/destination
+ */
+export const getQueueInfo = async (params: {
+  stationId: string;
+  scheduleId: string;
+  destinationId: string;
+}): Promise<ApiResponse<{
+  totalWaiting: number;
+  longestWaitMinutes: number;
+  shouldCreateTrip: boolean;
+  isPeakHour: boolean;
+  nextTripETA: string;
+}>> => {
+  try {
+    const res = await api.get('/queues', { params });
+    return res.data;
+  } catch (error: any) {
+    console.error('❌ Get queue info error:', error);
+    return {
+      success: false,
+      message: 'Failed to get queue information',
+      data: {
+        totalWaiting: 0,
+        longestWaitMinutes: 0,
+        shouldCreateTrip: false,
+        isPeakHour: false,
+        nextTripETA: 'Unknown'
+      }
+    };
+  }
+};
+
+/**
+ * Get all queues by station (Admin only)
+ */
+export const getStationQueues = async (stationId: string): Promise<ApiResponse<{
+  stationId: string;
+  totalQueues: number;
+  queues: Array<{
+    destinationId: string;
+    description: string;
+    count: number;
+  }>;
+}>> => {
+  try {
+    const res = await api.get('/queues/count', { params: { stationId } });
+    return res.data;
+  } catch (error: any) {
+    console.error('❌ Get station queues error:', error);
+    return {
+      success: false,
+      message: 'Failed to get station queues',
+      data: {
+        stationId,
+        totalQueues: 0,
+        queues: []
+      }
+    };
+  }
+};
+
 export default api;

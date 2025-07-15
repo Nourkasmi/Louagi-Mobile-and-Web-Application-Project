@@ -38,7 +38,7 @@ const validationSchemas = {
     password: Joi.string().required()
   }),
 
-  // User update schema
+  // ✅ ENHANCED: User update schema with driver profile support
   userUpdate: Joi.object({
     username: Joi.string().min(3).max(30),
     email: Joi.string().email(),
@@ -46,11 +46,27 @@ const validationSchemas = {
     password: Joi.string().min(8)
       .pattern(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/)
       .message('Password must contain at least one uppercase letter, one lowercase letter, and one number'),
+    isActive: Joi.boolean(), // ✅ NEW: Support for isActive field
     license_no: Joi.string(),
     experience: Joi.number().integer().min(0),
     license_expiry: Joi.date(),
     preferences: Joi.object().allow(null),
-    payment_info: Joi.object().allow(null)
+    payment_info: Joi.object().allow(null),
+    
+    // ✅ NEW: Driver profile validation
+    driverProfile: Joi.object({
+      license_no: Joi.string(),
+      experience: Joi.number().integer().min(0),
+      license_expiry: Joi.date().allow(null),
+      vehicle_type: Joi.string(),
+      vehicle_capacity: Joi.number().integer().min(1).max(50),
+      is_verified: Joi.boolean(),
+      verification_notes: Joi.string().allow('', null),
+      verification_date: Joi.date().allow(null),
+      rating: Joi.number().min(0).max(5),
+      is_available: Joi.boolean(),
+      documents: Joi.object().allow(null)
+    }).allow(null)
   }),
 
   // Station schema
@@ -124,7 +140,7 @@ const validationSchemas = {
     reason: Joi.string().max(500).allow('', null)
   }),
 
-  // ✅ NEW: Payment schemas
+  // ✅ Payment schemas
   // Payment intent schema
   paymentIntent: Joi.object({
     bookingId: Joi.string().uuid().required(),
@@ -162,12 +178,34 @@ const validationSchemas = {
 };
 
 /**
- * Validation middleware functions
+ * ✅ ENHANCED: Validation middleware functions with better error handling
  */
 const validateMiddleware = {
-  validateRegistration: (data) => validationSchemas.registration.validate(data, { abortEarly: false }),
-  validateLogin: (data) => validationSchemas.login.validate(data, { abortEarly: false }),
-  validateUserUpdate: (data) => validationSchemas.userUpdate.validate(data, { abortEarly: false }),
+  validateRegistration: (data) => {
+    const result = validationSchemas.registration.validate(data, { abortEarly: false });
+    if (result.error) {
+      console.log('❌ Registration validation failed:', result.error.details);
+    }
+    return result;
+  },
+  
+  validateLogin: (data) => {
+    const result = validationSchemas.login.validate(data, { abortEarly: false });
+    if (result.error) {
+      console.log('❌ Login validation failed:', result.error.details);
+    }
+    return result;
+  },
+  
+  validateUserUpdate: (data) => {
+    const result = validationSchemas.userUpdate.validate(data, { abortEarly: false });
+    if (result.error) {
+      console.log('❌ User update validation failed:', result.error.details);
+      console.log('📝 Data being validated:', JSON.stringify(data, null, 2));
+    }
+    return result;
+  },
+  
   validateStation: (data) => validationSchemas.station.validate(data, { abortEarly: false }),
   validateDestination: (data) => validationSchemas.destination.validate(data, { abortEarly: false }),
   validateSchedule: (data) => validationSchemas.schedule.validate(data, { abortEarly: false }),
@@ -176,7 +214,7 @@ const validateMiddleware = {
   validatePaymentUpdate: (data) => validationSchemas.paymentUpdate.validate(data, { abortEarly: false }),
   validateBulkBookingUpdate: (data) => validationSchemas.bulkBookingUpdate.validate(data, { abortEarly: false }),
   
-  // ✅ NEW: Payment validation functions
+  // Payment validation functions
   validatePaymentIntent: (data) => validationSchemas.paymentIntent.validate(data, { abortEarly: false }),
   validatePaymentConfirmation: (data) => validationSchemas.paymentConfirmation.validate(data, { abortEarly: false }),
   validatePaymentCancellation: (data) => validationSchemas.paymentCancellation.validate(data, { abortEarly: false }),
@@ -197,7 +235,7 @@ module.exports = {
   validatePaymentUpdate: validateMiddleware.validatePaymentUpdate,
   validateBulkBookingUpdate: validateMiddleware.validateBulkBookingUpdate,
   
-  // ✅ NEW: Payment validations
+  // Payment validations
   validatePaymentIntent: validateMiddleware.validatePaymentIntent,
   validatePaymentConfirmation: validateMiddleware.validatePaymentConfirmation,
   validatePaymentCancellation: validateMiddleware.validatePaymentCancellation,

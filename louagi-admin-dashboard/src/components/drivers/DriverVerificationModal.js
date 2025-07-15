@@ -1,4 +1,4 @@
-// src/components/drivers/DriverVerificationModal.js
+// src/components/drivers/DriverVerificationModal.js - FIXED VERSION
 import React, { useState, useEffect } from 'react';
 import {
     X,
@@ -21,7 +21,6 @@ const DriverVerificationModal = ({ isOpen, onClose, onVerify, onReject, refreshD
     const [error, setError] = useState(null);
     const [actionLoading, setActionLoading] = useState({});
     const [selectedDriver, setSelectedDriver] = useState(null);
-    const [showDocuments, setShowDocuments] = useState(false);
 
     const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 
@@ -36,7 +35,9 @@ const DriverVerificationModal = ({ isOpen, onClose, onVerify, onReject, refreshD
                 throw new Error('No authentication token found');
             }
 
-            const response = await fetch(`${API_BASE_URL}/users?role=driver&is_verified=false&limit=50`, {
+            console.log('🔄 Fetching pending drivers...');
+
+            const response = await fetch(`${API_BASE_URL}/users?role=driver&limit=50`, {
                 headers: {
                     'Authorization': `Bearer ${token}`,
                     'Content-Type': 'application/json'
@@ -48,27 +49,33 @@ const DriverVerificationModal = ({ isOpen, onClose, onVerify, onReject, refreshD
             }
 
             const data = await response.json();
+            console.log('📥 Response data:', data);
 
             if (data.success) {
                 // Filter for unverified drivers only
                 const unverifiedDrivers = data.users
                     .filter(user => user.role === 'driver')
-                    .map(user => ({
-                        id: user.id,
-                        name: user.username,
-                        email: user.email,
-                        phone: user.phone,
-                        licenseNo: user.driverProfile?.license_no || 'N/A',
-                        experience: user.driverProfile?.experience || 0,
-                        vehicleType: user.driverProfile?.vehicle_type || 'Unknown',
-                        vehicleCapacity: user.driverProfile?.vehicle_capacity || 4,
-                        licenseExpiry: user.driverProfile?.license_expiry,
-                        isVerified: user.driverProfile?.is_verified || false,
-                        isActive: user.isActive,
-                        joinedDate: user.createdAt,
-                        driverProfile: user.driverProfile
-                    }))
-                    .filter(driver => !driver.isVerified);
+                    .map(user => {
+                        const driver = user.driverProfile;
+
+                        // Create driver object even if driverProfile is missing
+                        return {
+                            id: user.id,
+                            name: user.username,
+                            email: user.email,
+                            phone: user.phone,
+                            licenseNo: driver?.license_no || 'N/A',
+                            experience: driver?.experience || 0,
+                            vehicleType: driver?.vehicle_type || 'Unknown',
+                            vehicleCapacity: driver?.vehicle_capacity || 4,
+                            licenseExpiry: driver?.license_expiry,
+                            isVerified: driver?.is_verified || false,
+                            isActive: user.isActive,
+                            joinedDate: user.createdAt,
+                            driverProfile: user.driverProfile
+                        };
+                    })
+                    .filter(driver => !driver.isVerified); // Only unverified drivers
 
                 setPendingDrivers(unverifiedDrivers);
                 console.log('✅ Pending drivers loaded:', unverifiedDrivers.length);
@@ -83,7 +90,7 @@ const DriverVerificationModal = ({ isOpen, onClose, onVerify, onReject, refreshD
         }
     };
 
-    // Handle driver verification
+    // ✅ FIXED: Handle driver verification with proper API call
     const handleVerifyDriver = async (driverId, approved = true, notes = '') => {
         try {
             setActionLoading(prev => ({ ...prev, [driverId]: true }));
@@ -93,6 +100,9 @@ const DriverVerificationModal = ({ isOpen, onClose, onVerify, onReject, refreshD
                 throw new Error('No authentication token found');
             }
 
+            console.log('🔄 Verifying driver:', { driverId, approved, notes });
+
+            // ✅ FIX: Use the proper API endpoint and data structure
             const response = await fetch(`${API_BASE_URL}/users/${driverId}`, {
                 method: 'PUT',
                 headers: {
@@ -108,11 +118,15 @@ const DriverVerificationModal = ({ isOpen, onClose, onVerify, onReject, refreshD
                 })
             });
 
+            console.log('📥 Response status:', response.status);
+
             if (!response.ok) {
-                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.message || `HTTP ${response.status}: ${response.statusText}`);
             }
 
             const data = await response.json();
+            console.log('📥 Response data:', data);
 
             if (data.success) {
                 // Remove from pending list

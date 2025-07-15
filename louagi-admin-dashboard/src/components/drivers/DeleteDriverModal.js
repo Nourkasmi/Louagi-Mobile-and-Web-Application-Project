@@ -1,4 +1,4 @@
-// src/components/drivers/DeleteDriverModal.js
+// src/components/drivers/DeleteDriverModal.js - FIXED VERSION
 import React from 'react';
 import {
     AlertTriangle,
@@ -10,9 +10,20 @@ import {
 } from 'lucide-react';
 
 const DeleteDriverModal = ({ driver, onClose, onConfirm, actionLoading = false }) => {
-    const handleConfirm = () => {
-        onConfirm(driver.id, driver.name);
-        onClose();
+    const handleConfirm = async () => {
+        try {
+            // ✅ FIX: Wait for the deletion to complete before closing modal
+            const result = await onConfirm(driver.id, driver.name);
+            
+            // Only close the modal if deletion was successful
+            if (result && result.success !== false) {
+                onClose();
+            }
+            // If deletion failed, keep modal open so user can see the error
+        } catch (error) {
+            console.error('Delete confirmation error:', error);
+            // Keep modal open on error so user can retry or cancel
+        }
     };
 
     return (

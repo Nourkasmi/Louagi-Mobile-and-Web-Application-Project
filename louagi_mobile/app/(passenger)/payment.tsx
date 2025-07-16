@@ -1,13 +1,10 @@
-// app/(passenger)/payment.tsx - SIMPLIFIED VERSION
-// Replacing your existing payment screen with clean mock payment flow
-
+// app/(passenger)/payment.tsx - SIMPLIFIED VERSION WITHOUT SKIP OPTION
 import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
   TouchableOpacity,
   StyleSheet,
-  Alert,
   ActivityIndicator,
   ScrollView,
   StatusBar,
@@ -138,19 +135,6 @@ export default function PaymentScreen() {
     }
   };
 
-  // Show test card info
-  const showTestCardInfo = () => {
-    const cardInfo = MOCK_CARDS.map(card =>
-      `${card.success ? '✅' : '❌'} ${card.brand} •••• ${card.last4} - ${card.description}`
-    ).join('\n');
-
-    Alert.alert(
-      '💳 Available Test Cards',
-      `Use these mock cards for testing:\n\n${cardInfo}\n\n🎭 No real money will be charged!`,
-      [{ text: 'Got it!', style: 'default' }]
-    );
-  };
-
   // Navigation handlers
   const handleComplete = () => {
     if (step === 'success') {
@@ -174,21 +158,6 @@ export default function PaymentScreen() {
     }
   };
 
-  const handleCancel = () => {
-    Alert.alert(
-      'Cancel Payment?',
-      'You can complete payment later from "My Bookings".',
-      [
-        { text: 'Complete Now', style: 'default' },
-        {
-          text: 'Cancel',
-          style: 'cancel',
-          onPress: () => router.back()
-        }
-      ]
-    );
-  };
-
   // Get route display
   const getRouteDisplay = () => {
     if (!booking?.trip?.route) return 'Trip Route';
@@ -203,7 +172,7 @@ export default function PaymentScreen() {
     <View style={styles.header}>
       <StatusBar barStyle="light-content" backgroundColor="#ff9800" />
       <View style={styles.headerTop}>
-        <TouchableOpacity onPress={handleCancel} style={styles.backButton}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
           <MaterialIcons name="arrow-back" size={24} color="#ffffff" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Complete Payment</Text>
@@ -278,14 +247,12 @@ export default function PaymentScreen() {
         </TouchableOpacity>
       ))}
 
-      <TouchableOpacity style={styles.infoButton} onPress={showTestCardInfo}>
-        <MaterialIcons name="info" size={20} color="#ff9800" />
-        <Text style={styles.infoButtonText}>View Test Card Details</Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity style={styles.skipButton} onPress={handleCancel}>
-        <Text style={styles.skipButtonText}>Complete Payment Later</Text>
-      </TouchableOpacity>
+      <View style={styles.infoCard}>
+        <MaterialIcons name="info" size={16} color="#ff9800" />
+        <Text style={styles.infoText}>
+          This is a test environment - no real money will be charged!
+        </Text>
+      </View>
     </View>
   );
 
@@ -616,39 +583,23 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 
-  infoButton: {
+  infoCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
     backgroundColor: '#fff3cd',
     padding: 12,
     borderRadius: 8,
     marginTop: 16,
-    marginBottom: 16,
     borderWidth: 1,
     borderColor: '#ff9800',
   },
 
-  infoButtonText: {
+  infoText: {
     color: '#856404',
     fontSize: 14,
     fontWeight: '500',
-    marginLeft: 4,
-  },
-
-  skipButton: {
-    backgroundColor: 'transparent',
-    padding: 16,
-    borderRadius: 8,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#ff9800',
-  },
-
-  skipButtonText: {
-    color: '#ff9800',
-    fontSize: 16,
-    fontWeight: '600',
+    marginLeft: 8,
+    flex: 1,
   },
 
   processingTitle: {

@@ -1,4 +1,6 @@
-// app/(passenger)/bookings/index.tsx - FIXED with Real Data Analytics & Working Filters
+// app/(passenger)/bookings/index.tsx - SIMPLIFIED VERSION
+// Replacing your existing complex version with simple paid bookings only
+
 import React, { useEffect, useState, useCallback } from 'react';
 import {
     View,
@@ -7,78 +9,165 @@ import {
     TouchableOpacity,
     RefreshControl,
     ActivityIndicator,
-    Alert,
+    StyleSheet,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
 import { getMyBookings, type Booking } from '../../../src/services/api';
-import { styles } from './index.styles';
-import BookingCard from './components/BookingCard';
-import BookingsHeader from './components/BookingsHeader';
-import BookingsFilter from './components/BookingsFilter';
-import BookingsEmpty from './components/BookingsEmpty';
-import { BookingStatus } from './types/booking.types';
 
-// 🔧 FIXED: Real booking status mapping
-const normalizeBookingStatus = (status: string): BookingStatus => {
-    const statusMap: Record<string, BookingStatus> = {
-        'pending': 'pending',
-        'confirmed': 'confirmed',
-        'completed': 'completed',
-        'cancelled': 'cancelled',
-        'canceled': 'cancelled',  // Handle both spellings
-        'no_show': 'cancelled',
-        'in_progress': 'confirmed',  // Treat in-progress as confirmed
-    };
-
-    return statusMap[status.toLowerCase()] || 'pending';
-};
-
-// 🔧 FIXED: Real payment status checker
-const getActualBookingStatus = (booking: Booking): BookingStatus => {
-    // Check payment status first - this is the real indicator
-    if (booking.paymentStatus === 'completed' || booking.paymentStatus === 'processing') {
-        return 'confirmed';
+// Simple status - only show meaningful bookings
+const getSimpleStatus = (booking: Booking) => {
+    // If payment is completed, it's confirmed
+    if (booking.paymentStatus === 'completed') {
+        return booking.trip?.status === 'completed' ? 'completed' : 'confirmed';
     }
 
-    if (booking.paymentStatus === 'pending' || booking.paymentStatus === 'failed') {
-        return 'pending';
-    }
-
-    // Check trip status
+    // If trip is completed
     if (booking.trip?.status === 'completed') {
         return 'completed';
     }
 
-    if (booking.trip?.status === 'cancelled') {
+    // If cancelled
+    if (booking.status === 'cancelled' || booking.trip?.status === 'cancelled') {
         return 'cancelled';
     }
 
-    // Fall back to booking status
-    return normalizeBookingStatus(booking.status);
+    // Everything else is filtered out (we don't show pending payments)
+    return 'filtered';
+};
+
+const getStatusInfo = (status: string) => {
+    switch (status) {
+        case 'confirmed':
+            return {
+                icon: 'check-circle',
+                color: '#28a745',
+                text: 'Confirmed',
+                bgColor: '#e8f5e8'
+            };
+        case 'completed':
+            return {
+                icon: 'done-all',
+                color: '#007bff',
+                text: 'Completed',
+                bgColor: '#e3f2fd'
+            };
+        case 'cancelled':
+            return {
+                icon: 'cancel',
+                color: '#f44336',
+                text: 'Cancelled',
+                bgColor: '#ffebee'
+            };
+        default:
+            return {
+                icon: 'help',
+                color: '#666',
+                text: 'Unknown',
+                bgColor: '#f5f5f5'
+            };
+    }
+};
+
+const formatDate = (dateString: string) => {
+    try {
+        const date = new Date(dateString);
+        const today = new Date();
+        const tomorrow = new Date(today);
+        tomorrow.setDate(today.getDate() + 1);
+
+        if (date.toDateString() === today.toDateString()) return 'Today';
+        if (date.toDateString() === tomorrow.toDateString()) return 'Tomorrow';
+
+        return date.toLocaleDateString('en-US', {
+            weekday: 'short',
+            month: 'short',
+            day: 'numeric'
+        });
+    } catch {
+        return 'Invalid Date';
+    }
+};
+
+const formatTime = (dateString: string) => {
+    try {
+        return new Date(dateString).toLocaleTimeString('en-US', {
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: true
+        });
+    } catch {
+        return 'Invalid Time';
+    }
+};
+
+const getRoute = (booking: Booking) => {
+    const start = booking.trip?.route?.startStation?.name || 'Departure';
+    const end = booking.trip?.route?.endStation?.name || 'Destination';
+    return `${start} → ${end}`;
+};
+
+// Simple Booking Card Component
+const SimpleBookingCard = ({ booking, onPress }: { booking: Booking; onPress: () => void }) => {
+    const status = getSimpleStatus(booking);
+    const statusInfo = getStatusInfo(status);
+    const departureTime = booking.trip?.departureTime || booking.createdAt;
+
+    return (
+        <TouchableOpacity style={styles.bookingCard} onPress={onPress} activeOpacity={0.7}>
+            {/* Header */}
+            <View style={styles.cardHeader}>
+                <Text style={styles.bookingReference}>#{booking.bookingReference}</Text>
+                <View style={[styles.statusBadge, { backgroundColor: statusInfo.bgColor }]}>
+                    <MaterialIcons name={statusInfo.icon as any} size={14} color={statusInfo.color} />
+                    <Text style={[styles.statusText, { color: statusInfo.color }]}>
+                        {statusInfo.text}
+                    </Text>
+                </View>
+            </View>
+
+            {/* Route */}
+            <View style={styles.routeContainer}>
+                <MaterialIcons name="route" size={20} color="#0066cc" />
+                <Text style={styles.routeText}>{getRoute(booking)}</Text>
+            </View>
+
+            {/* Details */}
+            <View style={styles.detailsRow}>
+                <View style={styles.detailItem}>
+                    <MaterialIcons name="event" size={16} color="#666" />
+                    <Text style={styles.detailText}>{formatDate(departureTime)}</Text>
+                </View>
+
+                <View style={styles.detailItem}>
+                    <MaterialIcons name="schedule" size={16} color="#666" />
+                    <Text style={styles.detailText}>
+                        {booking.trip?.departureTime ? formatTime(departureTime) : 'When full'}
+                    </Text>
+                </View>
+
+                <View style={styles.detailItem}>
+                    <MaterialIcons name="people" size={16} color="#666" />
+                    <Text style={styles.detailText}>{booking.seats} seat{booking.seats > 1 ? 's' : ''}</Text>
+                </View>
+            </View>
+
+            {/* Amount */}
+            <View style={styles.amountContainer}>
+                <Text style={styles.amountLabel}>Total Paid</Text>
+                <Text style={styles.amountValue}>${booking.amount || '0.00'}</Text>
+            </View>
+        </TouchableOpacity>
+    );
 };
 
 export default function BookingsScreen() {
     const router = useRouter();
-
-    // State management
-    const [allBookings, setAllBookings] = useState<Booking[]>([]);
-    const [filteredBookings, setFilteredBookings] = useState<Booking[]>([]);
+    const [bookings, setBookings] = useState<Booking[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const [selectedFilter, setSelectedFilter] = useState<BookingStatus | 'all'>('all');
 
-    // 🔧 FIXED: Real stats calculation
-    const [stats, setStats] = useState({
-        total: 0,
-        pending: 0,
-        confirmed: 0,
-        completed: 0,
-        cancelled: 0,
-    });
-
-    // 🔧 FIXED: Enhanced fetchBookings with real data processing
     const fetchBookings = useCallback(async (isRefresh = false) => {
         try {
             if (isRefresh) {
@@ -89,251 +178,93 @@ export default function BookingsScreen() {
 
             setError(null);
 
-            console.log('📋 Fetching bookings...');
-            const response = await getMyBookings({
-                limit: 100, // Get more bookings for better analytics
-                page: 1,
-            });
-
-            console.log('📋 Raw bookings response:', {
-                success: response.success,
-                hasData: !!response.data,
-                responseKeys: response.data ? Object.keys(response.data) : [],
-            });
+            const response = await getMyBookings({ limit: 50 });
 
             if (response.success) {
-                // 🔧 FIXED: Handle multiple response structures
+                // Extract bookings from different response structures
                 let bookingsList: Booking[] = [];
 
                 if (response.data?.bookings && Array.isArray(response.data.bookings)) {
                     bookingsList = response.data.bookings;
-                } else if (response.data && Array.isArray(response.data)) {
+                } else if (Array.isArray(response.data)) {
                     bookingsList = response.data;
                 } else if (response.bookings && Array.isArray(response.bookings)) {
                     bookingsList = response.bookings;
-                } else if (Array.isArray(response)) {
-                    bookingsList = response;
                 }
 
-                console.log('📋 Processed bookings:', {
-                    count: bookingsList.length,
-                    firstBooking: bookingsList[0] ? {
-                        id: bookingsList[0].id,
-                        status: bookingsList[0].status,
-                        paymentStatus: bookingsList[0].paymentStatus,
-                        actualStatus: getActualBookingStatus(bookingsList[0])
-                    } : null
+                // Filter to only show meaningful bookings (paid or completed)
+                const meaningfulBookings = bookingsList.filter(booking => {
+                    const status = getSimpleStatus(booking);
+                    return status === 'confirmed' || status === 'completed' || status === 'cancelled';
                 });
 
-                // 🔧 FIXED: Process bookings with real status
-                const processedBookings = bookingsList.map(booking => ({
-                    ...booking,
-                    // Add computed fields for easier filtering
-                    actualStatus: getActualBookingStatus(booking),
-                    needsPayment: booking.paymentStatus === 'pending' || booking.paymentStatus === 'failed',
-                    isActive: ['pending', 'confirmed'].includes(getActualBookingStatus(booking)),
-                    canCancel: ['pending', 'confirmed'].includes(getActualBookingStatus(booking)) &&
-                        booking.trip?.departureTime &&
-                        new Date(booking.trip.departureTime) > new Date(),
-                }));
+                // Sort by creation date (newest first)
+                meaningfulBookings.sort((a, b) =>
+                    new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+                );
 
-                setAllBookings(processedBookings);
-                calculateRealStats(processedBookings);
-
+                setBookings(meaningfulBookings);
             } else {
-                const errorMessage = response.message || 'Failed to load bookings';
-                console.error('❌ Bookings API error:', errorMessage);
-                setError(errorMessage);
-                setAllBookings([]);
-                setStats({ total: 0, pending: 0, confirmed: 0, completed: 0, cancelled: 0 });
+                setError(response.message || 'Failed to load bookings');
+                setBookings([]);
             }
         } catch (err: any) {
-            console.error('❌ Error fetching bookings:', err);
-
-            let errorMessage = 'Failed to load bookings. Please try again.';
-            if (err.response?.status === 401) {
-                errorMessage = 'Authentication failed. Please log in again.';
-            } else if (err.response?.status >= 500) {
-                errorMessage = 'Server error. Please try again in a few minutes.';
-            } else if (!err.response) {
-                errorMessage = 'Network error. Please check your connection.';
-            }
-
-            setError(errorMessage);
-            setAllBookings([]);
-            setStats({ total: 0, pending: 0, confirmed: 0, completed: 0, cancelled: 0 });
+            console.error('Error fetching bookings:', err);
+            setError('Failed to load bookings. Please try again.');
+            setBookings([]);
         } finally {
             setLoading(false);
             setRefreshing(false);
         }
     }, []);
 
-    // 🔧 FIXED: Real stats calculation based on actual booking status
-    const calculateRealStats = useCallback((bookingsList: Booking[]) => {
-        const realStats = {
-            total: bookingsList.length,
-            pending: 0,
-            confirmed: 0,
-            completed: 0,
-            cancelled: 0,
-        };
-
-        bookingsList.forEach(booking => {
-            const actualStatus = getActualBookingStatus(booking);
-            realStats[actualStatus]++;
-        });
-
-        setStats(realStats);
-        console.log('📊 Real booking stats calculated:', realStats);
-    }, []);
-
-    // 🔧 FIXED: Working filter implementation
-    useEffect(() => {
-        if (selectedFilter === 'all') {
-            setFilteredBookings(allBookings);
-        } else {
-            const filtered = allBookings.filter(booking => {
-                const actualStatus = getActualBookingStatus(booking);
-                return actualStatus === selectedFilter;
-            });
-            setFilteredBookings(filtered);
-            console.log(`🔍 Filtered bookings for ${selectedFilter}:`, filtered.length);
-        }
-    }, [allBookings, selectedFilter]);
-
-    // Initial load
     useEffect(() => {
         fetchBookings();
     }, [fetchBookings]);
 
-    // Handle booking selection
     const handleBookingPress = useCallback((booking: Booking) => {
-        // 🔧 FIXED: Complete booking data before navigation
-        const completeBooking = {
-            ...booking,
-            actualStatus: getActualBookingStatus(booking),
-            trip: booking.trip ? {
-                ...booking.trip,
-                route: booking.trip.route ? {
-                    ...booking.trip.route,
-                    startStation: booking.trip.route.startStation || {
-                        id: 'unknown',
-                        name: 'Departure Station',
-                        address: '123 Main Street',
-                        city: 'Tunis',
-                        state: 'Tunis Governorate',
-                        zipCode: '1000',
-                        capacity: 100,
-                        isActive: true,
-                        amenities: {},
-                    },
-                    endStation: booking.trip.route.endStation || {
-                        id: 'unknown',
-                        name: 'Destination Station',
-                        address: '456 Destination Ave',
-                        city: 'Sfax',
-                        state: 'Sfax Governorate',
-                        zipCode: '3000',
-                        capacity: 100,
-                        isActive: true,
-                        amenities: {},
-                    },
-                } : undefined,
-            } : undefined,
-        };
-
         router.push({
             pathname: '/(passenger)/bookings/[id]',
             params: {
                 id: booking.id,
-                bookingData: JSON.stringify(completeBooking)
+                bookingData: JSON.stringify(booking)
             }
         });
     }, [router]);
 
-    // 🔧 FIXED: Real booking actions with proper status checks
-    const handleBookingAction = useCallback((booking: Booking, action: 'cancel' | 'retry_payment' | 'view_trip') => {
-        const actualStatus = getActualBookingStatus(booking);
-
-        switch (action) {
-            case 'cancel':
-                if (!['pending', 'confirmed'].includes(actualStatus)) {
-                    Alert.alert('Cannot Cancel', 'This booking cannot be cancelled anymore.');
-                    return;
-                }
-
-                Alert.alert(
-                    'Cancel Booking',
-                    `Are you sure you want to cancel booking ${booking.bookingReference}?`,
-                    [
-                        { text: 'No', style: 'cancel' },
-                        {
-                            text: 'Yes, Cancel',
-                            style: 'destructive',
-                            onPress: () => {
-                                Alert.alert('Info', 'Cancel booking functionality coming soon');
-                            }
-                        }
-                    ]
-                );
-                break;
-
-            case 'retry_payment':
-                if (booking.paymentStatus !== 'pending' && booking.paymentStatus !== 'failed') {
-                    Alert.alert('Payment Complete', 'This booking has already been paid for.');
-                    return;
-                }
-
-                router.push({
-                    pathname: '/(passenger)/payment',
-                    params: {
-                        bookingId: booking.id,
-                        amount: booking.amount?.toString() || '0',
-                        bookingReference: booking.bookingReference,
-                        tripData: booking.trip ? JSON.stringify(booking.trip) : undefined,
-                    }
-                });
-                break;
-
-            case 'view_trip':
-                if (booking.trip) {
-                    const startName = booking.trip.route?.startStation?.name || 'Departure';
-                    const endName = booking.trip.route?.endStation?.name || 'Destination';
-                    Alert.alert('Trip Details', `Route: ${startName} → ${endName}\nCapacity: ${booking.trip.capacity} seats`);
-                } else {
-                    Alert.alert('Trip Details', 'Trip information not available');
-                }
-                break;
-        }
-    }, [router]);
-
-    // Handle pull to refresh
-    const onRefresh = useCallback(() => {
-        fetchBookings(true);
-    }, [fetchBookings]);
-
-    // Handle retry
-    const onRetry = useCallback(() => {
-        fetchBookings();
-    }, [fetchBookings]);
-
-    // Render booking item with real status
     const renderBookingItem = useCallback(({ item }: { item: Booking }) => (
-        <BookingCard
+        <SimpleBookingCard
             booking={item}
             onPress={() => handleBookingPress(item)}
-            onAction={(action) => handleBookingAction(item, action)}
         />
-    ), [handleBookingPress, handleBookingAction]);
+    ), [handleBookingPress]);
 
-    // Loading state
-    if (loading && allBookings.length === 0 && !error) {
+    const renderEmpty = () => (
+        <View style={styles.emptyContainer}>
+            <MaterialIcons name="confirmation-number" size={64} color="#ccc" />
+            <Text style={styles.emptyTitle}>No Bookings Yet</Text>
+            <Text style={styles.emptyText}>
+                Your confirmed bookings will appear here after you complete payment.
+            </Text>
+            <TouchableOpacity
+                style={styles.bookTripButton}
+                onPress={() => router.push('/(passenger)/home')}
+            >
+                <MaterialIcons name="add" size={20} color="white" />
+                <Text style={styles.bookTripButtonText}>Book Your First Trip</Text>
+            </TouchableOpacity>
+        </View>
+    );
+
+    if (loading && bookings.length === 0) {
         return (
             <View style={styles.container}>
-                <BookingsHeader
-                    stats={stats}
-                    onCreateBooking={() => router.push('/(passenger)/home')}
-                />
+                <View style={styles.header}>
+                    <Text style={styles.headerTitle}>My Bookings</Text>
+                    <TouchableOpacity onPress={() => router.push('/(passenger)/home')}>
+                        <MaterialIcons name="add" size={24} color="#0066cc" />
+                    </TouchableOpacity>
+                </View>
                 <View style={styles.centered}>
                     <ActivityIndicator size="large" color="#0066cc" />
                     <Text style={styles.loadingText}>Loading your bookings...</Text>
@@ -342,18 +273,20 @@ export default function BookingsScreen() {
         );
     }
 
-    // Error state
-    if (error && allBookings.length === 0) {
+    if (error && bookings.length === 0) {
         return (
             <View style={styles.container}>
-                <BookingsHeader
-                    stats={stats}
-                    onCreateBooking={() => router.push('/(passenger)/home')}
-                />
+                <View style={styles.header}>
+                    <Text style={styles.headerTitle}>My Bookings</Text>
+                    <TouchableOpacity onPress={() => router.push('/(passenger)/home')}>
+                        <MaterialIcons name="add" size={24} color="#0066cc" />
+                    </TouchableOpacity>
+                </View>
                 <View style={styles.centered}>
                     <MaterialIcons name="error-outline" size={64} color="#f44336" />
+                    <Text style={styles.errorTitle}>Failed to Load</Text>
                     <Text style={styles.errorText}>{error}</Text>
-                    <TouchableOpacity style={styles.retryButton} onPress={onRetry}>
+                    <TouchableOpacity style={styles.retryButton} onPress={() => fetchBookings()}>
                         <Text style={styles.retryButtonText}>🔄 Retry</Text>
                     </TouchableOpacity>
                 </View>
@@ -363,39 +296,275 @@ export default function BookingsScreen() {
 
     return (
         <View style={styles.container}>
-            <BookingsHeader
-                stats={stats}
-                onCreateBooking={() => router.push('/(passenger)/home')}
-            />
+            {/* Simple Header */}
+            <View style={styles.header}>
+                <Text style={styles.headerTitle}>My Bookings</Text>
+                <View style={styles.headerRight}>
+                    <Text style={styles.bookingCount}>{bookings.length} booking{bookings.length !== 1 ? 's' : ''}</Text>
+                    <TouchableOpacity
+                        style={styles.addButton}
+                        onPress={() => router.push('/(passenger)/home')}
+                    >
+                        <MaterialIcons name="add" size={20} color="white" />
+                    </TouchableOpacity>
+                </View>
+            </View>
 
-            <BookingsFilter
-                selectedFilter={selectedFilter}
-                onFilterChange={setSelectedFilter}
-                stats={stats}
-            />
-
+            {/* Simple Bookings List */}
             <FlatList
-                data={filteredBookings}
+                data={bookings}
                 keyExtractor={(item) => item.id}
                 renderItem={renderBookingItem}
                 refreshControl={
                     <RefreshControl
                         refreshing={refreshing}
-                        onRefresh={onRefresh}
+                        onRefresh={() => fetchBookings(true)}
                         colors={['#0066cc']}
                     />
                 }
                 showsVerticalScrollIndicator={false}
                 contentContainerStyle={styles.listContainer}
-                ListEmptyComponent={
-                    <BookingsEmpty
-                        filter={selectedFilter}
-                        onCreateBooking={() => router.push('/(passenger)/home')}
-                        onClearFilter={() => setSelectedFilter('all')}
-                    />
-                }
+                ListEmptyComponent={renderEmpty}
                 ItemSeparatorComponent={() => <View style={styles.separator} />}
             />
         </View>
     );
 }
+
+const styles = StyleSheet.create({
+    container: {
+        flex: 1,
+        backgroundColor: '#f8f9fa',
+    },
+
+    header: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        backgroundColor: 'white',
+        padding: 16,
+        paddingTop: 60,
+        borderBottomWidth: 1,
+        borderBottomColor: '#eee',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+        elevation: 3,
+    },
+
+    headerTitle: {
+        fontSize: 24,
+        fontWeight: 'bold',
+        color: '#333',
+    },
+
+    headerRight: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+
+    bookingCount: {
+        fontSize: 14,
+        color: '#666',
+        marginRight: 12,
+    },
+
+    addButton: {
+        backgroundColor: '#0066cc',
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+
+    centered: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: 20,
+    },
+
+    loadingText: {
+        marginTop: 12,
+        fontSize: 16,
+        color: '#666',
+    },
+
+    errorTitle: {
+        fontSize: 20,
+        fontWeight: 'bold',
+        color: '#f44336',
+        marginBottom: 8,
+        marginTop: 16,
+    },
+
+    errorText: {
+        fontSize: 14,
+        color: '#666',
+        textAlign: 'center',
+        marginBottom: 20,
+    },
+
+    retryButton: {
+        backgroundColor: '#0066cc',
+        paddingHorizontal: 20,
+        paddingVertical: 12,
+        borderRadius: 8,
+    },
+
+    retryButtonText: {
+        color: 'white',
+        fontSize: 16,
+        fontWeight: '600',
+    },
+
+    listContainer: {
+        padding: 16,
+        paddingBottom: 32,
+    },
+
+    separator: {
+        height: 12,
+    },
+
+    // Booking Card Styles
+    bookingCard: {
+        backgroundColor: 'white',
+        borderRadius: 12,
+        padding: 16,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+        elevation: 3,
+    },
+
+    cardHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 12,
+    },
+
+    bookingReference: {
+        fontSize: 16,
+        fontWeight: 'bold',
+        color: '#0066cc',
+    },
+
+    statusBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 12,
+    },
+
+    statusText: {
+        fontSize: 12,
+        fontWeight: '600',
+        marginLeft: 4,
+    },
+
+    routeContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 12,
+        backgroundColor: '#e3f2fd',
+        padding: 8,
+        borderRadius: 6,
+    },
+
+    routeText: {
+        fontSize: 16,
+        fontWeight: '600',
+        color: '#0066cc',
+        marginLeft: 8,
+    },
+
+    detailsRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        marginBottom: 12,
+    },
+
+    detailItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        flex: 1,
+    },
+
+    detailText: {
+        fontSize: 12,
+        color: '#666',
+        marginLeft: 4,
+    },
+
+    amountContainer: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingTop: 12,
+        borderTopWidth: 1,
+        borderTopColor: '#eee',
+    },
+
+    amountLabel: {
+        fontSize: 14,
+        color: '#666',
+    },
+
+    amountValue: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        color: '#28a745',
+    },
+
+    // Empty State Styles
+    emptyContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: 40,
+        minHeight: 400,
+    },
+
+    emptyTitle: {
+        fontSize: 22,
+        fontWeight: 'bold',
+        color: '#333',
+        marginTop: 16,
+        marginBottom: 8,
+    },
+
+    emptyText: {
+        fontSize: 16,
+        color: '#666',
+        textAlign: 'center',
+        lineHeight: 22,
+        marginBottom: 24,
+    },
+
+    bookTripButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#0066cc',
+        paddingHorizontal: 20,
+        paddingVertical: 12,
+        borderRadius: 8,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+        elevation: 3,
+    },
+
+    bookTripButtonText: {
+        color: 'white',
+        fontSize: 16,
+        fontWeight: '600',
+        marginLeft: 8,
+    },
+});

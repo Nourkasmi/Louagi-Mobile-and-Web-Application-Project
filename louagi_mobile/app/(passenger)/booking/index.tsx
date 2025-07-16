@@ -1,7 +1,9 @@
-// app/(passenger)/booking/index.tsx - CLEAN Entry Point
+// app/(passenger)/booking/index.tsx - SIMPLIFIED VERSION
+// Replacing your existing complex booking flow with simple Book + Pay
+
 import React from 'react';
-import SimplifiedBookingScreen from './components/BookingScreen';
+import BookingScreen from './components/BookingScreen';
 
 export default function BookingIndex() {
-    return <SimplifiedBookingScreen />;
+    return <BookingScreen />;
 }

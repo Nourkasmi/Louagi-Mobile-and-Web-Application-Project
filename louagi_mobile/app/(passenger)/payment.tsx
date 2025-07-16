@@ -1,11 +1,10 @@
-// app/(passenger)/payment.tsx - UNIFIED Payment Screen
+// app/(passenger)/payment.tsx - SIMPLIFIED VERSION WITHOUT SKIP OPTION
 import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
   TouchableOpacity,
   StyleSheet,
-  Alert,
   ActivityIndicator,
   ScrollView,
   StatusBar,
@@ -14,7 +13,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
 import { getBookingById, type Booking } from '../../src/services/api';
 
-// Mock payment service for demonstration
+// Simple mock payment cards
 const MOCK_CARDS = [
   {
     id: 'visa_4242',
@@ -52,7 +51,9 @@ const MOCK_CARDS = [
   },
 ];
 
-export default function UnifiedPaymentScreen() {
+type PaymentStep = 'select' | 'processing' | 'success' | 'failed';
+
+export default function PaymentScreen() {
   const {
     bookingId,
     amount,
@@ -66,22 +67,31 @@ export default function UnifiedPaymentScreen() {
   }>();
 
   const router = useRouter();
-
-  // State management
   const [booking, setBooking] = useState<Booking | null>(null);
   const [loading, setLoading] = useState(true);
+  const [step, setStep] = useState<PaymentStep>('select');
   const [processing, setProcessing] = useState(false);
-  const [step, setStep] = useState<'select' | 'processing' | 'success' | 'failed'>('select');
   const [selectedCard, setSelectedCard] = useState<typeof MOCK_CARDS[0] | null>(null);
 
-  // Parse trip data if available
-  const tripInfo = tripData ? JSON.parse(tripData) : null;
-
-  // Fetch booking details
+  // Load booking data
   useEffect(() => {
-    const fetchBookingData = async () => {
+    const loadBooking = async () => {
       try {
         setLoading(true);
+
+        // Try to use provided trip data first
+        if (tripData) {
+          try {
+            const parsedData = JSON.parse(tripData);
+            setBooking(parsedData);
+            setLoading(false);
+            return;
+          } catch (error) {
+            console.warn('Failed to parse trip data');
+          }
+        }
+
+        // Fallback to API
         if (bookingId) {
           const response = await getBookingById(bookingId);
           if (response.success && response.data) {
@@ -89,18 +99,14 @@ export default function UnifiedPaymentScreen() {
           }
         }
       } catch (error) {
-        console.error('Error fetching booking:', error);
+        console.error('Error loading booking:', error);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchBookingData();
-  }, [bookingId]);
-
-  // Get display data
-  const displayData = booking || tripInfo;
-  const trip = displayData?.trip || tripInfo;
+    loadBooking();
+  }, [bookingId, tripData]);
 
   // Process payment with selected card
   const processPayment = async (card: typeof MOCK_CARDS[0]) => {
@@ -129,103 +135,15 @@ export default function UnifiedPaymentScreen() {
     }
   };
 
-  // Show test card info
-  const showTestCardInfo = () => {
-    const cardInfo = MOCK_CARDS.map(card =>
-      `${card.success ? '✅' : '❌'} ${card.brand} •••• ${card.last4} - ${card.description}`
-    ).join('\n');
-
-    Alert.alert(
-      '💳 Available Test Cards',
-      `Use these mock cards for testing:\n\n${cardInfo}\n\n🎭 No real money will be charged!`,
-      [{ text: 'Got it!', style: 'default' }]
-    );
-  };
-
   // Navigation handlers
   const handleComplete = () => {
     if (step === 'success') {
-      // Ensure we have complete booking data with payment status updated
+      // Go to booking details with updated payment status
       const updatedBooking = {
-        ...displayData,
+        ...booking,
         paymentStatus: 'completed',
         status: 'confirmed',
-        // Ensure we have complete trip and route data
-        trip: trip ? {
-          ...trip,
-          route: trip.route ? {
-            ...trip.route,
-            startStation: trip.route.startStation || {
-              id: 'temp-start',
-              name: 'Departure Station',
-              address: '123 Main Street',
-              city: 'Tunis',
-              state: 'Tunis Governorate',
-              zipCode: '1000',
-              capacity: 100,
-              isActive: true,
-              amenities: {},
-            },
-            endStation: trip.route.endStation || {
-              id: 'temp-end',
-              name: 'Destination Station',
-              address: '456 Destination Ave',
-              city: 'Sfax',
-              state: 'Sfax Governorate',
-              zipCode: '3000',
-              capacity: 100,
-              isActive: true,
-              amenities: {},
-            },
-          } : {
-            id: 'temp-route',
-            startId: 'temp-start',
-            endId: 'temp-end',
-            distance: 150,
-            basePrice: parseFloat(amount || '36'),
-            estimatedDuration: 180,
-            isActive: true,
-            description: 'Trip Route',
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-            startStation: {
-              id: 'temp-start',
-              name: 'Departure Station',
-              address: '123 Main Street',
-              city: 'Tunis',
-              state: 'Tunis Governorate',
-              zipCode: '1000',
-              capacity: 100,
-              isActive: true,
-              amenities: {},
-            },
-            endStation: {
-              id: 'temp-end',
-              name: 'Destination Station',
-              address: '456 Destination Ave',
-              city: 'Sfax',
-              state: 'Sfax Governorate',
-              zipCode: '3000',
-              capacity: 100,
-              isActive: true,
-              amenities: {},
-            },
-          }
-        } : undefined,
-        id: bookingId,
-        bookingReference: bookingReference,
-        amount: parseFloat(amount || '36'),
-        seats: booking?.seats || 1,
-        createdAt: booking?.createdAt || new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
       };
-
-      console.log('✅ Navigating to booking details with complete data:', {
-        id: updatedBooking.id,
-        hasTrip: !!updatedBooking.trip,
-        hasRoute: !!updatedBooking.trip?.route,
-        paymentStatus: updatedBooking.paymentStatus,
-      });
 
       router.replace({
         pathname: '/(passenger)/bookings/[id]',
@@ -240,60 +158,24 @@ export default function UnifiedPaymentScreen() {
     }
   };
 
-  const handleSkip = () => {
-    Alert.alert(
-      'Skip Payment?',
-      'You can complete payment later from "My Bookings".',
-      [
-        { text: 'Complete Now', style: 'default' },
-        {
-          text: 'Skip for Now',
-          style: 'cancel',
-          onPress: () => {
-            // Create complete booking data even when skipping payment
-            const skippedBooking = {
-              ...displayData,
-              paymentStatus: 'pending',
-              status: 'pending',
-              trip: trip ? {
-                ...trip,
-                route: trip.route || {
-                  id: 'temp-route',
-                  description: 'Trip Route',
-                  startStation: { id: 'temp-start', name: 'Departure Station' },
-                  endStation: { id: 'temp-end', name: 'Destination Station' },
-                }
-              } : undefined,
-              id: bookingId,
-              bookingReference: bookingReference,
-              amount: parseFloat(amount || '36'),
-            };
+  // Get route display
+  const getRouteDisplay = () => {
+    if (!booking?.trip?.route) return 'Trip Route';
 
-            router.replace({
-              pathname: '/(passenger)/bookings/[id]',
-              params: {
-                id: bookingId,
-                bookingData: JSON.stringify(skippedBooking)
-              }
-            });
-          }
-        }
-      ]
-    );
+    const start = booking.trip.route.startStation?.name || 'Departure';
+    const end = booking.trip.route.endStation?.name || 'Destination';
+    return `${start} → ${end}`;
   };
 
-  // Render header
+  // Render components
   const renderHeader = () => (
     <View style={styles.header}>
       <StatusBar barStyle="light-content" backgroundColor="#ff9800" />
-
       <View style={styles.headerTop}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
           <MaterialIcons name="arrow-back" size={24} color="#ffffff" />
         </TouchableOpacity>
-
         <Text style={styles.headerTitle}>Complete Payment</Text>
-
         <View style={styles.mockIndicator}>
           <View style={styles.statusDot} />
           <Text style={styles.mockText}>Mock</Text>
@@ -302,7 +184,6 @@ export default function UnifiedPaymentScreen() {
     </View>
   );
 
-  // Render booking summary
   const renderBookingSummary = () => (
     <View style={styles.summaryCard}>
       <Text style={styles.summaryTitle}>Payment Summary</Text>
@@ -312,36 +193,15 @@ export default function UnifiedPaymentScreen() {
         <Text style={styles.summaryValue}>#{bookingReference}</Text>
       </View>
 
-      {trip && (
-        <>
-          <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>Route</Text>
-            <Text style={styles.summaryValue}>
-              {trip.route?.startStation?.name || 'Departure'} → {trip.route?.endStation?.name || 'Destination'}
-            </Text>
-          </View>
+      <View style={styles.summaryRow}>
+        <Text style={styles.summaryLabel}>Route</Text>
+        <Text style={styles.summaryValue}>{getRouteDisplay()}</Text>
+      </View>
 
-          <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>Departure</Text>
-            <Text style={styles.summaryValue}>
-              {trip.departureTime ?
-                new Date(trip.departureTime).toLocaleString('en-US', {
-                  weekday: 'short',
-                  month: 'short',
-                  day: 'numeric',
-                  hour: '2-digit',
-                  minute: '2-digit',
-                }) : 'When trip is full'
-              }
-            </Text>
-          </View>
-
-          <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>Seats</Text>
-            <Text style={styles.summaryValue}>{booking?.seats || '1'}</Text>
-          </View>
-        </>
-      )}
+      <View style={styles.summaryRow}>
+        <Text style={styles.summaryLabel}>Seats</Text>
+        <Text style={styles.summaryValue}>{booking?.seats || '1'}</Text>
+      </View>
 
       <View style={[styles.summaryRow, styles.totalRow]}>
         <Text style={styles.totalLabel}>Total Amount</Text>
@@ -350,7 +210,6 @@ export default function UnifiedPaymentScreen() {
     </View>
   );
 
-  // Render card selection
   const renderCardSelection = () => (
     <View style={styles.paymentSection}>
       <Text style={styles.sectionTitle}>Choose Payment Method</Text>
@@ -388,18 +247,15 @@ export default function UnifiedPaymentScreen() {
         </TouchableOpacity>
       ))}
 
-      <TouchableOpacity style={styles.infoButton} onPress={showTestCardInfo}>
-        <MaterialIcons name="info" size={20} color="#ff9800" />
-        <Text style={styles.infoButtonText}>View Test Card Details</Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity style={styles.skipButton} onPress={handleSkip}>
-        <Text style={styles.skipButtonText}>Complete Payment Later</Text>
-      </TouchableOpacity>
+      <View style={styles.infoCard}>
+        <MaterialIcons name="info" size={16} color="#ff9800" />
+        <Text style={styles.infoText}>
+          This is a test environment - no real money will be charged!
+        </Text>
+      </View>
     </View>
   );
 
-  // Render processing state
   const renderProcessing = () => (
     <View style={styles.centeredContent}>
       <ActivityIndicator size="large" color="#ff9800" />
@@ -411,7 +267,6 @@ export default function UnifiedPaymentScreen() {
     </View>
   );
 
-  // Render success state
   const renderSuccess = () => (
     <View style={styles.centeredContent}>
       <View style={styles.successIcon}>
@@ -436,7 +291,6 @@ export default function UnifiedPaymentScreen() {
     </View>
   );
 
-  // Render failed state
   const renderFailed = () => (
     <View style={styles.centeredContent}>
       <View style={styles.errorIcon}>
@@ -460,7 +314,7 @@ export default function UnifiedPaymentScreen() {
     </View>
   );
 
-  // Loading state
+  // Main render
   if (loading) {
     return (
       <View style={styles.container}>
@@ -473,8 +327,7 @@ export default function UnifiedPaymentScreen() {
     );
   }
 
-  // Error state
-  if (!booking && !tripInfo) {
+  if (!booking) {
     return (
       <View style={styles.container}>
         {renderHeader()}
@@ -510,17 +363,6 @@ export default function UnifiedPaymentScreen() {
         {step === 'processing' && renderProcessing()}
         {step === 'success' && renderSuccess()}
         {step === 'failed' && renderFailed()}
-
-        {/* Additional info */}
-        {step === 'select' && (
-          <View style={styles.infoCard}>
-            <Text style={styles.infoTitle}>🎭 Test Environment Info:</Text>
-            <Text style={styles.infoText}>• No real payment processing</Text>
-            <Text style={styles.infoText}>• All transactions are simulated</Text>
-            <Text style={styles.infoText}>• Use test cards provided above</Text>
-            <Text style={styles.infoText}>• Trip starts when capacity is full</Text>
-          </View>
-        )}
       </ScrollView>
     </View>
   );
@@ -532,7 +374,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#f8f9fa',
   },
 
-  // Header
   header: {
     backgroundColor: '#ff9800',
     paddingBottom: 20,
@@ -582,7 +423,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 
-  // Content
   content: {
     flex: 1,
   },
@@ -602,7 +442,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 
-  // Mock notice
   mockNoticeCard: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -622,7 +461,6 @@ const styles = StyleSheet.create({
     flex: 1,
   },
 
-  // Summary card
   summaryCard: {
     backgroundColor: 'white',
     margin: 16,
@@ -682,7 +520,6 @@ const styles = StyleSheet.create({
     color: '#ff9800',
   },
 
-  // Payment section
   paymentSection: {
     margin: 16,
   },
@@ -694,7 +531,6 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
 
-  // Card options
   cardOption: {
     backgroundColor: 'white',
     padding: 16,
@@ -747,77 +583,25 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 
-  // Buttons
-  infoButton: {
+  infoCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
     backgroundColor: '#fff3cd',
     padding: 12,
     borderRadius: 8,
     marginTop: 16,
-    marginBottom: 16,
     borderWidth: 1,
     borderColor: '#ff9800',
   },
 
-  infoButtonText: {
+  infoText: {
     color: '#856404',
     fontSize: 14,
     fontWeight: '500',
-    marginLeft: 4,
-  },
-
-  skipButton: {
-    backgroundColor: 'transparent',
-    padding: 16,
-    borderRadius: 8,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#ff9800',
-  },
-
-  skipButtonText: {
-    color: '#ff9800',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-
-  primaryButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#ff9800',
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 8,
-    marginTop: 20,
-  },
-
-  primaryButtonText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: '600',
     marginLeft: 8,
+    flex: 1,
   },
 
-  retryButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#dc3545',
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 8,
-    marginTop: 20,
-  },
-
-  retryButtonText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: '600',
-    marginLeft: 8,
-  },
-
-  // Processing state
   processingTitle: {
     fontSize: 20,
     fontWeight: '600',
@@ -838,7 +622,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 
-  // Success state
   successIcon: {
     marginBottom: 20,
   },
@@ -872,7 +655,6 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
 
-  // Error state
   errorIcon: {
     marginBottom: 20,
   },
@@ -910,26 +692,37 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
 
-  // Info card
-  infoCard: {
-    backgroundColor: '#fff3cd',
-    margin: 16,
-    padding: 16,
+  primaryButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#ff9800',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
     borderRadius: 8,
-    borderLeftWidth: 4,
-    borderLeftColor: '#ff9800',
+    marginTop: 20,
   },
 
-  infoTitle: {
+  primaryButtonText: {
+    color: 'white',
     fontSize: 16,
     fontWeight: '600',
-    color: '#856404',
-    marginBottom: 12,
+    marginLeft: 8,
   },
 
-  infoText: {
-    fontSize: 14,
-    color: '#856404',
-    marginBottom: 4,
+  retryButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#dc3545',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
+    marginTop: 20,
+  },
+
+  retryButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
+    marginLeft: 8,
   },
 });

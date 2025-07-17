@@ -1,62 +1,307 @@
-// app/(passenger)/home/index.tsx - UPDATED: Direct Navigation to Station Search
+// app/(passenger)/home/index.tsx - ENHANCED VERSION with Real Data & Perfect UI/UX
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
-  FlatList,
+  ScrollView,
   TouchableOpacity,
   ActivityIndicator,
   RefreshControl,
-  ScrollView,
   Alert,
   Platform,
-  Dimensions,
   StatusBar,
+  Animated,
+  Dimensions,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useDispatch, useSelector } from 'react-redux';
 import { MaterialIcons } from '@expo/vector-icons';
 import { logout } from '../../../src/store/authSlice';
-import { getStations, getMyBookings, type Station, type Booking } from '../../../src/services/api';
+import {
+  getStations,
+  getMyBookings,
+  getPassengerAnalytics,
+  type Station,
+  type Booking
+} from '../../../src/services/api';
 import { RootState } from '../../../src/store/store';
 import { styles } from './index.styles';
 
-const { width } = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
 
-export default function PassengerHomeScreen() {
+// Enhanced Analytics Interface
+interface EnhancedAnalytics {
+  totalTrips: number;
+  completedTrips: number;
+  pendingPayments: number;
+  totalSpent: number;
+  averagePerTrip: number;
+  monthlySpending: Array<{ month: string; amount: number }>;
+  favoriteRoute: string;
+  timesSaved: number; // hours saved vs other transport
+  co2Saved: number; // kg CO2 saved
+  successRate: number; // completion rate
+}
+
+// Quick Action Interface
+interface QuickAction {
+  id: string;
+  title: string;
+  subtitle: string;
+  icon: string;
+  color: string;
+  onPress: () => void;
+  badge?: number;
+  disabled?: boolean;
+}
+
+export default function EnhancedPassengerHomeScreen() {
   // State management
   const [stations, setStations] = useState<Station[]>([]);
   const [recentBookings, setRecentBookings] = useState<Booking[]>([]);
+  const [nextTrip, setNextTrip] = useState<Booking | null>(null);
+  const [analytics, setAnalytics] = useState<EnhancedAnalytics | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [quickStats, setQuickStats] = useState({
-    totalTrips: 0,
-    pendingPayments: 0,
-    nextTrip: null as Booking | null,
-    savedAmount: 0,
-  });
+  const [headerAnimatedValue] = useState(new Animated.Value(0));
 
   const router = useRouter();
   const dispatch = useDispatch();
   const auth = useSelector((state: RootState) => state.auth);
 
-  // Helper functions
-  const getFirstName = useCallback(() => {
-    if (auth.user?.username) {
-      return auth.user.username.split(' ')[0];
-    }
-    return 'Traveler';
+  // Memoized computed values
+  const firstName = useMemo(() => {
+    return auth.user?.username?.split(' ')[0] || 'Traveler';
   }, [auth.user?.username]);
 
-  const getGreeting = useCallback(() => {
+  const greeting = useMemo(() => {
     const hour = new Date().getHours();
     if (hour < 12) return 'Good morning';
     if (hour < 17) return 'Good afternoon';
     return 'Good evening';
   }, []);
 
+  const isNewUser = useMemo(() => {
+    return analytics?.totalTrips === 0;
+  }, [analytics?.totalTrips]);
+
+  // Enhanced data fetching with real analytics
+  const fetchEnhancedData = useCallback(async (isRefresh = false) => {
+    try {
+      if (isRefresh) setRefreshing(true);
+      else setLoading(true);
+
+      setError(null);
+
+      // Parallel data fetching for better performance
+      const [stationsResponse, bookingsResponse, analyticsResponse] = await Promise.allSettled([
+        getStations({ limit: 12 }),
+        getMyBookings({ limit: 10 }),
+        getPassengerAnalytics(6) // Last 6 months
+      ]);
+
+      // Process stations
+      if (stationsResponse.status === 'fulfilled' && stationsResponse.value.success) {
+        const stationsData = stationsResponse.value.data?.stations || [];
+        setStations(stationsData);
+      }
+
+      // Process bookings and extract insights
+      let enhancedAnalytics: EnhancedAnalytics = {
+        totalTrips: 0,
+        completedTrips: 0,
+        pendingPayments: 0,
+        totalSpent: 0,
+        averagePerTrip: 0,
+        monthlySpending: [],
+        favoriteRoute: '',
+        timesSaved: 0,
+        co2Saved: 0,
+        successRate: 0
+      };
+
+      if (bookingsResponse.status === 'fulfilled' && bookingsResponse.value.success) {
+        const bookingsData = bookingsResponse.value.data?.bookings || [];
+        setRecentBookings(bookingsData.slice(0, 3));
+
+        // Find next upcoming trip
+        const upcomingTrips = bookingsData
+          .filter(b => b.status === 'confirmed' && b.trip?.departureTime)
+          .sort((a, b) => new Date(a.trip!.departureTime).getTime() - new Date(b.trip!.departureTime).getTime());
+
+        setNextTrip(upcomingTrips[0] || null);
+
+        // Calculate enhanced analytics
+        const completed = bookingsData.filter(b => b.status === 'completed');
+        const pending = bookingsData.filter(b => b.paymentStatus === 'pending');
+
+        enhancedAnalytics = {
+          totalTrips: bookingsData.length,
+          completedTrips: completed.length,
+          pendingPayments: pending.length,
+          totalSpent: completed.reduce((sum, b) => sum + (b.amount || 0), 0),
+          averagePerTrip: completed.length > 0 ? completed.reduce((sum, b) => sum + (b.amount || 0), 0) / completed.length : 0,
+          monthlySpending: calculateMonthlySpending(completed),
+          favoriteRoute: calculateFavoriteRoute(completed),
+          timesSaved: completed.length * 0.75, // Assume 45min saved per trip
+          co2Saved: completed.length * 2.3, // Assume 2.3kg CO2 saved per trip
+          successRate: bookingsData.length > 0 ? (completed.length / bookingsData.length) * 100 : 0
+        };
+      }
+
+      // Use API analytics if available, otherwise use calculated
+      if (analyticsResponse.status === 'fulfilled' && analyticsResponse.value.success) {
+        const apiAnalytics = analyticsResponse.value.data?.analytics?.summary;
+        if (apiAnalytics) {
+          enhancedAnalytics = {
+            ...enhancedAnalytics,
+            totalTrips: apiAnalytics.totalBookings || enhancedAnalytics.totalTrips,
+            completedTrips: apiAnalytics.completedTrips || enhancedAnalytics.completedTrips,
+            totalSpent: apiAnalytics.totalSpent || enhancedAnalytics.totalSpent,
+            averagePerTrip: apiAnalytics.averageSpentPerTrip || enhancedAnalytics.averagePerTrip,
+          };
+        }
+      }
+
+      setAnalytics(enhancedAnalytics);
+
+    } catch (err: any) {
+      console.error('Error fetching enhanced data:', err);
+      setError('Failed to load dashboard data');
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, []);
+
+  // Helper functions for analytics
+  const calculateMonthlySpending = (bookings: Booking[]) => {
+    const monthly = bookings.reduce((acc, booking) => {
+      const month = new Date(booking.createdAt).toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+      acc[month] = (acc[month] || 0) + (booking.amount || 0);
+      return acc;
+    }, {} as Record<string, number>);
+
+    return Object.entries(monthly)
+      .map(([month, amount]) => ({ month, amount }))
+      .sort((a, b) => new Date(a.month).getTime() - new Date(b.month).getTime());
+  };
+
+  const calculateFavoriteRoute = (bookings: Booking[]) => {
+    const routes = bookings.reduce((acc, booking) => {
+      if (booking.trip?.route) {
+        const start = booking.trip.route.startStation?.name || 'Unknown';
+        const end = booking.trip.route.endStation?.name || 'Unknown';
+        const route = `${start} → ${end}`;
+        acc[route] = (acc[route] || 0) + 1;
+      }
+      return acc;
+    }, {} as Record<string, number>);
+
+    const sortedRoutes = Object.entries(routes).sort(([, a], [, b]) => b - a);
+    return sortedRoutes.length > 0 ? sortedRoutes[0][0] : 'No trips yet';
+  };
+
+  // Quick actions configuration
+  const quickActions: QuickAction[] = useMemo(() => [
+    {
+      id: 'search',
+      title: 'Book New Trip',
+      subtitle: 'Find available rides',
+      icon: 'search',
+      color: '#0066cc',
+      onPress: () => router.push('/(passenger)/search'),
+    },
+    {
+      id: 'bookings',
+      title: 'My Trips',
+      subtitle: 'View bookings',
+      icon: 'confirmation-number',
+      color: '#28a745',
+      onPress: () => router.push('/(passenger)/bookings'),
+      badge: analytics?.pendingPayments || 0,
+    },
+    {
+      id: 'support',
+      title: 'Get Help',
+      subtitle: '24/7 support',
+      icon: 'help-outline',
+      color: '#ff9800',
+      onPress: () => Alert.alert('Support', 'Email: support@louagi.com\nPhone: +216 XX XXX XXX'),
+    },
+    {
+      id: 'profile',
+      title: 'Profile',
+      subtitle: 'Account settings',
+      icon: 'person',
+      color: '#6c757d',
+      onPress: () => router.push('/(passenger)/profile'),
+    },
+  ], [analytics?.pendingPayments, router]);
+
+  // Animation for header
+  useEffect(() => {
+    Animated.timing(headerAnimatedValue, {
+      toValue: 1,
+      duration: 1000,
+      useNativeDriver: true,
+    }).start();
+  }, []);
+
+  // Initial load
+  useEffect(() => {
+    fetchEnhancedData();
+  }, [fetchEnhancedData]);
+
+  // Navigation handlers
+  const handleStationPress = useCallback((station: Station) => {
+    router.push({
+      pathname: '/(passenger)/search',
+      params: {
+        selectedStationId: station.id,
+        selectedStationName: station.name
+      }
+    });
+  }, [router]);
+
+  const handleBookingPress = useCallback((booking: Booking) => {
+    router.push({
+      pathname: '/(passenger)/bookings/[id]',
+      params: {
+        id: booking.id,
+        bookingData: JSON.stringify(booking)
+      }
+    });
+  }, [router]);
+
+  const handleLogout = useCallback(() => {
+    Alert.alert(
+      'Sign Out',
+      'Are you sure you want to sign out?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Sign Out',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await AsyncStorage.removeItem('louagi_token');
+              global.authToken = undefined;
+              dispatch(logout());
+              router.replace('/login');
+            } catch (error) {
+              dispatch(logout());
+              router.replace('/login');
+            }
+          }
+        }
+      ]
+    );
+  }, [dispatch, router]);
+
+  // Format helpers
   const formatTime = useCallback((dateString: string) => {
     try {
       return new Date(dateString).toLocaleTimeString('en-US', {
@@ -89,293 +334,221 @@ export default function PassengerHomeScreen() {
     }
   }, []);
 
-  // Fetch all data
-  const fetchData = async (isRefresh = false) => {
-    try {
-      if (isRefresh) setRefreshing(true);
-      else setLoading(true);
-
-      setError(null);
-
-      // Fetch stations and recent bookings in parallel
-      const [stationsResponse, bookingsResponse] = await Promise.all([
-        getStations({ limit: 12 }),
-        getMyBookings({ limit: 5 }),
-      ]);
-
-      // Handle stations
-      if (stationsResponse.success) {
-        const stationsData = stationsResponse.data?.stations || stationsResponse.stations || [];
-        setStations(stationsData);
+  // Render Components
+  const renderEnhancedHeader = () => (
+    <Animated.View style={[
+      enhancedStyles.heroSection,
+      {
+        opacity: headerAnimatedValue,
+        transform: [{
+          translateY: headerAnimatedValue.interpolate({
+            inputRange: [0, 1],
+            outputRange: [50, 0],
+          })
+        }]
       }
-
-      // Handle bookings and calculate stats
-      if (bookingsResponse.success) {
-        const bookingsData = bookingsResponse.data?.bookings || [];
-        setRecentBookings(bookingsData.slice(0, 3)); // Show only 3 recent
-
-        // Calculate enhanced stats
-        const completedTrips = bookingsData.filter(b => b.status === 'completed').length;
-        const pendingCount = bookingsData.filter(b => b.status === 'pending').length;
-        const savedAmount = bookingsData
-          .filter(b => b.status === 'completed')
-          .reduce((sum, b) => sum + (b.amount || 0), 0) * 0.25; // Assume 25% savings vs alternatives
-
-        const nextTrip = bookingsData
-          .filter(b => b.status === 'confirmed' && b.trip?.departureTime)
-          .sort((a, b) => new Date(a.trip!.departureTime).getTime() - new Date(b.trip!.departureTime).getTime())[0] || null;
-
-        setQuickStats({
-          totalTrips: completedTrips,
-          pendingPayments: pendingCount,
-          nextTrip,
-          savedAmount: Math.round(savedAmount),
-        });
-      }
-
-      if (!stationsResponse.success || stations.length === 0) {
-        setError('No stations available at the moment');
-      }
-    } catch (err: any) {
-      console.error('Error fetching home data:', err);
-      setError('Failed to load data. Please check your connection.');
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchData();
-  }, []);
-
-  // Navigation handlers
-  const handleBookingPress = useCallback((booking: Booking) => {
-    router.push({
-      pathname: '/(passenger)/bookings/[id]',
-      params: {
-        id: booking.id,
-        bookingData: JSON.stringify(booking)
-      }
-    });
-  }, [router]);
-
-  const handleLogout = async () => {
-    Alert.alert(
-      'Sign Out',
-      'Are you sure you want to sign out?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Sign Out',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await AsyncStorage.removeItem('louagi_token');
-              global.authToken = undefined;
-              dispatch(logout());
-              router.replace('/login');
-            } catch (error) {
-              dispatch(logout());
-              router.replace('/login');
-            }
-          }
-        }
-      ]
-    );
-  };
-
-  // 🔧 UPDATED: Direct navigation to station search
-  const handleSearchTrips = () => {
-    router.push('/(passenger)/search');
-  };
-
-  // 🔧 UPDATED: Quick station selection
-  const handleQuickStationSelect = (station: Station) => {
-    router.push({
-      pathname: '/(passenger)/search',
-      params: {
-        selectedStationId: station.id,
-        selectedStationName: station.name
-      }
-    });
-  };
-
-  // Render functions
-  const renderModernHeader = () => (
-    <View style={modernStyles.heroSection}>
+    ]}>
       <StatusBar barStyle="light-content" backgroundColor="#0066cc" />
 
-      {/* User greeting */}
-      <View style={modernStyles.userGreeting}>
-        <View style={modernStyles.greetingContent}>
-          <Text style={modernStyles.greeting}>{getGreeting()},</Text>
-          <Text style={modernStyles.userName}>{getFirstName()}! 👋</Text>
+      {/* User greeting with avatar */}
+      <View style={enhancedStyles.userSection}>
+        <View style={enhancedStyles.userInfo}>
+          <Text style={enhancedStyles.greeting}>{greeting},</Text>
+          <Text style={enhancedStyles.userName}>{firstName}! 👋</Text>
+          {isNewUser && (
+            <Text style={enhancedStyles.newUserBadge}>✨ New Member</Text>
+          )}
         </View>
 
-        <View style={modernStyles.headerActions}>
+        <View style={enhancedStyles.headerActions}>
           <TouchableOpacity
-            style={modernStyles.profileButton}
+            style={enhancedStyles.notificationButton}
+            onPress={() => Alert.alert('Notifications', 'No new notifications')}
+          >
+            <MaterialIcons name="notifications-none" size={24} color="#ffffff" />
+            {analytics?.pendingPayments ? (
+              <View style={enhancedStyles.notificationBadge}>
+                <Text style={enhancedStyles.badgeText}>{analytics.pendingPayments}</Text>
+              </View>
+            ) : null}
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={enhancedStyles.profileButton}
             onPress={() => router.push('/(passenger)/profile')}
           >
-            <View style={modernStyles.avatar}>
-              <Text style={modernStyles.avatarText}>
-                {auth.user?.username?.charAt(0).toUpperCase() || 'U'}
+            <View style={enhancedStyles.avatar}>
+              <Text style={enhancedStyles.avatarText}>
+                {firstName.charAt(0).toUpperCase()}
               </Text>
             </View>
           </TouchableOpacity>
-
-          <TouchableOpacity style={modernStyles.logoutButton} onPress={handleLogout}>
-            <MaterialIcons name="logout" size={20} color="#ffffff" />
-          </TouchableOpacity>
         </View>
       </View>
 
-      {/* 🔧 UPDATED: Enhanced Search Section */}
-      <View style={modernStyles.searchSection}>
-        <Text style={modernStyles.searchTitle}>Where are you going?</Text>
-        <Text style={modernStyles.searchSubtitle}>Find trips across Tunisia</Text>
+      {/* Enhanced Stats Cards */}
+      {analytics && !isNewUser && (
+        <View style={enhancedStyles.statsContainer}>
+          <View style={enhancedStyles.statCard}>
+            <MaterialIcons name="directions-bus" size={20} color="#ffffff" />
+            <Text style={enhancedStyles.statNumber}>{analytics.completedTrips}</Text>
+            <Text style={enhancedStyles.statLabel}>Trips</Text>
+          </View>
+
+          <View style={enhancedStyles.statCard}>
+            <MaterialIcons name="eco" size={20} color="#ffffff" />
+            <Text style={enhancedStyles.statNumber}>{analytics.co2Saved.toFixed(1)}kg</Text>
+            <Text style={enhancedStyles.statLabel}>CO₂ Saved</Text>
+          </View>
+
+          <View style={enhancedStyles.statCard}>
+            <MaterialIcons name="schedule" size={20} color="#ffffff" />
+            <Text style={enhancedStyles.statNumber}>{analytics.timesSaved.toFixed(0)}h</Text>
+            <Text style={enhancedStyles.statLabel}>Time Saved</Text>
+          </View>
+
+          <View style={enhancedStyles.statCard}>
+            <MaterialIcons name="trending-up" size={20} color="#ffffff" />
+            <Text style={enhancedStyles.statNumber}>{analytics.successRate.toFixed(0)}%</Text>
+            <Text style={enhancedStyles.statLabel}>Success Rate</Text>
+          </View>
+        </View>
+      )}
+
+      {/* Primary Search Action */}
+      <TouchableOpacity
+        style={enhancedStyles.primarySearchButton}
+        onPress={() => router.push('/(passenger)/search')}
+        activeOpacity={0.9}
+      >
+        <MaterialIcons name="search" size={24} color="#0066cc" />
+        <Text style={enhancedStyles.searchButtonText}>Where do you want to go?</Text>
+        <MaterialIcons name="arrow-forward" size={20} color="#0066cc" />
+      </TouchableOpacity>
+    </Animated.View>
+  );
+
+  const renderNextTrip = () => {
+    if (!nextTrip) return null;
+
+    return (
+      <View style={enhancedStyles.section}>
+        <Text style={enhancedStyles.sectionTitle}>🎫 Your Next Trip</Text>
 
         <TouchableOpacity
-          style={modernStyles.searchButton}
-          onPress={handleSearchTrips}
-          activeOpacity={0.9}
+          style={enhancedStyles.nextTripCard}
+          onPress={() => handleBookingPress(nextTrip)}
         >
-          <MaterialIcons name="search" size={24} color="#0066cc" />
-          <Text style={modernStyles.searchButtonText}>Search stations & destinations</Text>
-          <MaterialIcons name="arrow-forward" size={20} color="#0066cc" />
+          <View style={enhancedStyles.tripHeader}>
+            <View style={enhancedStyles.routeInfo}>
+              <Text style={enhancedStyles.routeText}>
+                {nextTrip.trip?.route?.startStation?.name || 'Departure'} → {nextTrip.trip?.route?.endStation?.name || 'Destination'}
+              </Text>
+              <Text style={enhancedStyles.tripTime}>
+                {nextTrip.trip?.departureTime ? formatTime(nextTrip.trip.departureTime) : 'When full'} • {nextTrip.trip?.departureTime ? formatDate(nextTrip.trip.departureTime) : 'Today'}
+              </Text>
+            </View>
+
+            <View style={[enhancedStyles.tripBadge, { backgroundColor: '#e8f5e8' }]}>
+              <Text style={[enhancedStyles.tripBadgeText, { color: '#28a745' }]}>Confirmed</Text>
+            </View>
+          </View>
+
+          <View style={enhancedStyles.tripDetails}>
+            <View style={enhancedStyles.tripDetailItem}>
+              <MaterialIcons name="people" size={16} color="#666" />
+              <Text style={enhancedStyles.tripDetailText}>{nextTrip.seats} seat{nextTrip.seats > 1 ? 's' : ''}</Text>
+            </View>
+
+            <View style={enhancedStyles.tripDetailItem}>
+              <MaterialIcons name="payment" size={16} color="#666" />
+              <Text style={enhancedStyles.tripDetailText}>${nextTrip.amount || '0.00'}</Text>
+            </View>
+
+            <View style={enhancedStyles.tripDetailItem}>
+              <MaterialIcons name="confirmation-number" size={16} color="#666" />
+              <Text style={enhancedStyles.tripDetailText}>#{nextTrip.bookingReference}</Text>
+            </View>
+          </View>
         </TouchableOpacity>
-
-        {/* 🆕 NEW: Quick Action Buttons */}
-        <View style={modernStyles.quickActionsRow}>
-          <TouchableOpacity
-            style={modernStyles.quickAction}
-            onPress={() => router.push('/(passenger)/bookings')}
-          >
-            <MaterialIcons name="history" size={20} color="#ffffff" />
-            <Text style={modernStyles.quickActionText}>My Trips</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={modernStyles.quickAction}
-            onPress={() => router.push('/(passenger)/search')}
-          >
-            <MaterialIcons name="directions" size={20} color="#ffffff" />
-            <Text style={modernStyles.quickActionText}>Find Routes</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={modernStyles.quickAction}
-            onPress={() => Alert.alert('Support', 'Contact: support@louagi.com')}
-          >
-            <MaterialIcons name="help-outline" size={20} color="#ffffff" />
-            <Text style={modernStyles.quickActionText}>Help</Text>
-          </TouchableOpacity>
-        </View>
       </View>
+    );
+  };
 
-      {/* Quick stats */}
-      <View style={modernStyles.statsRow}>
-        <View style={modernStyles.statItem}>
-          <MaterialIcons name="directions-bus" size={20} color="#ffffff" />
-          <Text style={modernStyles.statNumber}>{quickStats.totalTrips}</Text>
-          <Text style={modernStyles.statLabel}>Trips</Text>
-        </View>
+  const renderQuickActions = () => (
+    <View style={enhancedStyles.section}>
+      <Text style={enhancedStyles.sectionTitle}>⚡ Quick Actions</Text>
 
-        <View style={modernStyles.statItem}>
-          <MaterialIcons name="savings" size={20} color="#ffffff" />
-          <Text style={modernStyles.statNumber}>${quickStats.savedAmount}</Text>
-          <Text style={modernStyles.statLabel}>Saved</Text>
-        </View>
+      <View style={enhancedStyles.quickActionsGrid}>
+        {quickActions.map((action) => (
+          <TouchableOpacity
+            key={action.id}
+            style={[enhancedStyles.quickActionCard, { borderLeftColor: action.color }]}
+            onPress={action.onPress}
+            disabled={action.disabled}
+            activeOpacity={0.7}
+          >
+            <View style={enhancedStyles.actionHeader}>
+              <View style={[enhancedStyles.actionIcon, { backgroundColor: action.color }]}>
+                <MaterialIcons name={action.icon as any} size={24} color="white" />
+              </View>
+              {action.badge && action.badge > 0 ? (
+                <View style={enhancedStyles.actionBadge}>
+                  <Text style={enhancedStyles.actionBadgeText}>{action.badge}</Text>
+                </View>
+              ) : null}
+            </View>
 
-        <View style={modernStyles.statItem}>
-          <MaterialIcons name="schedule" size={20} color="#ffffff" />
-          <Text style={modernStyles.statNumber}>{quickStats.pendingPayments}</Text>
-          <Text style={modernStyles.statLabel}>Pending</Text>
-        </View>
+            <Text style={enhancedStyles.actionTitle}>{action.title}</Text>
+            <Text style={enhancedStyles.actionSubtitle}>{action.subtitle}</Text>
+          </TouchableOpacity>
+        ))}
       </View>
     </View>
   );
 
-  const renderNextTrip = () => {
-    if (!quickStats.nextTrip) return null;
-
-    const trip = quickStats.nextTrip;
-    return (
-      <View style={modernStyles.section}>
-        <Text style={modernStyles.sectionTitle}>🎫 Your Next Trip</Text>
-
-        <TouchableOpacity
-          style={modernStyles.nextTripCard}
-          onPress={() => handleBookingPress(trip)}
-        >
-          <View style={modernStyles.tripHeader}>
-            <View style={modernStyles.routeInfo}>
-              <Text style={modernStyles.routeText}>
-                {trip.trip?.route?.startStation?.name || 'Departure'} → {trip.trip?.route?.endStation?.name || 'Destination'}
-              </Text>
-              <Text style={modernStyles.tripTime}>
-                {trip.trip?.departureTime ? formatTime(trip.trip.departureTime) : 'When full'} • {trip.trip?.departureTime ? formatDate(trip.trip.departureTime) : 'Today'}
-              </Text>
-            </View>
-
-            <View style={modernStyles.tripBadge}>
-              <Text style={modernStyles.tripBadgeText}>Confirmed</Text>
-            </View>
-          </View>
-
-          <View style={modernStyles.tripDetails}>
-            <View style={modernStyles.tripDetailItem}>
-              <MaterialIcons name="people" size={16} color="#666" />
-              <Text style={modernStyles.tripDetailText}>{trip.seats} seat{trip.seats > 1 ? 's' : ''}</Text>
-            </View>
-
-            <View style={modernStyles.tripDetailItem}>
-              <MaterialIcons name="payment" size={16} color="#666" />
-              <Text style={modernStyles.tripDetailText}>${trip.amount || '0.00'}</Text>
-            </View>
-
-            <View style={modernStyles.tripDetailItem}>
-              <MaterialIcons name="confirmation-number" size={16} color="#666" />
-              <Text style={modernStyles.tripDetailText}>#{trip.bookingReference}</Text>
-            </View>
-          </View>
-        </TouchableOpacity>
-      </View>
-    );
-  };
-
-  const renderRecentBookings = () => {
+  const renderRecentActivity = () => {
     if (recentBookings.length === 0) return null;
 
     return (
-      <View style={modernStyles.section}>
-        <View style={modernStyles.sectionHeader}>
-          <Text style={modernStyles.sectionTitle}>📋 Recent Activity</Text>
+      <View style={enhancedStyles.section}>
+        <View style={enhancedStyles.sectionHeader}>
+          <Text style={enhancedStyles.sectionTitle}>📋 Recent Activity</Text>
           <TouchableOpacity onPress={() => router.push('/(passenger)/bookings')}>
-            <Text style={modernStyles.seeAllLink}>View all</Text>
+            <Text style={enhancedStyles.seeAllLink}>View all</Text>
           </TouchableOpacity>
         </View>
 
-        {recentBookings.map((booking, index) => (
+        {recentBookings.map((booking) => (
           <TouchableOpacity
             key={booking.id}
-            style={modernStyles.activityCard}
+            style={enhancedStyles.activityCard}
             onPress={() => handleBookingPress(booking)}
           >
-            <View style={modernStyles.activityContent}>
-              <View style={modernStyles.bookingRoute}>
-                <Text style={modernStyles.activityTitle}>
+            <View style={enhancedStyles.activityContent}>
+              <View style={enhancedStyles.activityIcon}>
+                <MaterialIcons
+                  name={booking.status === 'completed' ? 'done-all' : 'confirmation-number'}
+                  size={20}
+                  color={booking.status === 'completed' ? '#28a745' : '#0066cc'}
+                />
+              </View>
+
+              <View style={enhancedStyles.activityDetails}>
+                <Text style={enhancedStyles.activityTitle}>
                   {booking.trip?.route?.startStation?.name || 'Unknown'} → {booking.trip?.route?.endStation?.name || 'Unknown'}
                 </Text>
-                <Text style={modernStyles.activitySubtitle}>
+                <Text style={enhancedStyles.activitySubtitle}>
                   {formatDate(booking.trip?.departureTime || booking.createdAt)} • {booking.seats} seat{booking.seats > 1 ? 's' : ''}
                 </Text>
               </View>
 
-              <View style={modernStyles.bookingStatus}>
-                <View style={[modernStyles.statusDot, { backgroundColor: getStatusColor(booking.status) }]} />
-                <Text style={modernStyles.bookingAmount}>${booking.amount || '0.00'}</Text>
+              <View style={enhancedStyles.activityMeta}>
+                <Text style={enhancedStyles.activityAmount}>${booking.amount || '0.00'}</Text>
+                <View style={[
+                  enhancedStyles.activityStatusDot,
+                  { backgroundColor: booking.status === 'completed' ? '#28a745' : '#0066cc' }
+                ]} />
               </View>
             </View>
           </TouchableOpacity>
@@ -384,54 +557,133 @@ export default function PassengerHomeScreen() {
     );
   };
 
-  const renderStationItem = ({ item, index }: { item: Station; index: number }) => (
-    <TouchableOpacity
-      style={[
-        modernStyles.stationCard,
-        index % 2 === 0 ? modernStyles.stationCardLeft : modernStyles.stationCardRight
-      ]}
-      onPress={() => handleQuickStationSelect(item)}
-    >
-      <View style={modernStyles.stationIcon}>
-        <MaterialIcons name="location-on" size={24} color="#0066cc" />
+  const renderPopularStations = () => {
+    if (stations.length === 0) return null;
+
+    return (
+      <View style={enhancedStyles.section}>
+        <View style={enhancedStyles.sectionHeader}>
+          <Text style={enhancedStyles.sectionTitle}>🌟 Popular Stations</Text>
+          <TouchableOpacity onPress={() => router.push('/(passenger)/search')}>
+            <Text style={enhancedStyles.seeAllLink}>View all ({stations.length})</Text>
+          </TouchableOpacity>
+        </View>
+
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={enhancedStyles.stationsScrollContainer}
+        >
+          {stations.slice(0, 6).map((station) => (
+            <TouchableOpacity
+              key={station.id}
+              style={enhancedStyles.stationCard}
+              onPress={() => handleStationPress(station)}
+            >
+              <View style={enhancedStyles.stationIcon}>
+                <MaterialIcons name="location-on" size={24} color="#0066cc" />
+              </View>
+
+              <Text style={enhancedStyles.stationName} numberOfLines={1}>{station.name}</Text>
+              <Text style={enhancedStyles.stationLocation} numberOfLines={1}>
+                {station.city}, {station.state}
+              </Text>
+
+              {station.amenities && Object.keys(station.amenities).length > 0 && (
+                <View style={enhancedStyles.amenitiesIndicator}>
+                  <MaterialIcons name="star" size={12} color="#ffc107" />
+                  <Text style={enhancedStyles.amenitiesText}>Amenities</Text>
+                </View>
+              )}
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
       </View>
+    );
+  };
 
-      <View style={modernStyles.stationInfo}>
-        <Text style={modernStyles.stationName} numberOfLines={1}>{item.name}</Text>
-        <Text style={modernStyles.stationLocation} numberOfLines={1}>
-          {item.city}, {item.state}
-        </Text>
+  const renderAnalyticsInsight = () => {
+    if (!analytics || isNewUser) return null;
 
-        {item.amenities && Object.keys(item.amenities).length > 0 && (
-          <View style={modernStyles.amenitiesIndicator}>
-            <MaterialIcons name="star" size={12} color="#ffc107" />
-            <Text style={modernStyles.amenitiesText}>Amenities</Text>
+    return (
+      <View style={enhancedStyles.section}>
+        <Text style={enhancedStyles.sectionTitle}>📊 Your Impact</Text>
+
+        <View style={enhancedStyles.insightCard}>
+          <View style={enhancedStyles.insightHeader}>
+            <MaterialIcons name="eco" size={32} color="#28a745" />
+            <View style={enhancedStyles.insightContent}>
+              <Text style={enhancedStyles.insightTitle}>Environmental Impact</Text>
+              <Text style={enhancedStyles.insightSubtitle}>
+                You've saved {analytics.co2Saved.toFixed(1)}kg of CO₂ by choosing shared rides!
+              </Text>
+            </View>
           </View>
-        )}
+
+          <View style={enhancedStyles.impactStats}>
+            <View style={enhancedStyles.impactStat}>
+              <Text style={enhancedStyles.impactNumber}>{analytics.timesSaved.toFixed(0)}</Text>
+              <Text style={enhancedStyles.impactLabel}>Hours Saved</Text>
+            </View>
+            <View style={enhancedStyles.impactStat}>
+              <Text style={enhancedStyles.impactNumber}>${analytics.totalSpent.toFixed(0)}</Text>
+              <Text style={enhancedStyles.impactLabel}>Total Spent</Text>
+            </View>
+            <View style={enhancedStyles.impactStat}>
+              <Text style={enhancedStyles.impactNumber}>{analytics.favoriteRoute.split(' → ')[0]}</Text>
+              <Text style={enhancedStyles.impactLabel}>Favorite Route</Text>
+            </View>
+          </View>
+        </View>
       </View>
+    );
+  };
 
-      <MaterialIcons name="arrow-forward-ios" size={16} color="#ccc" />
-    </TouchableOpacity>
-  );
+  const renderNewUserWelcome = () => {
+    if (!isNewUser) return null;
 
-  const getStatusColor = (status: string) => {
-    const colors = {
-      'pending': '#ff9800',
-      'confirmed': '#4caf50',
-      'completed': '#2196f3',
-      'cancelled': '#f44336',
-    };
-    return colors[status as keyof typeof colors] || '#9e9e9e';
+    return (
+      <View style={enhancedStyles.section}>
+        <View style={enhancedStyles.welcomeCard}>
+          <Text style={enhancedStyles.welcomeTitle}>🎉 Welcome to Louagi!</Text>
+          <Text style={enhancedStyles.welcomeText}>
+            Start your journey with sustainable, affordable shared transportation across Tunisia.
+          </Text>
+
+          <View style={enhancedStyles.welcomeFeatures}>
+            <View style={enhancedStyles.welcomeFeature}>
+              <MaterialIcons name="savings" size={20} color="#28a745" />
+              <Text style={enhancedStyles.featureText}>Save up to 60% on travel costs</Text>
+            </View>
+            <View style={enhancedStyles.welcomeFeature}>
+              <MaterialIcons name="eco" size={20} color="#28a745" />
+              <Text style={enhancedStyles.featureText}>Reduce your carbon footprint</Text>
+            </View>
+            <View style={enhancedStyles.welcomeFeature}>
+              <MaterialIcons name="schedule" size={20} color="#28a745" />
+              <Text style={enhancedStyles.featureText}>Flexible departure times</Text>
+            </View>
+          </View>
+
+          <TouchableOpacity
+            style={enhancedStyles.welcomeButton}
+            onPress={() => router.push('/(passenger)/search')}
+          >
+            <Text style={enhancedStyles.welcomeButtonText}>Book Your First Trip</Text>
+            <MaterialIcons name="arrow-forward" size={20} color="white" />
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
   };
 
   // Loading state
-  if (loading && stations.length === 0) {
+  if (loading) {
     return (
-      <View style={styles.container}>
-        {renderModernHeader()}
-        <View style={styles.centered}>
+      <View style={enhancedStyles.container}>
+        <View style={enhancedStyles.loadingContainer}>
           <ActivityIndicator size="large" color="#0066cc" />
-          <Text style={styles.loadingText}>Loading your dashboard...</Text>
+          <Text style={enhancedStyles.loadingText}>Loading your dashboard...</Text>
         </View>
       </View>
     );
@@ -440,13 +692,13 @@ export default function PassengerHomeScreen() {
   // Error state
   if (error && stations.length === 0) {
     return (
-      <View style={styles.container}>
-        {renderModernHeader()}
-        <View style={styles.centered}>
+      <View style={enhancedStyles.container}>
+        {renderEnhancedHeader()}
+        <View style={enhancedStyles.errorContainer}>
           <MaterialIcons name="error-outline" size={64} color="#f44336" />
-          <Text style={styles.errorText}>{error}</Text>
-          <TouchableOpacity style={styles.retryButton} onPress={() => fetchData()}>
-            <Text style={styles.retryButtonText}>🔄 Retry</Text>
+          <Text style={enhancedStyles.errorText}>{error}</Text>
+          <TouchableOpacity style={enhancedStyles.retryButton} onPress={() => fetchEnhancedData()}>
+            <Text style={enhancedStyles.retryButtonText}>🔄 Retry</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -454,93 +706,119 @@ export default function PassengerHomeScreen() {
   }
 
   return (
-    <View style={styles.container}>
+    <View style={enhancedStyles.container}>
       <ScrollView
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
-            onRefresh={() => fetchData(true)}
+            onRefresh={() => fetchEnhancedData(true)}
             colors={['#0066cc']}
             tintColor="#0066cc"
           />
         }
+        contentContainerStyle={enhancedStyles.scrollContent}
       >
-        {renderModernHeader()}
+        {renderEnhancedHeader()}
+        {renderNewUserWelcome()}
         {renderNextTrip()}
-        {renderRecentBookings()}
+        {renderQuickActions()}
+        {renderRecentActivity()}
+        {renderAnalyticsInsight()}
+        {renderPopularStations()}
 
-        {/* 🔧 UPDATED: Popular Destinations Section */}
-        <View style={modernStyles.section}>
-          <View style={modernStyles.sectionHeader}>
-            <Text style={modernStyles.sectionTitle}>🌟 Quick Station Access</Text>
-            <TouchableOpacity onPress={() => router.push('/(passenger)/search')}>
-              <Text style={modernStyles.seeAllLink}>View all ({stations.length})</Text>
-            </TouchableOpacity>
-          </View>
-
-          <FlatList
-            data={stations.slice(0, 6)} // Show only first 6 stations
-            keyExtractor={(item) => item.id}
-            renderItem={renderStationItem}
-            scrollEnabled={false}
-            numColumns={2}
-            columnWrapperStyle={stations.length > 1 ? modernStyles.stationRow : undefined}
-            contentContainerStyle={modernStyles.stationsList}
-            ListEmptyComponent={
-              <View style={modernStyles.emptyState}>
-                <MaterialIcons name="location-off" size={48} color="#ccc" />
-                <Text style={modernStyles.emptyText}>No stations available</Text>
-                <Text style={modernStyles.emptySubtext}>Pull to refresh</Text>
-              </View>
-            }
-          />
-
-          {/* 🆕 NEW: Search All Stations Button */}
-          {stations.length > 6 && (
-            <TouchableOpacity
-              style={modernStyles.searchAllButton}
-              onPress={() => router.push('/(passenger)/search')}
-            >
-              <MaterialIcons name="search" size={20} color="#0066cc" />
-              <Text style={modernStyles.searchAllButtonText}>
-                Search all {stations.length} stations
-              </Text>
-              <MaterialIcons name="arrow-forward" size={16} color="#0066cc" />
-            </TouchableOpacity>
-          )}
-        </View>
-
-        {/* App info footer */}
-        <View style={modernStyles.footer}>
-          <Text style={modernStyles.footerText}>
-            Louagi • Fast, reliable shared transportation
+        {/* App Footer */}
+        <View style={enhancedStyles.footer}>
+          <Text style={enhancedStyles.footerText}>
+            Louagi • Sustainable transportation for Tunisia 🇹🇳
           </Text>
-          <Text style={modernStyles.versionText}>v1.0.0</Text>
+          <Text style={enhancedStyles.versionText}>v1.0.0</Text>
         </View>
       </ScrollView>
+
+      {/* Floating Action Button for Quick Book */}
+      <TouchableOpacity
+        style={enhancedStyles.fab}
+        onPress={() => router.push('/(passenger)/search')}
+        activeOpacity={0.8}
+      >
+        <MaterialIcons name="add" size={28} color="white" />
+      </TouchableOpacity>
     </View>
   );
 }
 
-// 🔧 UPDATED: Enhanced modern styles
-const modernStyles = {
+// Enhanced Styles
+const enhancedStyles = {
+  container: {
+    flex: 1,
+    backgroundColor: '#f8f9fa',
+  },
+
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center' as const,
+    alignItems: 'center' as const,
+    padding: 40,
+  },
+
+  loadingText: {
+    fontSize: 16,
+    color: '#666',
+    marginTop: 16,
+    textAlign: 'center' as const,
+  },
+
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center' as const,
+    alignItems: 'center' as const,
+    padding: 40,
+  },
+
+  errorText: {
+    fontSize: 18,
+    color: '#f44336',
+    textAlign: 'center' as const,
+    marginVertical: 16,
+    lineHeight: 24,
+  },
+
+  retryButton: {
+    backgroundColor: '#0066cc',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+
+  retryButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600' as const,
+  },
+
+  scrollContent: {
+    paddingBottom: 100, // Space for FAB
+  },
+
   // Hero Section
   heroSection: {
     backgroundColor: '#0066cc',
     paddingTop: Platform.OS === 'ios' ? 50 : 30,
     paddingBottom: 30,
     paddingHorizontal: 20,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
   },
 
-  userGreeting: {
+  userSection: {
     flexDirection: 'row' as const,
     justifyContent: 'space-between' as const,
     alignItems: 'flex-start' as const,
     marginBottom: 30,
   },
 
-  greetingContent: {
+  userInfo: {
     flex: 1,
   },
 
@@ -554,12 +832,47 @@ const modernStyles = {
     fontSize: 28,
     fontWeight: '700' as const,
     color: '#ffffff',
+    marginBottom: 8,
+  },
+
+  newUserBadge: {
+    fontSize: 12,
+    color: '#ffc107',
+    backgroundColor: 'rgba(255, 193, 7, 0.2)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    alignSelf: 'flex-start' as const,
+    fontWeight: '600' as const,
   },
 
   headerActions: {
     flexDirection: 'row' as const,
     alignItems: 'center' as const,
-    gap: 12,
+    gap: 16,
+  },
+
+  notificationButton: {
+    padding: 8,
+    position: 'relative' as const,
+  },
+
+  notificationBadge: {
+    position: 'absolute' as const,
+    top: 4,
+    right: 4,
+    backgroundColor: '#ff4757',
+    borderRadius: 10,
+    minWidth: 20,
+    height: 20,
+    justifyContent: 'center' as const,
+    alignItems: 'center' as const,
+  },
+
+  badgeText: {
+    fontSize: 12,
+    fontWeight: '600' as const,
+    color: 'white',
   },
 
   profileButton: {
@@ -567,9 +880,9 @@ const modernStyles = {
   },
 
   avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
     justifyContent: 'center' as const,
     alignItems: 'center' as const,
@@ -583,47 +896,50 @@ const modernStyles = {
     color: '#ffffff',
   },
 
-  logoutButton: {
-    padding: 8,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-  },
-
-  // 🔧 UPDATED: Enhanced Search Section
-  searchSection: {
-    alignItems: 'center' as const,
+  // Enhanced Stats
+  statsContainer: {
+    flexDirection: 'row' as const,
+    justifyContent: 'space-between' as const,
     marginBottom: 30,
+    gap: 12,
   },
 
-  searchTitle: {
-    fontSize: 24,
+  statCard: {
+    flex: 1,
+    alignItems: 'center' as const,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    padding: 16,
+    borderRadius: 16,
+    gap: 8,
+  },
+
+  statNumber: {
+    fontSize: 18,
     fontWeight: '700' as const,
     color: '#ffffff',
-    marginBottom: 8,
-    textAlign: 'center' as const,
   },
 
-  searchSubtitle: {
-    fontSize: 16,
+  statLabel: {
+    fontSize: 11,
     color: 'rgba(255, 255, 255, 0.8)',
-    marginBottom: 24,
     textAlign: 'center' as const,
+    fontWeight: '500' as const,
   },
 
-  searchButton: {
+  // Primary Search Button
+  primarySearchButton: {
     flexDirection: 'row' as const,
     alignItems: 'center' as const,
     backgroundColor: '#ffffff',
     paddingHorizontal: 24,
-    paddingVertical: 16,
+    paddingVertical: 18,
     borderRadius: 25,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
+    shadowOpacity: 0.3,
     shadowRadius: 8,
-    elevation: 6,
+    elevation: 8,
     gap: 12,
-    marginBottom: 20,
   },
 
   searchButtonText: {
@@ -633,60 +949,10 @@ const modernStyles = {
     flex: 1,
   },
 
-  // 🆕 NEW: Quick Actions Row
-  quickActionsRow: {
-    flexDirection: 'row' as const,
-    justifyContent: 'space-around' as const,
-    width: '100%',
-    gap: 12,
-  },
-
-  quickAction: {
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 20,
-    flex: 1,
-    justifyContent: 'center' as const,
-    gap: 6,
-  },
-
-  quickActionText: {
-    fontSize: 12,
-    fontWeight: '600' as const,
-    color: '#ffffff',
-  },
-
-  // Stats
-  statsRow: {
-    flexDirection: 'row' as const,
-    justifyContent: 'space-around' as const,
-    alignItems: 'center' as const,
-  },
-
-  statItem: {
-    alignItems: 'center' as const,
-    gap: 8,
-  },
-
-  statNumber: {
-    fontSize: 20,
-    fontWeight: '700' as const,
-    color: '#ffffff',
-  },
-
-  statLabel: {
-    fontSize: 12,
-    color: 'rgba(255, 255, 255, 0.8)',
-    textAlign: 'center' as const,
-  },
-
   // Sections
   section: {
     paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingVertical: 20,
   },
 
   sectionHeader: {
@@ -708,7 +974,7 @@ const modernStyles = {
     fontWeight: '600' as const,
   },
 
-  // Next Trip
+  // Next Trip Card
   nextTripCard: {
     backgroundColor: '#ffffff',
     padding: 20,
@@ -746,7 +1012,6 @@ const modernStyles = {
   },
 
   tripBadge: {
-    backgroundColor: '#e8f5e8',
     paddingHorizontal: 12,
     paddingVertical: 4,
     borderRadius: 12,
@@ -755,7 +1020,6 @@ const modernStyles = {
   tripBadgeText: {
     fontSize: 12,
     fontWeight: '600' as const,
-    color: '#28a745',
   },
 
   tripDetails: {
@@ -776,7 +1040,71 @@ const modernStyles = {
     fontWeight: '500' as const,
   },
 
-  // Activity Cards
+  // Quick Actions Grid
+  quickActionsGrid: {
+    flexDirection: 'row' as const,
+    flexWrap: 'wrap' as const,
+    gap: 16,
+  },
+
+  quickActionCard: {
+    backgroundColor: '#ffffff',
+    width: (width - 56) / 2,
+    padding: 20,
+    borderRadius: 16,
+    borderLeftWidth: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+    minHeight: 120,
+  },
+
+  actionHeader: {
+    flexDirection: 'row' as const,
+    justifyContent: 'space-between' as const,
+    alignItems: 'flex-start' as const,
+    marginBottom: 12,
+  },
+
+  actionIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    justifyContent: 'center' as const,
+    alignItems: 'center' as const,
+  },
+
+  actionBadge: {
+    backgroundColor: '#ff4757',
+    borderRadius: 10,
+    minWidth: 20,
+    height: 20,
+    justifyContent: 'center' as const,
+    alignItems: 'center' as const,
+  },
+
+  actionBadgeText: {
+    fontSize: 12,
+    fontWeight: '600' as const,
+    color: 'white',
+  },
+
+  actionTitle: {
+    fontSize: 16,
+    fontWeight: '600' as const,
+    color: '#333',
+    marginBottom: 4,
+  },
+
+  actionSubtitle: {
+    fontSize: 12,
+    color: '#666',
+    lineHeight: 16,
+  },
+
+  // Recent Activity
   activityCard: {
     backgroundColor: '#ffffff',
     padding: 16,
@@ -791,11 +1119,20 @@ const modernStyles = {
 
   activityContent: {
     flexDirection: 'row' as const,
-    justifyContent: 'space-between' as const,
     alignItems: 'center' as const,
   },
 
-  bookingRoute: {
+  activityIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#f0f8ff',
+    justifyContent: 'center' as const,
+    alignItems: 'center' as const,
+    marginRight: 12,
+  },
+
+  activityDetails: {
     flex: 1,
   },
 
@@ -811,40 +1148,34 @@ const modernStyles = {
     color: '#666',
   },
 
-  bookingStatus: {
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
-    gap: 8,
+  activityMeta: {
+    alignItems: 'flex-end' as const,
   },
 
-  statusDot: {
+  activityAmount: {
+    fontSize: 16,
+    fontWeight: '600' as const,
+    color: '#333',
+    marginBottom: 4,
+  },
+
+  activityStatusDot: {
     width: 8,
     height: 8,
     borderRadius: 4,
   },
 
-  bookingAmount: {
-    fontSize: 16,
-    fontWeight: '600' as const,
-    color: '#333',
-  },
-
-  // Stations
-  stationsList: {
-    paddingBottom: 8,
-  },
-
-  stationRow: {
-    justifyContent: 'space-between' as const,
-    marginBottom: 12,
+  // Stations Scroll
+  stationsScrollContainer: {
+    paddingRight: 20,
   },
 
   stationCard: {
     backgroundColor: '#ffffff',
-    width: (width - 52) / 2,
+    width: 140,
     padding: 16,
     borderRadius: 12,
-    flexDirection: 'row' as const,
+    marginRight: 12,
     alignItems: 'center' as const,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -853,39 +1184,29 @@ const modernStyles = {
     elevation: 3,
   },
 
-  stationCardLeft: {
-    marginRight: 6,
-  },
-
-  stationCardRight: {
-    marginLeft: 6,
-  },
-
   stationIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     backgroundColor: '#f0f8ff',
     justifyContent: 'center' as const,
     alignItems: 'center' as const,
-    marginRight: 12,
-  },
-
-  stationInfo: {
-    flex: 1,
+    marginBottom: 12,
   },
 
   stationName: {
     fontSize: 14,
     fontWeight: '600' as const,
     color: '#333',
-    marginBottom: 2,
+    textAlign: 'center' as const,
+    marginBottom: 4,
   },
 
   stationLocation: {
     fontSize: 12,
     color: '#666',
-    marginBottom: 4,
+    textAlign: 'center' as const,
+    marginBottom: 8,
   },
 
   amenitiesIndicator: {
@@ -900,45 +1221,128 @@ const modernStyles = {
     fontWeight: '500' as const,
   },
 
-  // 🆕 NEW: Search All Button
-  searchAllButton: {
+  // Analytics Insight
+  insightCard: {
+    backgroundColor: '#ffffff',
+    padding: 20,
+    borderRadius: 16,
+    borderLeftWidth: 4,
+    borderLeftColor: '#28a745',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+
+  insightHeader: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    marginBottom: 20,
+  },
+
+  insightContent: {
+    marginLeft: 16,
+    flex: 1,
+  },
+
+  insightTitle: {
+    fontSize: 18,
+    fontWeight: '600' as const,
+    color: '#333',
+    marginBottom: 4,
+  },
+
+  insightSubtitle: {
+    fontSize: 14,
+    color: '#666',
+    lineHeight: 20,
+  },
+
+  impactStats: {
+    flexDirection: 'row' as const,
+    justifyContent: 'space-around' as const,
+    backgroundColor: '#f8f9fa',
+    padding: 16,
+    borderRadius: 12,
+  },
+
+  impactStat: {
+    alignItems: 'center' as const,
+  },
+
+  impactNumber: {
+    fontSize: 18,
+    fontWeight: '700' as const,
+    color: '#28a745',
+    marginBottom: 4,
+  },
+
+  impactLabel: {
+    fontSize: 12,
+    color: '#666',
+    textAlign: 'center' as const,
+  },
+
+  // Welcome Card for New Users
+  welcomeCard: {
+    backgroundColor: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+    padding: 24,
+    borderRadius: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+
+  welcomeTitle: {
+    fontSize: 24,
+    fontWeight: '700' as const,
+    color: '#333',
+    textAlign: 'center' as const,
+    marginBottom: 12,
+  },
+
+  welcomeText: {
+    fontSize: 16,
+    color: '#666',
+    textAlign: 'center' as const,
+    lineHeight: 24,
+    marginBottom: 24,
+  },
+
+  welcomeFeatures: {
+    marginBottom: 24,
+  },
+
+  welcomeFeature: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    marginBottom: 12,
+  },
+
+  featureText: {
+    fontSize: 14,
+    color: '#333',
+    marginLeft: 12,
+    fontWeight: '500' as const,
+  },
+
+  welcomeButton: {
     flexDirection: 'row' as const,
     alignItems: 'center' as const,
     justifyContent: 'center' as const,
-    backgroundColor: '#f0f8ff',
+    backgroundColor: '#0066cc',
     padding: 16,
     borderRadius: 12,
-    marginTop: 16,
-    borderWidth: 1,
-    borderColor: '#0066cc',
     gap: 8,
   },
 
-  searchAllButtonText: {
+  welcomeButtonText: {
     fontSize: 16,
     fontWeight: '600' as const,
-    color: '#0066cc',
-  },
-
-  // Empty states
-  emptyState: {
-    alignItems: 'center' as const,
-    padding: 40,
-  },
-
-  emptyText: {
-    fontSize: 18,
-    fontWeight: '600' as const,
-    color: '#666',
-    marginTop: 16,
-    marginBottom: 4,
-    textAlign: 'center' as const,
-  },
-
-  emptySubtext: {
-    fontSize: 14,
-    color: '#999',
-    textAlign: 'center' as const,
+    color: 'white',
   },
 
   // Footer
@@ -952,10 +1356,29 @@ const modernStyles = {
     fontSize: 14,
     color: '#666',
     marginBottom: 4,
+    textAlign: 'center' as const,
   },
 
   versionText: {
     fontSize: 12,
     color: '#999',
+  },
+
+  // Floating Action Button
+  fab: {
+    position: 'absolute' as const,
+    bottom: 24,
+    right: 24,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#0066cc',
+    justifyContent: 'center' as const,
+    alignItems: 'center' as const,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
   },
 };

@@ -1,4 +1,4 @@
-// app/(passenger)/home/index.tsx - ENHANCED VERSION with Real Data & Perfect UI/UX
+// app/(passenger)/home/index.tsx - ENHANCED VERSION with Beautiful Welcome Card
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import {
@@ -26,6 +26,7 @@ import {
   type Booking
 } from '../../../src/services/api';
 import { RootState } from '../../../src/store/store';
+import { WelcomeCard } from './components/WelcomeCard';
 import { styles } from './index.styles';
 
 const { width, height } = Dimensions.get('window');
@@ -643,37 +644,10 @@ export default function EnhancedPassengerHomeScreen() {
     if (!isNewUser) return null;
 
     return (
-      <View style={enhancedStyles.section}>
-        <View style={enhancedStyles.welcomeCard}>
-          <Text style={enhancedStyles.welcomeTitle}>🎉 Welcome to Louagi!</Text>
-          <Text style={enhancedStyles.welcomeText}>
-            Start your journey with sustainable, affordable shared transportation across Tunisia.
-          </Text>
-
-          <View style={enhancedStyles.welcomeFeatures}>
-            <View style={enhancedStyles.welcomeFeature}>
-              <MaterialIcons name="savings" size={20} color="#28a745" />
-              <Text style={enhancedStyles.featureText}>Save up to 60% on travel costs</Text>
-            </View>
-            <View style={enhancedStyles.welcomeFeature}>
-              <MaterialIcons name="eco" size={20} color="#28a745" />
-              <Text style={enhancedStyles.featureText}>Reduce your carbon footprint</Text>
-            </View>
-            <View style={enhancedStyles.welcomeFeature}>
-              <MaterialIcons name="schedule" size={20} color="#28a745" />
-              <Text style={enhancedStyles.featureText}>Flexible departure times</Text>
-            </View>
-          </View>
-
-          <TouchableOpacity
-            style={enhancedStyles.welcomeButton}
-            onPress={() => router.push('/(passenger)/search')}
-          >
-            <Text style={enhancedStyles.welcomeButtonText}>Book Your First Trip</Text>
-            <MaterialIcons name="arrow-forward" size={20} color="white" />
-          </TouchableOpacity>
-        </View>
-      </View>
+      <WelcomeCard
+        onBookTrip={() => router.push('/(passenger)/search')}
+        userName={firstName}
+      />
     );
   };
 
@@ -1282,67 +1256,6 @@ const enhancedStyles = {
     fontSize: 12,
     color: '#666',
     textAlign: 'center' as const,
-  },
-
-  // Welcome Card for New Users
-  welcomeCard: {
-    backgroundColor: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-    padding: 24,
-    borderRadius: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 6,
-  },
-
-  welcomeTitle: {
-    fontSize: 24,
-    fontWeight: '700' as const,
-    color: '#333',
-    textAlign: 'center' as const,
-    marginBottom: 12,
-  },
-
-  welcomeText: {
-    fontSize: 16,
-    color: '#666',
-    textAlign: 'center' as const,
-    lineHeight: 24,
-    marginBottom: 24,
-  },
-
-  welcomeFeatures: {
-    marginBottom: 24,
-  },
-
-  welcomeFeature: {
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
-    marginBottom: 12,
-  },
-
-  featureText: {
-    fontSize: 14,
-    color: '#333',
-    marginLeft: 12,
-    fontWeight: '500' as const,
-  },
-
-  welcomeButton: {
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
-    justifyContent: 'center' as const,
-    backgroundColor: '#0066cc',
-    padding: 16,
-    borderRadius: 12,
-    gap: 8,
-  },
-
-  welcomeButtonText: {
-    fontSize: 16,
-    fontWeight: '600' as const,
-    color: 'white',
   },
 
   // Footer

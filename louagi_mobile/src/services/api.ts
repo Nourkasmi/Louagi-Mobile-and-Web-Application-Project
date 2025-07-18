@@ -1,4 +1,4 @@
-// src/services/api.ts - COMPLETE UPDATED VERSION
+// src/services/api.ts - COMPLETE FIXED VERSION WITH MISSING FUNCTIONS
 import store from '../store/store';
 import { logout } from '../store/authSlice';
 import axios, { InternalAxiosRequestConfig } from 'axios';
@@ -341,15 +341,11 @@ export const updateTripStatus = async (id: string, status: Trip['status']): Prom
   return res.data;
 };
 
-/**
- * Mark a trip as completed.
- * @param id - Trip ID
- * @returns Updated Trip object
- */
 export const completeTrip = async (id: string): Promise<ApiResponse<Trip>> => {
   const res = await api.put(`/trips/${id}/complete`);
   return res.data;
 };
+
 // ==================== ENHANCED DECLARE AVAILABILITY ====================
 
 export const declareAvailability = async (data: {
@@ -518,6 +514,84 @@ export const declareAvailability = async (data: {
 
 // ==================== DRIVER ENDPOINTS ====================
 
+export const getDriverProfile = async (): Promise<ApiResponse<Driver>> => {
+  try {
+    console.log('📡 API: Getting driver profile...');
+    const res = await api.get('/drivers/profile');
+    console.log('📡 API: Driver profile response:', res.data);
+    return res.data;
+  } catch (error: any) {
+    console.error('❌ Get driver profile error:', error);
+    
+    let errorMessage = 'Failed to get driver profile';
+    
+    if (error.response?.status === 401) {
+      errorMessage = 'Authentication required. Please log in again.';
+    } else if (error.response?.status === 403) {
+      errorMessage = 'Access denied. Driver permissions required.';
+    } else if (error.response?.status === 404) {
+      errorMessage = 'Driver profile not found.';
+    } else if (error.response?.status >= 500) {
+      errorMessage = 'Server error. Please try again in a moment.';
+    } else if (!error.response) {
+      errorMessage = 'Network error. Please check your connection.';
+    }
+    
+    return {
+      success: false,
+      message: errorMessage,
+      error: {
+        status: error.response?.status,
+        data: error.response?.data
+      }
+    };
+  }
+};
+
+export const updateDriverProfile = async (data: {
+  vehicleType?: string;
+  vehicleCapacity?: number;
+  experience?: number;
+  licenseNo?: string;
+  licenseExpiry?: string;
+}): Promise<ApiResponse<Driver>> => {
+  try {
+    console.log('📡 API: Updating driver profile with data:', data);
+    const res = await api.put('/drivers/profile', data);
+    console.log('📡 API: Update driver profile response:', res.data);
+    return res.data;
+  } catch (error: any) {
+    console.error('❌ Update driver profile error:', error);
+    
+    let errorMessage = 'Failed to update driver profile';
+    
+    if (error.response?.status === 400) {
+      errorMessage = error.response?.data?.message || 'Invalid profile data provided.';
+    } else if (error.response?.status === 401) {
+      errorMessage = 'Authentication required. Please log in again.';
+    } else if (error.response?.status === 403) {
+      errorMessage = 'Access denied. Driver permissions required.';
+    } else if (error.response?.status === 404) {
+      errorMessage = 'Driver profile not found.';
+    } else if (error.response?.status === 422) {
+      errorMessage = error.response?.data?.message || 'Invalid data provided.';
+    } else if (error.response?.status >= 500) {
+      errorMessage = 'Server error. Please try again in a moment.';
+    } else if (!error.response) {
+      errorMessage = 'Network error. Please check your connection.';
+    }
+    
+    return {
+      success: false,
+      message: errorMessage,
+      error: {
+        status: error.response?.status,
+        data: error.response?.data
+      }
+    };
+  }
+};
+
 export const getDriverStatus = async (): Promise<ApiResponse<DriverStatus & { queueInfo?: any }>> => {
   try {
     console.log('📡 API: Getting driver status...');
@@ -604,11 +678,6 @@ export const getDriverStatus = async (): Promise<ApiResponse<DriverStatus & { qu
   }
 };
 
-/**
- * Get driver's earnings for a period.
- * @param params { startDate?: string; endDate?: string }
- * @returns { earnings: { totalEarnings, totalTrips, ... } }
- */
 export const getDriverEarnings = async (params?: {
   startDate?: string;
   endDate?: string;
@@ -956,7 +1025,7 @@ export const createPaymentIntent = async (
     payment: Payment;
     clientSecret: string;
   };
-  clientSecret?: string; // Add this for backward compatibility
+  clientSecret?: string;
 }> => {
   const res = await api.post('/payments/intent', { bookingId, savePaymentMethod });
 
@@ -1032,7 +1101,6 @@ export const getPassengerAnalytics = async (months?: number): Promise<ApiRespons
   };
   period: string;
 }>> => {
-  // 🔧 FIX: Use proper query parameter format
   const params: any = {};
   if (months && months > 0) {
     params.months = months;
@@ -1076,43 +1144,105 @@ export const updateNotificationPreferences = async (preferences: {
   return res.data;
 };
 
+// ==================== QUEUE MANAGEMENT ====================
+
+export const leaveQueue = async (): Promise<ApiResponse> => {
+  try {
+    console.log('📡 API: Leaving queue...');
+    const res = await api.post('/queues/leave');
+    console.log('📡 API: Leave queue response:', res.data);
+    return res.data;
+  } catch (error: any) {
+    console.error('❌ Leave queue error:', error);
+    
+    let errorMessage = 'Failed to leave queue';
+    
+    if (error.response?.status === 404) {
+      errorMessage = 'You are not currently in any queue';
+    } else if (error.response?.status === 400) {
+      errorMessage = error.response?.data?.message || 'Cannot leave queue at this time';
+    } else if (error.response?.status === 401) {
+      errorMessage = 'Authentication required. Please log in again.';
+    } else if (error.response?.status >= 500) {
+      errorMessage = 'Server error. Please try again in a moment.';
+    } else if (!error.response) {
+      errorMessage = 'Network error. Please check your connection.';
+    }
+    
+    return {
+      success: false,
+      message: errorMessage,
+      error: {
+        status: error.response?.status,
+        data: error.response?.data
+      }
+    };
+  }
+};
+
+export const getQueueInfo = async (params: {
+  stationId: string;
+  scheduleId: string;
+  destinationId: string;
+}): Promise<ApiResponse<{
+  totalWaiting: number;
+  longestWaitMinutes: number;
+  shouldCreateTrip: boolean;
+  isPeakHour: boolean;
+  nextTripETA: string;
+}>> => {
+  try {
+    const res = await api.get('/queues', { params });
+    return res.data;
+  } catch (error: any) {
+    console.error('❌ Get queue info error:', error);
+    return {
+      success: false,
+      message: 'Failed to get queue information',
+      data: {
+        totalWaiting: 0,
+        longestWaitMinutes: 0,
+        shouldCreateTrip: false,
+        isPeakHour: false,
+        nextTripETA: 'Unknown'
+      }
+    };
+  }
+};
+
+export const getStationQueues = async (stationId: string): Promise<ApiResponse<{
+  stationId: string;
+  totalQueues: number;
+  queues: Array<{
+    destinationId: string;
+    description: string;
+    count: number;
+  }>;
+}>> => {
+  try {
+    const res = await api.get('/queues/count', { params: { stationId } });
+    return res.data;
+  } catch (error: any) {
+    console.error('❌ Get station queues error:', error);
+    return {
+      success: false,
+      message: 'Failed to get station queues',
+      data: {
+        stationId,
+        totalQueues: 0,
+        queues: []
+      }
+    };
+  }
+};
+
 // ==================== HELPER FUNCTIONS ====================
 
 export const processStripePayment = async (paymentIntentId: string, paymentMethodId?: string) => {
-  // This is handled by Stripe SDK directly, but keeping for compatibility
   return { success: true, paymentIntentId, paymentMethodId };
 };
 
-// ==================== ERROR HANDLING ====================
-
-api.interceptors.response.use(
-  (response) => {
-    // Log successful responses in development
-    if (__DEV__) {
-      console.log(`✅ API Success: ${response.config.method?.toUpperCase()} ${response.config.url}`);
-    }
-    return response;
-  },
-  (error) => {
-    // Enhanced error logging
-    if (__DEV__) {
-      console.error('❌ API Error:', {
-        url: error.config?.url,
-        method: error.config?.method,
-        status: error.response?.status,
-        data: error.response?.data
-      });
-    }
-
-    if (error.response?.status === 401) {
-      // Clear token and dispatch Redux logout
-      global.authToken = undefined;
-      store.dispatch(logout());
-    }
-    return Promise.reject(error);
-  }
-);
-
+// ==================== DEBUG FUNCTIONS ====================
 
 export const getMyBookingsDebug = async (params?: {
   page?: number;
@@ -1136,7 +1266,6 @@ export const getMyBookingsDebug = async (params?: {
       dataStringified: JSON.stringify(res.data, null, 2)
     });
 
-    // Check if response.data is the expected format
     if (res.data) {
       if (res.data.success !== undefined) {
         console.log('🔍 DEBUG: Response has success field:', res.data.success);
@@ -1176,12 +1305,10 @@ export const getMyBookingsDebug = async (params?: {
   }
 };
 
-// Also add this simple test function to call from your component:
 export const testBookingsAPI = async () => {
   console.log('🧪 TESTING: Starting bookings API test...');
 
   try {
-    // Test the actual endpoint directly
     const directResponse = await fetch(`${Config.API_BASE_URL}/bookings/my`, {
       method: 'GET',
       headers: {
@@ -1204,7 +1331,6 @@ export const testBookingsAPI = async () => {
       stringified: JSON.stringify(directData, null, 2)
     });
 
-    // Test with our API wrapper
     const wrapperResponse = await getMyBookingsDebug({ limit: 10 });
     console.log('🧪 TESTING: Wrapper response:', wrapperResponse);
 
@@ -1218,104 +1344,31 @@ export const testBookingsAPI = async () => {
   }
 };
 
+// ==================== ERROR HANDLING ====================
 
-/**
- * Leave current queue
- */
-export const leaveQueue = async (): Promise<ApiResponse> => {
-  try {
-    console.log('📡 API: Leaving queue...');
-    const res = await api.post('/queues/leave');
-    console.log('📡 API: Leave queue response:', res.data);
-    return res.data;
-  } catch (error: any) {
-    console.error('❌ Leave queue error:', error);
-    
-    let errorMessage = 'Failed to leave queue';
-    
-    if (error.response?.status === 404) {
-      errorMessage = 'You are not currently in any queue';
-    } else if (error.response?.status === 400) {
-      errorMessage = error.response?.data?.message || 'Cannot leave queue at this time';
-    } else if (error.response?.status === 401) {
-      errorMessage = 'Authentication required. Please log in again.';
-    } else if (error.response?.status >= 500) {
-      errorMessage = 'Server error. Please try again in a moment.';
-    } else if (!error.response) {
-      errorMessage = 'Network error. Please check your connection.';
+api.interceptors.response.use(
+  (response) => {
+    if (__DEV__) {
+      console.log(`✅ API Success: ${response.config.method?.toUpperCase()} ${response.config.url}`);
     }
-    
-    return {
-      success: false,
-      message: errorMessage,
-      error: {
+    return response;
+  },
+  (error) => {
+    if (__DEV__) {
+      console.error('❌ API Error:', {
+        url: error.config?.url,
+        method: error.config?.method,
         status: error.response?.status,
         data: error.response?.data
-      }
-    };
-  }
-};
+      });
+    }
 
-/**
- * Get queue information for a specific station/destination
- */
-export const getQueueInfo = async (params: {
-  stationId: string;
-  scheduleId: string;
-  destinationId: string;
-}): Promise<ApiResponse<{
-  totalWaiting: number;
-  longestWaitMinutes: number;
-  shouldCreateTrip: boolean;
-  isPeakHour: boolean;
-  nextTripETA: string;
-}>> => {
-  try {
-    const res = await api.get('/queues', { params });
-    return res.data;
-  } catch (error: any) {
-    console.error('❌ Get queue info error:', error);
-    return {
-      success: false,
-      message: 'Failed to get queue information',
-      data: {
-        totalWaiting: 0,
-        longestWaitMinutes: 0,
-        shouldCreateTrip: false,
-        isPeakHour: false,
-        nextTripETA: 'Unknown'
-      }
-    };
+    if (error.response?.status === 401) {
+      global.authToken = undefined;
+      store.dispatch(logout());
+    }
+    return Promise.reject(error);
   }
-};
-
-/**
- * Get all queues by station (Admin only)
- */
-export const getStationQueues = async (stationId: string): Promise<ApiResponse<{
-  stationId: string;
-  totalQueues: number;
-  queues: Array<{
-    destinationId: string;
-    description: string;
-    count: number;
-  }>;
-}>> => {
-  try {
-    const res = await api.get('/queues/count', { params: { stationId } });
-    return res.data;
-  } catch (error: any) {
-    console.error('❌ Get station queues error:', error);
-    return {
-      success: false,
-      message: 'Failed to get station queues',
-      data: {
-        stationId,
-        totalQueues: 0,
-        queues: []
-      }
-    };
-  }
-};
+);
 
 export default api;

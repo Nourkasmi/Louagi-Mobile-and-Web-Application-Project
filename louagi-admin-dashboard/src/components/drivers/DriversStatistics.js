@@ -1,6 +1,6 @@
 // src/components/drivers/DriversStatistics.js
 import React from 'react';
-import { Users, CheckCircle, Clock, Star } from 'lucide-react';
+import { Users, CheckCircle, Clock } from 'lucide-react';
 
 const DriversStatistics = ({ stats }) => {
     const statCards = [
@@ -30,15 +30,6 @@ const DriversStatistics = ({ stats }) => {
             color: 'yellow',
             bgColor: 'bg-yellow-50',
             textColor: 'text-yellow-600'
-        },
-        {
-            title: 'Avg Rating',
-            value: stats.averageRating,
-            description: 'Overall performance',
-            icon: Star,
-            color: 'purple',
-            bgColor: 'bg-purple-50',
-            textColor: 'text-purple-600'
         }
     ];
 

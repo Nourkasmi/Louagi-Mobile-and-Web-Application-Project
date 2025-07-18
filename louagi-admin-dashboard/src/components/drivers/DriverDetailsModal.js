@@ -15,11 +15,12 @@ import {
     FileText,
     CheckCircle,
     XCircle,
-    ToggleLeft,
-    ToggleRight
+    Activity // ⬅️ Add this!
 } from 'lucide-react';
 
-const DriverDetailsModal = ({ driver, onClose, onToggleStatus }) => {
+const DriverDetailsModal = ({ driver, onClose }) => {
+    if (!driver) return null;
+
     const formatDate = (dateString) => {
         try {
             return new Date(dateString).toLocaleDateString('en-US', {
@@ -73,235 +74,199 @@ const DriverDetailsModal = ({ driver, onClose, onToggleStatus }) => {
     };
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-                {/* Header */}
-                <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-4 rounded-t-2xl">
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-4">
-                            <div className="w-12 h-12 bg-white bg-opacity-20 rounded-full flex items-center justify-center">
-                                <Car className="w-6 h-6 text-white" />
-                            </div>
-                            <div>
-                                <h2 className="text-xl font-bold text-white">Driver Details</h2>
-                                <p className="text-blue-100 text-sm">{driver.name}</p>
-                            </div>
-                        </div>
-                        <button
-                            onClick={onClose}
-                            className="p-2 hover:bg-white hover:bg-opacity-20 rounded-lg transition-colors"
-                        >
-                            <X className="w-5 h-5 text-white" />
-                        </button>
-                    </div>
-                </div>
-
-                {/* Content */}
-                <div className="p-6">
-                    {/* Driver Overview */}
-                    <div className="bg-gray-50 rounded-lg p-6 mb-6">
-                        <div className="flex items-start justify-between">
-                            <div className="flex items-center space-x-4">
-                                <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center">
-                                    <User className="w-8 h-8 text-blue-600" />
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 p-4" style={{ overflow: 'auto' }}>
+            <div className="min-h-screen flex items-center justify-center py-8">
+                <div className="bg-white rounded-2xl shadow-xl max-w-4xl w-full flex flex-col">
+                    {/* Modal Header */}
+                    <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-4 rounded-t-2xl flex-shrink-0">
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center space-x-3">
+                                <div className="w-10 h-10 bg-white bg-opacity-20 rounded-full flex items-center justify-center">
+                                    <Car className="w-5 h-5 text-white" />
                                 </div>
                                 <div>
-                                    <h3 className="text-2xl font-bold text-gray-900">{driver.name}</h3>
-                                    <p className="text-gray-600">{driver.email}</p>
-                                    <div className="flex items-center space-x-3 mt-2">
-                                        {getVerificationBadge()}
-                                        <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
-                                            driver.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                                        }`}>
-                                            {driver.isActive ? <CheckCircle className="w-4 h-4 mr-1" /> : <XCircle className="w-4 h-4 mr-1" />}
-                                            {driver.isActive ? 'Active' : 'Inactive'}
-                                        </span>
-                                    </div>
+                                    <h2 className="text-xl font-bold text-white">Driver Details</h2>
+                                    <p className="text-blue-100 text-sm">{driver.name}</p>
                                 </div>
                             </div>
-                            <div className="text-right">
-                                <div className="flex items-center text-gray-600 mb-1">
-                                    <Star className="w-4 h-4 text-yellow-500 mr-1" />
-                                    <span className="font-medium">{driver.rating}</span>
-                                </div>
-                                <div className="text-sm text-gray-500">{driver.totalTrips} trips completed</div>
-                            </div>
+                            <button
+                                onClick={onClose}
+                                className="p-2 hover:bg-white hover:bg-opacity-20 rounded-lg transition-colors"
+                            >
+                                <X className="w-5 h-5 text-white" />
+                            </button>
                         </div>
                     </div>
 
-                    {/* Details Grid */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        {/* Personal Information */}
-                        <div className="bg-white border rounded-lg p-5">
-                            <h4 className="font-semibold text-gray-900 mb-4 flex items-center">
-                                <User className="w-5 h-5 mr-2 text-blue-600" />
-                                Personal Information
-                            </h4>
-                            <div className="space-y-3">
-                                <div className="flex items-center">
-                                    <Mail className="w-4 h-4 text-gray-400 mr-3" />
-                                    <div>
-                                        <span className="text-sm text-gray-500">Email</span>
-                                        <p className="font-medium">{driver.email}</p>
-                                    </div>
-                                </div>
-                                <div className="flex items-center">
-                                    <Phone className="w-4 h-4 text-gray-400 mr-3" />
-                                    <div>
-                                        <span className="text-sm text-gray-500">Phone</span>
-                                        <p className="font-medium">{driver.phone}</p>
-                                    </div>
-                                </div>
-                                <div className="flex items-center">
-                                    <Calendar className="w-4 h-4 text-gray-400 mr-3" />
-                                    <div>
-                                        <span className="text-sm text-gray-500">Joined Date</span>
-                                        <p className="font-medium">{formatDate(driver.joinedDate)}</p>
-                                    </div>
-                                </div>
-                                <div className="flex items-center">
-                                    <Clock className="w-4 h-4 text-gray-400 mr-3" />
-                                    <div>
-                                        <span className="text-sm text-gray-500">Last Active</span>
-                                        <p className="font-medium">{formatDateTime(driver.lastActive)}</p>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* License Information */}
-                        <div className="bg-white border rounded-lg p-5">
-                            <h4 className="font-semibold text-gray-900 mb-4 flex items-center">
-                                <FileText className="w-5 h-5 mr-2 text-green-600" />
-                                License Information
-                            </h4>
-                            <div className="space-y-3">
-                                <div>
-                                    <span className="text-sm text-gray-500">License Number</span>
-                                    <p className="font-medium">{driver.licenseNo}</p>
-                                </div>
-                                <div>
-                                    <span className="text-sm text-gray-500">Experience</span>
-                                    <p className="font-medium">{driver.experience} years</p>
-                                </div>
-                                {driver.licenseExpiry && (
-                                    <div>
-                                        <span className="text-sm text-gray-500">License Expiry</span>
-                                        <p className="font-medium">{formatDate(driver.licenseExpiry)}</p>
-                                    </div>
+                    {/* Modal Body (scrollable if needed) */}
+                    <div className="p-6" style={{ maxHeight: '60vh', overflowY: 'auto' }}>
+                        {/* Status Banner */}
+                        <div className={`mb-6 p-4 rounded-lg border ${
+                            driver.isActive
+                                ? 'bg-green-50 border-green-200'
+                                : 'bg-red-50 border-red-200'
+                        }`}>
+                            <div className="flex items-center">
+                                {driver.isActive ? (
+                                    <CheckCircle className="w-5 h-5 text-green-600 mr-2" />
+                                ) : (
+                                    <XCircle className="w-5 h-5 text-red-600 mr-2" />
                                 )}
-                                <div>
-                                    <span className="text-sm text-gray-500">Verification Status</span>
-                                    <div className="mt-1">
-                                        {getVerificationBadge()}
-                                    </div>
-                                </div>
+                                <span className={`font-medium ${
+                                    driver.isActive ? 'text-green-800' : 'text-red-800'
+                                }`}>
+                                    Driver is {driver.isActive ? 'Active' : 'Inactive'}
+                                </span>
                             </div>
                         </div>
 
-                        {/* Vehicle Information */}
-                        <div className="bg-white border rounded-lg p-5">
-                            <h4 className="font-semibold text-gray-900 mb-4 flex items-center">
-                                <Car className="w-5 h-5 mr-2 text-purple-600" />
-                                Vehicle Information
-                            </h4>
-                            <div className="space-y-3">
-                                <div>
-                                    <span className="text-sm text-gray-500">Vehicle Type</span>
-                                    <p className="font-medium">{driver.vehicleType}</p>
+                        {/* Information Grid */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
+                            {/* Personal Info */}
+                            <div className="bg-gray-50 rounded-lg p-5">
+                                <h3 className="font-semibold text-gray-900 mb-3 flex items-center">
+                                    <User className="w-5 h-5 mr-2 text-blue-600" />
+                                    Personal Information
+                                </h3>
+                                <div className="space-y-2 text-sm">
+                                    <div>
+                                        <span className="font-medium text-gray-700">Name:</span>
+                                        <p className="text-gray-900">{driver.name}</p>
+                                    </div>
+                                    <div>
+                                        <span className="font-medium text-gray-700">Email:</span>
+                                        <p className="text-gray-900">{driver.email}</p>
+                                    </div>
+                                    <div>
+                                        <span className="font-medium text-gray-700">Phone:</span>
+                                        <p className="text-gray-900">{driver.phone}</p>
+                                    </div>
+                                    <div>
+                                        <span className="font-medium text-gray-700">Joined Date:</span>
+                                        <p className="text-gray-900">{formatDate(driver.joinedDate)}</p>
+                                    </div>
+                                    <div>
+                                        <span className="font-medium text-gray-700">Last Active:</span>
+                                        <p className="text-gray-900">{formatDateTime(driver.lastActive)}</p>
+                                    </div>
                                 </div>
-                                <div>
-                                    <span className="text-sm text-gray-500">Capacity</span>
-                                    <p className="font-medium">{driver.vehicleCapacity} seats</p>
+                            </div>
+
+                            {/* License Info */}
+                            <div className="bg-gray-50 rounded-lg p-5">
+                                <h3 className="font-semibold text-gray-900 mb-3 flex items-center">
+                                    <FileText className="w-5 h-5 mr-2 text-green-600" />
+                                    License Information
+                                </h3>
+                                <div className="space-y-2 text-sm">
+                                    <div>
+                                        <span className="font-medium text-gray-700">License Number:</span>
+                                        <p className="text-gray-900">{driver.licenseNo}</p>
+                                    </div>
+                                    <div>
+                                        <span className="font-medium text-gray-700">Experience:</span>
+                                        <p className="text-gray-900">{driver.experience} years</p>
+                                    </div>
+                                    {driver.licenseExpiry && (
+                                        <div>
+                                            <span className="font-medium text-gray-700">License Expiry:</span>
+                                            <p className="text-gray-900">{formatDate(driver.licenseExpiry)}</p>
+                                        </div>
+                                    )}
+                                    <div>
+                                        <span className="font-medium text-gray-700">Verification:</span>
+                                        <div className="mt-1">{getVerificationBadge()}</div>
+                                    </div>
                                 </div>
-                                <div>
-                                    <span className="text-sm text-gray-500">Current Status</span>
-                                    <div className="mt-1">
-                                        <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(driver.currentStatus)}`}>
-                                            {driver.currentStatus.replace('_', ' ').toUpperCase()}
+                            </div>
+
+                            {/* Vehicle Info */}
+                            <div className="bg-gray-50 rounded-lg p-5">
+                                <h3 className="font-semibold text-gray-900 mb-3 flex items-center">
+                                    <Car className="w-5 h-5 mr-2 text-purple-600" />
+                                    Vehicle Information
+                                </h3>
+                                <div className="space-y-2 text-sm">
+                                    <div>
+                                        <span className="font-medium text-gray-700">Vehicle Type:</span>
+                                        <p className="text-gray-900">{driver.vehicleType}</p>
+                                    </div>
+                                    <div>
+                                        <span className="font-medium text-gray-700">Capacity:</span>
+                                        <p className="text-gray-900">{driver.vehicleCapacity} seats</p>
+                                    </div>
+                                    <div>
+                                        <span className="font-medium text-gray-700">Current Status:</span>
+                                        <span className={`ml-1 inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(driver.currentStatus)}`}>
+                                            {(driver.currentStatus || 'offline').replace('_', ' ').toUpperCase()}
                                         </span>
                                     </div>
+                                    {driver.queuePosition && (
+                                        <div>
+                                            <span className="font-medium text-gray-700">Queue Position:</span>
+                                            <p className="text-gray-900 font-mono text-xs">#{driver.queuePosition}</p>
+                                        </div>
+                                    )}
                                 </div>
-                                {driver.queuePosition && (
-                                    <div>
-                                        <span className="text-sm text-gray-500">Queue Position</span>
-                                        <p className="font-medium">#{driver.queuePosition}</p>
-                                    </div>
-                                )}
                             </div>
                         </div>
 
-                        {/* Performance Metrics */}
-                        <div className="bg-white border rounded-lg p-5">
-                            <h4 className="font-semibold text-gray-900 mb-4 flex items-center">
+                        {/* Performance/Stats */}
+                        <div className="bg-blue-50 rounded-lg p-5 mb-6">
+                            <h3 className="font-semibold text-gray-900 mb-3 flex items-center">
                                 <Star className="w-5 h-5 mr-2 text-yellow-600" />
-                                Performance Metrics
-                            </h4>
-                            <div className="space-y-3">
-                                <div className="flex items-center justify-between">
-                                    <span className="text-sm text-gray-500">Rating</span>
-                                    <div className="flex items-center">
-                                        <Star className="w-4 h-4 text-yellow-500 mr-1" />
-                                        <span className="font-medium">{driver.rating}</span>
-                                    </div>
+                                Performance
+                            </h3>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                                <div>
+                                    <span className="font-medium text-gray-700">Rating:</span>
+                                    <span className="ml-2 font-semibold">{driver.rating}</span>
                                 </div>
-                                <div className="flex items-center justify-between">
-                                    <span className="text-sm text-gray-500">Total Trips</span>
-                                    <span className="font-medium">{driver.totalTrips}</span>
+                                <div>
+                                    <span className="font-medium text-gray-700">Total Trips:</span>
+                                    <span className="ml-2 font-semibold">{driver.totalTrips}</span>
                                 </div>
-                                <div className="flex items-center justify-between">
-                                    <span className="text-sm text-gray-500">Total Earnings</span>
-                                    <div className="flex items-center">
-                                        <DollarSign className="w-4 h-4 text-green-500 mr-1" />
-                                        <span className="font-medium text-green-600">${driver.totalEarnings.toFixed(2)}</span>
-                                    </div>
+                                <div>
+                                    <span className="font-medium text-gray-700">Total Earnings:</span>
+                                    <span className="ml-2 font-semibold text-green-700">${driver.totalEarnings?.toFixed(2)}</span>
                                 </div>
-                                <div className="flex items-center justify-between">
-                                    <span className="text-sm text-gray-500">Avg per Trip</span>
-                                    <span className="font-medium">
+                                <div>
+                                    <span className="font-medium text-gray-700">Avg/Trip:</span>
+                                    <span className="ml-2 font-semibold">
                                         ${driver.totalTrips > 0 ? (driver.totalEarnings / driver.totalTrips).toFixed(2) : '0.00'}
                                     </span>
                                 </div>
                             </div>
                         </div>
-                    </div>
 
-                    {/* Account Information */}
-                    <div className="bg-gray-50 rounded-lg p-5 mt-6">
-                        <h4 className="font-semibold text-gray-900 mb-4">Account Information</h4>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-                            <div>
-                                <span className="text-gray-500">User ID</span>
-                                <p className="font-mono text-xs bg-white px-2 py-1 rounded mt-1">{driver.id}</p>
-                            </div>
-                            <div>
-                                <span className="text-gray-500">Created</span>
-                                <p className="font-medium">{formatDateTime(driver.joinedDate)}</p>
-                            </div>
-                            <div>
-                                <span className="text-gray-500">Last Updated</span>
-                                <p className="font-medium">{formatDateTime(driver.lastActive)}</p>
+                        {/* Metadata */}
+                        <div className="bg-gray-50 rounded-lg p-5 mb-6">
+                            <h3 className="font-semibold text-gray-900 mb-3 flex items-center">
+                                <Activity className="w-5 h-5 mr-2 text-gray-600" />
+                                Driver Metadata
+                            </h3>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                                <div>
+                                    <span className="font-medium text-gray-700">User ID:</span>
+                                    <p className="text-gray-900 font-mono text-xs">{driver.id}</p>
+                                </div>
+                                <div>
+                                    <span className="font-medium text-gray-700">Joined:</span>
+                                    <p className="text-gray-900">{formatDateTime(driver.joinedDate)}</p>
+                                </div>
+                                <div>
+                                    <span className="font-medium text-gray-700">Last Updated:</span>
+                                    <p className="text-gray-900">{formatDateTime(driver.lastActive)}</p>
+                                </div>
                             </div>
                         </div>
                     </div>
 
-                    {/* Action Buttons */}
-                    <div className="flex items-center justify-end space-x-3 mt-6 pt-6 border-t">
-                        <button
-                            onClick={() => onToggleStatus(driver.id, driver.isActive)}
-                            className={`inline-flex items-center px-4 py-2 rounded-lg font-medium transition-colors ${
-                                driver.isActive
-                                    ? 'bg-yellow-100 text-yellow-700 hover:bg-yellow-200'
-                                    : 'bg-green-100 text-green-700 hover:bg-green-200'
-                            }`}
-                        >
-                            {driver.isActive ? <ToggleRight className="w-4 h-4 mr-2" /> : <ToggleLeft className="w-4 h-4 mr-2" />}
-                            {driver.isActive ? 'Deactivate' : 'Activate'}
-                        </button>
-                        
+                    {/* Modal Footer (only Close button) */}
+                    <div className="bg-gray-50 px-6 py-4 border-t border-gray-200 rounded-b-2xl flex items-center justify-end">
                         <button
                             onClick={onClose}
-                            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                            className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
                         >
                             Close
                         </button>

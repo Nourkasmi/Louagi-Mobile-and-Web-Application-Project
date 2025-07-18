@@ -96,29 +96,22 @@ const PaymentsPage = () => {
 
     return (
         <div className="space-y-6">
-            <PageHeader
-                title="Payments Management"
-                subtitle="Manage payments, refunds, and financial transactions"
-                action={
-                    <div className="flex items-center space-x-3">
-                        <button
-                            onClick={exportPayments}
-                            className="btn-secondary flex items-center space-x-2"
-                        >
-                            <Download className="h-4 w-4" />
-                            <span>Export</span>
-                        </button>
-                        <button
-                            onClick={refreshData}
-                            disabled={refreshing}
-                            className="btn-primary flex items-center space-x-2"
-                        >
-                            <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
-                            <span>Refresh</span>
-                        </button>
-                    </div>
-                }
-            />
+<PageHeader
+    title="Payments Management"
+    subtitle="Manage payments, refunds, and financial transactions"
+    action={
+        <div className="flex items-center space-x-3">
+            <button
+                onClick={refreshData}
+                disabled={refreshing}
+                className="btn-primary flex items-center space-x-2"
+            >
+                <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+                <span>Refresh</span>
+            </button>
+        </div>
+    }
+/>
 
             <PaymentStatistics stats={stats || {}} formatCurrency={formatCurrency} />
 

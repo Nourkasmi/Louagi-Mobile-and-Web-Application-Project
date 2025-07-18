@@ -1,4 +1,4 @@
-// src/pages/QueuePage.js - FIXED VERSION
+// src/pages/QueuePage.js - UPDATED: System Control section removed, only Live Queue Monitor remains
 import React, { useState } from 'react';
 import PageHeader from '../components/common/PageHeader';
 import LoadingSpinner from '../components/common/LoadingSpinner';
@@ -92,14 +92,6 @@ const QueuePage = () => {
         alert('Queue reordering is currently disabled.\n\nUse the Live Queue to manage driver positions instead.');
     };
 
-    const handleRefreshAll = async () => {
-        try {
-            await fetchQueueData();
-        } catch (error) {
-            console.error('Failed to refresh queue data:', error);
-        }
-    };
-
     // Prepare queue data for LiveQueueModal
     const getQueueDataForModal = () => {
         if (!hasFiltersSelected) {
@@ -151,7 +143,24 @@ const QueuePage = () => {
                 subtitle="Manage driver queues and waiting times"
             />
 
-            {/* Queue Quick Actions - Updated to show Live Queue only when filters selected */}
+            {/* Queue Filters - at the top */}
+            <QueueFilters
+                stations={stations}
+                schedules={schedules}
+                destinations={destinations}
+                selectedStation={selectedStation}
+                selectedSchedule={selectedSchedule}
+                selectedDestination={selectedDestination}
+                onStationChange={handleStationChange}
+                onScheduleChange={handleScheduleChange}
+                onDestinationChange={handleDestinationChange}
+                onRefresh={fetchQueueData}
+                refreshing={refreshing}
+                getSchedulesForStation={getSchedulesForStation}
+                getDestinationsForStation={getDestinationsForStation}
+            />
+
+            {/* Only Live Queue Monitor remains */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Live Queue Management */}
                 <div className="bg-white rounded-lg shadow border p-6">
@@ -184,43 +193,7 @@ const QueuePage = () => {
                         )}
                     </div>
                 </div>
-
-                {/* System Refresh */}
-                <div className="bg-white rounded-lg shadow border p-6">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-4">System Control</h3>
-                    <div className="space-y-3">
-                        <div className="text-sm text-gray-600">
-                            Refresh queue data and sync with backend
-                        </div>
-                        <button 
-                            onClick={handleRefreshAll}
-                            className="w-full bg-gray-600 text-white py-2 px-4 rounded-lg hover:bg-gray-700 transition-colors flex items-center justify-center"
-                        >
-                            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                            </svg>
-                            Refresh Data
-                        </button>
-                    </div>
-                </div>
             </div>
-
-            {/* Queue Filters */}
-            <QueueFilters
-                stations={stations}
-                schedules={schedules}
-                destinations={destinations}
-                selectedStation={selectedStation}
-                selectedSchedule={selectedSchedule}
-                selectedDestination={selectedDestination}
-                onStationChange={handleStationChange}
-                onScheduleChange={handleScheduleChange}
-                onDestinationChange={handleDestinationChange}
-                onRefresh={fetchQueueData}
-                refreshing={refreshing}
-                getSchedulesForStation={getSchedulesForStation}
-                getDestinationsForStation={getDestinationsForStation}
-            />
 
             {/* Queue Content */}
             {!hasFiltersSelected ? (

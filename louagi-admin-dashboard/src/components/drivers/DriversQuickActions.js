@@ -1,4 +1,4 @@
-// src/components/drivers/DriversQuickActions.js - Updated with working Review Pending button
+// src/components/drivers/DriversQuickActions.js - "2 pending" display removed
 import React, { useState, useEffect } from 'react';
 import { Shield, AlertTriangle, CheckCircle } from 'lucide-react';
 import DriverVerificationModal from './DriverVerificationModal';
@@ -73,15 +73,7 @@ const DriversQuickActions = ({ refreshDrivers }) => {
                             <p className="text-sm text-gray-600">Review and approve new driver applications</p>
                         </div>
                     </div>
-                    
-                    {pendingCount > 0 && (
-                        <div className="flex items-center space-x-2">
-                            <AlertTriangle className="w-4 h-4 text-orange-500" />
-                            <span className="bg-orange-100 text-orange-800 text-xs font-medium px-2.5 py-0.5 rounded-full">
-                                {pendingCount} pending
-                            </span>
-                        </div>
-                    )}
+                    {/* "2 pending" display removed here */}
                 </div>
 
                 <div className="space-y-3">
@@ -92,11 +84,13 @@ const DriversQuickActions = ({ refreshDrivers }) => {
                                 <span>Checking pending verifications...</span>
                             </div>
                         ) : pendingCount > 0 ? (
-                            <div className="flex items-center">
-                                <AlertTriangle className="w-4 h-4 text-orange-500 mr-2" />
-                                <span className="font-medium">{pendingCount}</span>
-                                <span className="ml-1">driver{pendingCount !== 1 ? 's' : ''} pending verification</span>
-                            </div>
+<div className="flex items-center">
+    <AlertTriangle className="w-4 h-4 text-orange-500 mr-2" />
+    <span className="font-medium">
+        driver{pendingCount !== 1 ? 's' : ''} pending verification
+    </span>
+</div>
+
                         ) : (
                             <div className="flex items-center">
                                 <CheckCircle className="w-4 h-4 text-green-500 mr-2" />

@@ -73,11 +73,6 @@ const DashboardPage = () => {
                     />
                 </div>
 
-                {/* System Status Only */}
-                <div className="grid grid-cols-1 lg:grid-cols-1 gap-6">
-                    <SystemStatus />
-                </div>
-
                 {/* Recent Activity Only */}
                 <div className="grid grid-cols-1 lg:grid-cols-1 gap-6">
                     <RecentActivity recentActivity={recentActivity} />

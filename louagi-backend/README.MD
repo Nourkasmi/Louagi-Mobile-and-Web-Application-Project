@@ -424,4 +424,4 @@ This project is licensed under the ISC License - see the LICENSE file for detail
 
 ---
 
-**Built with ❤️ for efficient transportation management**
+**Built with ❤️ by Nour Kasmi And Ahmed El Guindou**

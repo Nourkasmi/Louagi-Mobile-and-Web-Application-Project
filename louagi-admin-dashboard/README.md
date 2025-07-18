@@ -390,6 +390,5 @@ For support and questions:
 
 ---
 
-**Built with ❤️ by the Louagi Team**
+**Built with ❤️ by Nour Kasmi And Ahmed El Guindou**
 
-*Streamlining transportation management across Tunisia and beyond.*

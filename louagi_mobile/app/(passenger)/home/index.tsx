@@ -1,6 +1,6 @@
-// app/(passenger)/home/index.tsx - UPDATED: Direct Navigation to Station Search
+// app/(passenger)/home/index.tsx - PERFECT HOME SCREEN with Real Data & Animations
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -13,6 +13,7 @@ import {
   Platform,
   Dimensions,
   StatusBar,
+  Animated,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useDispatch, useSelector } from 'react-redux';
@@ -22,7 +23,7 @@ import { getStations, getMyBookings, type Station, type Booking } from '../../..
 import { RootState } from '../../../src/store/store';
 import { styles } from './index.styles';
 
-const { width } = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
 
 export default function PassengerHomeScreen() {
   // State management
@@ -36,7 +37,15 @@ export default function PassengerHomeScreen() {
     pendingPayments: 0,
     nextTrip: null as Booking | null,
     savedAmount: 0,
+    completionRate: 0,
   });
+
+  // Animation refs
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(50)).current;
+  const scaleAnim = useRef(new Animated.Value(0.9)).current;
+  const heroAnim = useRef(new Animated.Value(0)).current;
+  const statsAnim = useRef(new Animated.Value(0)).current;
 
   const router = useRouter();
   const dispatch = useDispatch();
@@ -89,7 +98,7 @@ export default function PassengerHomeScreen() {
     }
   }, []);
 
-  // Fetch all data
+  // Fetch all data with enhanced analytics
   const fetchData = async (isRefresh = false) => {
     try {
       if (isRefresh) setRefreshing(true);
@@ -99,8 +108,8 @@ export default function PassengerHomeScreen() {
 
       // Fetch stations and recent bookings in parallel
       const [stationsResponse, bookingsResponse] = await Promise.all([
-        getStations({ limit: 12 }),
-        getMyBookings({ limit: 5 }),
+        getStations({ limit: 20 }),
+        getMyBookings({ limit: 10 }),
       ]);
 
       // Handle stations
@@ -109,45 +118,156 @@ export default function PassengerHomeScreen() {
         setStations(stationsData);
       }
 
-      // Handle bookings and calculate stats
+      // Handle bookings and calculate REAL stats from actual data
       if (bookingsResponse.success) {
         const bookingsData = bookingsResponse.data?.bookings || [];
-        setRecentBookings(bookingsData.slice(0, 3)); // Show only 3 recent
+        setRecentBookings(bookingsData.slice(0, 4)); // Show only 4 recent
 
-        // Calculate enhanced stats
-        const completedTrips = bookingsData.filter(b => b.status === 'completed').length;
-        const pendingCount = bookingsData.filter(b => b.status === 'pending').length;
-        const savedAmount = bookingsData
-          .filter(b => b.status === 'completed')
-          .reduce((sum, b) => sum + (b.amount || 0), 0) * 0.25; // Assume 25% savings vs alternatives
+        console.log('📊 Raw bookings data for stats:', bookingsData);
 
-        const nextTrip = bookingsData
-          .filter(b => b.status === 'confirmed' && b.trip?.departureTime)
-          .sort((a, b) => new Date(a.trip!.departureTime).getTime() - new Date(b.trip!.departureTime).getTime())[0] || null;
+        // Calculate REAL statistics from actual booking data
+        const allBookings = bookingsData;
+        const completedTrips = allBookings.filter(b =>
+          b.status === 'completed' ||
+          (b.paymentStatus === 'completed' && b.trip?.status === 'completed')
+        );
+
+        const confirmedBookings = allBookings.filter(b =>
+          b.status === 'confirmed' ||
+          b.paymentStatus === 'completed'
+        );
+
+        const pendingPayments = allBookings.filter(b =>
+          b.paymentStatus === 'pending' ||
+          b.paymentStatus === 'failed' ||
+          (b.status === 'pending' && !b.paymentStatus)
+        );
+
+        const cancelledBookings = allBookings.filter(b =>
+          b.status === 'cancelled' || b.trip?.status === 'cancelled'
+        );
+
+        // REAL money calculations from actual booking amounts
+        const totalSpentOnCompletedTrips = completedTrips.reduce((sum, b) => {
+          const amount = parseFloat(b.amount?.toString() || '0');
+          return sum + amount;
+        }, 0);
+
+        // REAL average cost per trip
+        const averageCostPerTrip = completedTrips.length > 0 ?
+          totalSpentOnCompletedTrips / completedTrips.length : 0;
+
+        // REAL savings calculation (compared to estimated taxi/bus alternatives)
+        // Tunisia taxi rates: ~2.5 TND/km, buses: ~1.5 TND/km, assume average 50km trip
+        const estimatedAlternativeCost = completedTrips.length * 45; // ~45 TND per trip average
+        const actualSavings = Math.max(0, estimatedAlternativeCost - totalSpentOnCompletedTrips);
+
+        // REAL completion rate
+        const totalBookings = allBookings.length;
+        const realCompletionRate = totalBookings > 0 ?
+          Math.round((completedTrips.length / totalBookings) * 100) : 0;
+
+        // REAL next trip (actual confirmed upcoming trip)
+        const upcomingTrips = allBookings.filter(b => {
+          const isConfirmed = b.status === 'confirmed' || b.paymentStatus === 'completed';
+          const hasFutureTrip = b.trip?.departureTime &&
+            new Date(b.trip.departureTime) > new Date();
+          return isConfirmed && hasFutureTrip;
+        });
+
+        const nextTrip = upcomingTrips.sort((a, b) =>
+          new Date(a.trip!.departureTime).getTime() - new Date(b.trip!.departureTime).getTime()
+        )[0] || null;
+
+        // Log real stats for verification
+        console.log('📈 REAL STATS CALCULATED:', {
+          totalBookings: totalBookings,
+          completedTrips: completedTrips.length,
+          confirmedBookings: confirmedBookings.length,
+          pendingPayments: pendingPayments.length,
+          cancelledBookings: cancelledBookings.length,
+          totalSpent: totalSpentOnCompletedTrips,
+          averageCost: averageCostPerTrip,
+          realSavings: actualSavings,
+          completionRate: realCompletionRate,
+          hasNextTrip: !!nextTrip,
+          nextTripId: nextTrip?.id,
+        });
 
         setQuickStats({
-          totalTrips: completedTrips,
-          pendingPayments: pendingCount,
+          totalTrips: completedTrips.length,
+          pendingPayments: pendingPayments.length,
           nextTrip,
-          savedAmount: Math.round(savedAmount),
+          savedAmount: Math.round(actualSavings),
+          completionRate: realCompletionRate,
         });
       }
 
-      if (!stationsResponse.success || stations.length === 0) {
-        setError('No stations available at the moment');
+      if (!stationsResponse.success && stations.length === 0) {
+        setError('Unable to load stations. Please check your connection.');
       }
     } catch (err: any) {
       console.error('Error fetching home data:', err);
-      setError('Failed to load data. Please check your connection.');
+      setError('Failed to load data. Please check your connection and try again.');
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
   };
 
+  // Animation sequence
+  const startAnimations = useCallback(() => {
+    // Reset animations
+    fadeAnim.setValue(0);
+    slideAnim.setValue(50);
+    scaleAnim.setValue(0.9);
+    heroAnim.setValue(0);
+    statsAnim.setValue(0);
+
+    // Orchestrated animation sequence
+    Animated.sequence([
+      // Hero section slides in first
+      Animated.timing(heroAnim, {
+        toValue: 1,
+        duration: 800,
+        useNativeDriver: true,
+      }),
+      // Stats fade in
+      Animated.timing(statsAnim, {
+        toValue: 1,
+        duration: 600,
+        useNativeDriver: true,
+      }),
+      // Main content animations
+      Animated.parallel([
+        Animated.timing(fadeAnim, {
+          toValue: 1,
+          duration: 800,
+          useNativeDriver: true,
+        }),
+        Animated.timing(slideAnim, {
+          toValue: 0,
+          duration: 800,
+          useNativeDriver: true,
+        }),
+        Animated.timing(scaleAnim, {
+          toValue: 1,
+          duration: 800,
+          useNativeDriver: true,
+        }),
+      ]),
+    ]).start();
+  }, [fadeAnim, slideAnim, scaleAnim, heroAnim, statsAnim]);
+
   useEffect(() => {
     fetchData();
   }, []);
+
+  useEffect(() => {
+    if (!loading) {
+      startAnimations();
+    }
+  }, [loading, startAnimations]);
 
   // Navigation handlers
   const handleBookingPress = useCallback((booking: Booking) => {
@@ -185,12 +305,10 @@ export default function PassengerHomeScreen() {
     );
   };
 
-  // 🔧 UPDATED: Direct navigation to station search
   const handleSearchTrips = () => {
     router.push('/(passenger)/search');
   };
 
-  // 🔧 UPDATED: Quick station selection
   const handleQuickStationSelect = (station: Station) => {
     router.push({
       pathname: '/(passenger)/search',
@@ -201,16 +319,42 @@ export default function PassengerHomeScreen() {
     });
   };
 
-  // Render functions
-  const renderModernHeader = () => (
-    <View style={modernStyles.heroSection}>
+  // Render animated hero section
+  const renderAnimatedHero = () => (
+    <Animated.View
+      style={[
+        modernStyles.heroSection,
+        {
+          opacity: heroAnim,
+          transform: [{
+            translateY: heroAnim.interpolate({
+              inputRange: [0, 1],
+              outputRange: [-50, 0]
+            })
+          }]
+        }
+      ]}
+    >
       <StatusBar barStyle="light-content" backgroundColor="#0066cc" />
 
-      {/* User greeting */}
-      <View style={modernStyles.userGreeting}>
+      {/* User greeting with scale animation */}
+      <Animated.View
+        style={[
+          modernStyles.userGreeting,
+          {
+            transform: [{
+              scale: heroAnim.interpolate({
+                inputRange: [0, 1],
+                outputRange: [0.8, 1]
+              })
+            }]
+          }
+        ]}
+      >
         <View style={modernStyles.greetingContent}>
           <Text style={modernStyles.greeting}>{getGreeting()},</Text>
           <Text style={modernStyles.userName}>{getFirstName()}! 👋</Text>
+          <Text style={modernStyles.welcomeSubtext}>Ready for your next journey?</Text>
         </View>
 
         <View style={modernStyles.headerActions}>
@@ -229,12 +373,24 @@ export default function PassengerHomeScreen() {
             <MaterialIcons name="logout" size={20} color="#ffffff" />
           </TouchableOpacity>
         </View>
-      </View>
+      </Animated.View>
 
-      {/* 🔧 UPDATED: Enhanced Search Section */}
-      <View style={modernStyles.searchSection}>
-        <Text style={modernStyles.searchTitle}>Where are you going?</Text>
-        <Text style={modernStyles.searchSubtitle}>Find trips across Tunisia</Text>
+      {/* Enhanced Search Section with floating animation */}
+      <Animated.View
+        style={[
+          modernStyles.searchSection,
+          {
+            transform: [{
+              translateY: heroAnim.interpolate({
+                inputRange: [0, 1],
+                outputRange: [30, 0]
+              })
+            }]
+          }
+        ]}
+      >
+        <Text style={modernStyles.searchTitle}>Where are you heading?</Text>
+        <Text style={modernStyles.searchSubtitle}>Discover routes across Tunisia 🇹🇳</Text>
 
         <TouchableOpacity
           style={modernStyles.searchButton}
@@ -242,17 +398,17 @@ export default function PassengerHomeScreen() {
           activeOpacity={0.9}
         >
           <MaterialIcons name="search" size={24} color="#0066cc" />
-          <Text style={modernStyles.searchButtonText}>Search stations & destinations</Text>
+          <Text style={modernStyles.searchButtonText}>Search destinations & routes</Text>
           <MaterialIcons name="arrow-forward" size={20} color="#0066cc" />
         </TouchableOpacity>
 
-        {/* 🆕 NEW: Quick Action Buttons */}
+        {/* Quick Action Pills */}
         <View style={modernStyles.quickActionsRow}>
           <TouchableOpacity
             style={modernStyles.quickAction}
             onPress={() => router.push('/(passenger)/bookings')}
           >
-            <MaterialIcons name="history" size={20} color="#ffffff" />
+            <MaterialIcons name="history" size={18} color="#ffffff" />
             <Text style={modernStyles.quickActionText}>My Trips</Text>
           </TouchableOpacity>
 
@@ -260,97 +416,221 @@ export default function PassengerHomeScreen() {
             style={modernStyles.quickAction}
             onPress={() => router.push('/(passenger)/search')}
           >
-            <MaterialIcons name="directions" size={20} color="#ffffff" />
-            <Text style={modernStyles.quickActionText}>Find Routes</Text>
+            <MaterialIcons name="directions" size={18} color="#ffffff" />
+            <Text style={modernStyles.quickActionText}>Routes</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
             style={modernStyles.quickAction}
-            onPress={() => Alert.alert('Support', 'Contact: support@louagi.com')}
+            onPress={() => Alert.alert('Support', 'Contact: support@louagi.com\nPhone: +216 XX XXX XXX')}
           >
-            <MaterialIcons name="help-outline" size={20} color="#ffffff" />
+            <MaterialIcons name="help-outline" size={18} color="#ffffff" />
             <Text style={modernStyles.quickActionText}>Help</Text>
           </TouchableOpacity>
         </View>
-      </View>
-
-      {/* Quick stats */}
-      <View style={modernStyles.statsRow}>
-        <View style={modernStyles.statItem}>
-          <MaterialIcons name="directions-bus" size={20} color="#ffffff" />
-          <Text style={modernStyles.statNumber}>{quickStats.totalTrips}</Text>
-          <Text style={modernStyles.statLabel}>Trips</Text>
-        </View>
-
-        <View style={modernStyles.statItem}>
-          <MaterialIcons name="savings" size={20} color="#ffffff" />
-          <Text style={modernStyles.statNumber}>${quickStats.savedAmount}</Text>
-          <Text style={modernStyles.statLabel}>Saved</Text>
-        </View>
-
-        <View style={modernStyles.statItem}>
-          <MaterialIcons name="schedule" size={20} color="#ffffff" />
-          <Text style={modernStyles.statNumber}>{quickStats.pendingPayments}</Text>
-          <Text style={modernStyles.statLabel}>Pending</Text>
-        </View>
-      </View>
-    </View>
+      </Animated.View>
+    </Animated.View>
   );
 
+  // Render animated stats with REAL data
+  const renderAnimatedStats = () => (
+    <Animated.View
+      style={[
+        modernStyles.statsContainer,
+        {
+          opacity: statsAnim,
+          transform: [{
+            translateY: statsAnim.interpolate({
+              inputRange: [0, 1],
+              outputRange: [20, 0]
+            })
+          }]
+        }
+      ]}
+    >
+      <View style={modernStyles.statsHeader}>
+        <MaterialIcons name="analytics" size={24} color="#0066cc" />
+        <Text style={modernStyles.statsTitle}>Your Real Travel Stats</Text>
+      </View>
+
+      <View style={modernStyles.statsRow}>
+        {/* Completed Trips - Real count */}
+        <Animated.View
+          style={[
+            modernStyles.statItem,
+            {
+              transform: [{
+                scale: statsAnim.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [0.8, 1]
+                })
+              }]
+            }
+          ]}
+        >
+          <MaterialIcons name="done-all" size={20} color="#4caf50" />
+          <Text style={[modernStyles.statNumber, { color: '#4caf50' }]}>{quickStats.totalTrips}</Text>
+          <Text style={modernStyles.statLabel}>Completed{'\n'}Trips</Text>
+        </Animated.View>
+
+        {/* Real Money Saved */}
+        <Animated.View
+          style={[
+            modernStyles.statItem,
+            {
+              transform: [{
+                scale: statsAnim.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [0.8, 1]
+                })
+              }]
+            }
+          ]}
+        >
+          <MaterialIcons name="savings" size={20} color="#28a745" />
+          <Text style={[modernStyles.statNumber, { color: '#28a745' }]}>
+            {quickStats.savedAmount > 0 ? `${quickStats.savedAmount}` : '$0'}
+          </Text>
+          <Text style={modernStyles.statLabel}>Money{'\n'}Saved</Text>
+        </Animated.View>
+
+        {/* Real Success Rate */}
+        <Animated.View
+          style={[
+            modernStyles.statItem,
+            {
+              transform: [{
+                scale: statsAnim.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [0.8, 1]
+                })
+              }]
+            }
+          ]}
+        >
+          <MaterialIcons name="trending-up" size={20} color="#2196f3" />
+          <Text style={[modernStyles.statNumber, { color: '#2196f3' }]}>{quickStats.completionRate}%</Text>
+          <Text style={modernStyles.statLabel}>Success{'\n'}Rate</Text>
+        </Animated.View>
+
+        {/* Pending Payments - Only show if there are any */}
+        {quickStats.pendingPayments > 0 && (
+          <Animated.View
+            style={[
+              modernStyles.statItem,
+              modernStyles.alertStat,
+              {
+                transform: [{
+                  scale: statsAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [0.8, 1]
+                  })
+                }]
+              }
+            ]}
+          >
+            <MaterialIcons name="payment" size={20} color="#dc3545" />
+            <Text style={[modernStyles.statNumber, { color: '#dc3545' }]}>{quickStats.pendingPayments}</Text>
+            <Text style={modernStyles.statLabel}>Pending{'\n'}Payment</Text>
+          </Animated.View>
+        )}
+      </View>
+
+      {/* Additional real stats info */}
+      <View style={modernStyles.statsFooter}>
+        <Text style={modernStyles.statsFooterText}>
+          {recentBookings.length > 0 ?
+            `Based on your ${recentBookings.length} recent booking${recentBookings.length > 1 ? 's' : ''}` :
+            'Book your first trip to see personalized stats!'
+          }
+        </Text>
+      </View>
+    </Animated.View>
+  );
+
+  // Render next trip with enhanced design
   const renderNextTrip = () => {
     if (!quickStats.nextTrip) return null;
 
     const trip = quickStats.nextTrip;
     return (
-      <View style={modernStyles.section}>
-        <Text style={modernStyles.sectionTitle}>🎫 Your Next Trip</Text>
+      <Animated.View
+        style={[
+          modernStyles.section,
+          {
+            opacity: fadeAnim,
+            transform: [{ translateY: slideAnim }]
+          }
+        ]}
+      >
+        <View style={modernStyles.sectionHeader}>
+          <MaterialIcons name="upcoming" size={24} color="#0066cc" />
+          <Text style={modernStyles.sectionTitle}>🎫 Your Next Adventure</Text>
+        </View>
 
         <TouchableOpacity
           style={modernStyles.nextTripCard}
           onPress={() => handleBookingPress(trip)}
+          activeOpacity={0.95}
         >
-          <View style={modernStyles.tripHeader}>
-            <View style={modernStyles.routeInfo}>
-              <Text style={modernStyles.routeText}>
-                {trip.trip?.route?.startStation?.name || 'Departure'} → {trip.trip?.route?.endStation?.name || 'Destination'}
-              </Text>
-              <Text style={modernStyles.tripTime}>
-                {trip.trip?.departureTime ? formatTime(trip.trip.departureTime) : 'When full'} • {trip.trip?.departureTime ? formatDate(trip.trip.departureTime) : 'Today'}
-              </Text>
+          <View style={modernStyles.tripCardBackground}>
+            <View style={modernStyles.tripHeader}>
+              <View style={modernStyles.routeInfo}>
+                <Text style={modernStyles.routeText}>
+                  {trip.trip?.route?.startStation?.name || 'Departure'} → {trip.trip?.route?.endStation?.name || 'Destination'}
+                </Text>
+                <View style={modernStyles.tripTimeContainer}>
+                  <MaterialIcons name="schedule" size={16} color="#666" />
+                  <Text style={modernStyles.tripTime}>
+                    {trip.trip?.departureTime ? formatTime(trip.trip.departureTime) : 'When full'} • {trip.trip?.departureTime ? formatDate(trip.trip.departureTime) : 'Today'}
+                  </Text>
+                </View>
+              </View>
+
+              <View style={modernStyles.tripBadge}>
+                <MaterialIcons name="verified" size={16} color="#28a745" />
+                <Text style={modernStyles.tripBadgeText}>Confirmed</Text>
+              </View>
             </View>
 
-            <View style={modernStyles.tripBadge}>
-              <Text style={modernStyles.tripBadgeText}>Confirmed</Text>
-            </View>
-          </View>
+            <View style={modernStyles.tripDetails}>
+              <View style={modernStyles.tripDetailItem}>
+                <MaterialIcons name="people" size={16} color="#666" />
+                <Text style={modernStyles.tripDetailText}>{trip.seats} seat{trip.seats > 1 ? 's' : ''}</Text>
+              </View>
 
-          <View style={modernStyles.tripDetails}>
-            <View style={modernStyles.tripDetailItem}>
-              <MaterialIcons name="people" size={16} color="#666" />
-              <Text style={modernStyles.tripDetailText}>{trip.seats} seat{trip.seats > 1 ? 's' : ''}</Text>
-            </View>
+              <View style={modernStyles.tripDetailItem}>
+                <MaterialIcons name="payment" size={16} color="#666" />
+                <Text style={modernStyles.tripDetailText}>${trip.amount || '0.00'}</Text>
+              </View>
 
-            <View style={modernStyles.tripDetailItem}>
-              <MaterialIcons name="payment" size={16} color="#666" />
-              <Text style={modernStyles.tripDetailText}>${trip.amount || '0.00'}</Text>
-            </View>
-
-            <View style={modernStyles.tripDetailItem}>
-              <MaterialIcons name="confirmation-number" size={16} color="#666" />
-              <Text style={modernStyles.tripDetailText}>#{trip.bookingReference}</Text>
+              <View style={modernStyles.tripDetailItem}>
+                <MaterialIcons name="confirmation-number" size={16} color="#666" />
+                <Text style={modernStyles.tripDetailText}>#{trip.bookingReference}</Text>
+              </View>
             </View>
           </View>
         </TouchableOpacity>
-      </View>
+      </Animated.View>
     );
   };
 
-  const renderRecentBookings = () => {
+  // Render recent activity with animations
+  const renderRecentActivity = () => {
     if (recentBookings.length === 0) return null;
 
     return (
-      <View style={modernStyles.section}>
+      <Animated.View
+        style={[
+          modernStyles.section,
+          {
+            opacity: fadeAnim,
+            transform: [{ translateY: slideAnim }]
+          }
+        ]}
+      >
         <View style={modernStyles.sectionHeader}>
+          <MaterialIcons name="history" size={24} color="#0066cc" />
           <Text style={modernStyles.sectionTitle}>📋 Recent Activity</Text>
           <TouchableOpacity onPress={() => router.push('/(passenger)/bookings')}>
             <Text style={modernStyles.seeAllLink}>View all</Text>
@@ -358,62 +638,139 @@ export default function PassengerHomeScreen() {
         </View>
 
         {recentBookings.map((booking, index) => (
-          <TouchableOpacity
+          <Animated.View
             key={booking.id}
-            style={modernStyles.activityCard}
-            onPress={() => handleBookingPress(booking)}
+            style={[
+              modernStyles.activityCard,
+              {
+                opacity: fadeAnim,
+                transform: [{
+                  translateX: fadeAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [50, 0]
+                  })
+                }]
+              }
+            ]}
           >
-            <View style={modernStyles.activityContent}>
-              <View style={modernStyles.bookingRoute}>
-                <Text style={modernStyles.activityTitle}>
-                  {booking.trip?.route?.startStation?.name || 'Unknown'} → {booking.trip?.route?.endStation?.name || 'Unknown'}
-                </Text>
-                <Text style={modernStyles.activitySubtitle}>
-                  {formatDate(booking.trip?.departureTime || booking.createdAt)} • {booking.seats} seat{booking.seats > 1 ? 's' : ''}
-                </Text>
+            <TouchableOpacity
+              onPress={() => handleBookingPress(booking)}
+              style={modernStyles.activityContent}
+              activeOpacity={0.9}
+            >
+              <View style={modernStyles.activityLeft}>
+                <View style={[modernStyles.statusDot, { backgroundColor: getStatusColor(booking.status) }]} />
+                <View style={modernStyles.bookingRoute}>
+                  <Text style={modernStyles.activityTitle}>
+                    {booking.trip?.route?.startStation?.name || 'Unknown'} → {booking.trip?.route?.endStation?.name || 'Unknown'}
+                  </Text>
+                  <Text style={modernStyles.activitySubtitle}>
+                    {formatDate(booking.trip?.departureTime || booking.createdAt)} • {booking.seats} seat{booking.seats > 1 ? 's' : ''}
+                  </Text>
+                  <Text style={modernStyles.bookingReference}>#{booking.bookingReference}</Text>
+                </View>
               </View>
 
-              <View style={modernStyles.bookingStatus}>
-                <View style={[modernStyles.statusDot, { backgroundColor: getStatusColor(booking.status) }]} />
+              <View style={modernStyles.activityRight}>
+                <Text style={[modernStyles.statusText, { color: getStatusColor(booking.status) }]}>
+                  {getStatusIcon(booking.status)} {booking.status}
+                </Text>
                 <Text style={modernStyles.bookingAmount}>${booking.amount || '0.00'}</Text>
+                <MaterialIcons name="chevron-right" size={20} color="#ccc" />
               </View>
-            </View>
-          </TouchableOpacity>
+            </TouchableOpacity>
+          </Animated.View>
         ))}
-      </View>
+      </Animated.View>
     );
   };
 
-  const renderStationItem = ({ item, index }: { item: Station; index: number }) => (
-    <TouchableOpacity
+  // Render popular stations with enhanced cards
+  const renderPopularStations = () => (
+    <Animated.View
       style={[
-        modernStyles.stationCard,
-        index % 2 === 0 ? modernStyles.stationCardLeft : modernStyles.stationCardRight
+        modernStyles.section,
+        {
+          opacity: fadeAnim,
+          transform: [{ translateY: slideAnim }]
+        }
       ]}
-      onPress={() => handleQuickStationSelect(item)}
     >
-      <View style={modernStyles.stationIcon}>
+      <View style={modernStyles.sectionHeader}>
         <MaterialIcons name="location-on" size={24} color="#0066cc" />
+        <Text style={modernStyles.sectionTitle}>🌟 Popular Destinations</Text>
+        <TouchableOpacity onPress={() => router.push('/(passenger)/search')}>
+          <Text style={modernStyles.seeAllLink}>View all ({stations.length})</Text>
+        </TouchableOpacity>
       </View>
 
-      <View style={modernStyles.stationInfo}>
-        <Text style={modernStyles.stationName} numberOfLines={1}>{item.name}</Text>
-        <Text style={modernStyles.stationLocation} numberOfLines={1}>
-          {item.city}, {item.state}
-        </Text>
+      <FlatList
+        data={stations.slice(0, 6)}
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={modernStyles.stationsHorizontalList}
+        renderItem={({ item, index }) => (
+          <Animated.View
+            style={[
+              modernStyles.stationCardHorizontal,
+              {
+                opacity: fadeAnim,
+                transform: [{
+                  scale: scaleAnim
+                }]
+              }
+            ]}
+          >
+            <TouchableOpacity
+              onPress={() => handleQuickStationSelect(item)}
+              style={modernStyles.stationCardContent}
+              activeOpacity={0.9}
+            >
+              <View style={modernStyles.stationIcon}>
+                <MaterialIcons name="location-city" size={28} color="#0066cc" />
+              </View>
 
-        {item.amenities && Object.keys(item.amenities).length > 0 && (
-          <View style={modernStyles.amenitiesIndicator}>
-            <MaterialIcons name="star" size={12} color="#ffc107" />
-            <Text style={modernStyles.amenitiesText}>Amenities</Text>
-          </View>
+              <Text style={modernStyles.stationName} numberOfLines={1}>{item.name}</Text>
+              <Text style={modernStyles.stationLocation} numberOfLines={1}>
+                {item.city}, {item.state}
+              </Text>
+
+              {item.amenities && Object.keys(item.amenities).length > 0 && (
+                <View style={modernStyles.amenitiesRow}>
+                  <MaterialIcons name="star" size={12} color="#ffc107" />
+                  <Text style={modernStyles.amenitiesText}>
+                    {Object.keys(item.amenities).length} amenities
+                  </Text>
+                </View>
+              )}
+
+              <View style={modernStyles.stationCardAction}>
+                <MaterialIcons name="arrow-forward" size={16} color="#0066cc" />
+              </View>
+            </TouchableOpacity>
+          </Animated.View>
         )}
-      </View>
+        keyExtractor={(item) => item.id}
+      />
 
-      <MaterialIcons name="arrow-forward-ios" size={16} color="#ccc" />
-    </TouchableOpacity>
+      {/* Search All Stations Button */}
+      {stations.length > 6 && (
+        <TouchableOpacity
+          style={modernStyles.searchAllButton}
+          onPress={() => router.push('/(passenger)/search')}
+          activeOpacity={0.9}
+        >
+          <MaterialIcons name="explore" size={20} color="#0066cc" />
+          <Text style={modernStyles.searchAllButtonText}>
+            Explore all {stations.length} stations
+          </Text>
+          <MaterialIcons name="arrow-forward" size={16} color="#0066cc" />
+        </TouchableOpacity>
+      )}
+    </Animated.View>
   );
 
+  // Helper functions for status
   const getStatusColor = (status: string) => {
     const colors = {
       'pending': '#ff9800',
@@ -424,11 +781,21 @@ export default function PassengerHomeScreen() {
     return colors[status as keyof typeof colors] || '#9e9e9e';
   };
 
+  const getStatusIcon = (status: string) => {
+    const icons = {
+      'pending': '⏳',
+      'confirmed': '✅',
+      'completed': '🎉',
+      'cancelled': '❌',
+    };
+    return icons[status as keyof typeof icons] || '❓';
+  };
+
   // Loading state
   if (loading && stations.length === 0) {
     return (
       <View style={styles.container}>
-        {renderModernHeader()}
+        {renderAnimatedHero()}
         <View style={styles.centered}>
           <ActivityIndicator size="large" color="#0066cc" />
           <Text style={styles.loadingText}>Loading your dashboard...</Text>
@@ -441,7 +808,7 @@ export default function PassengerHomeScreen() {
   if (error && stations.length === 0) {
     return (
       <View style={styles.container}>
-        {renderModernHeader()}
+        {renderAnimatedHero()}
         <View style={styles.centered}>
           <MaterialIcons name="error-outline" size={64} color="#f44336" />
           <Text style={styles.errorText}>{error}</Text>
@@ -463,74 +830,46 @@ export default function PassengerHomeScreen() {
             onRefresh={() => fetchData(true)}
             colors={['#0066cc']}
             tintColor="#0066cc"
+            progressBackgroundColor="#ffffff"
           />
         }
+        contentContainerStyle={{ paddingBottom: 40 }}
       >
-        {renderModernHeader()}
+        {renderAnimatedHero()}
+        {renderAnimatedStats()}
         {renderNextTrip()}
-        {renderRecentBookings()}
-
-        {/* 🔧 UPDATED: Popular Destinations Section */}
-        <View style={modernStyles.section}>
-          <View style={modernStyles.sectionHeader}>
-            <Text style={modernStyles.sectionTitle}>🌟 Quick Station Access</Text>
-            <TouchableOpacity onPress={() => router.push('/(passenger)/search')}>
-              <Text style={modernStyles.seeAllLink}>View all ({stations.length})</Text>
-            </TouchableOpacity>
-          </View>
-
-          <FlatList
-            data={stations.slice(0, 6)} // Show only first 6 stations
-            keyExtractor={(item) => item.id}
-            renderItem={renderStationItem}
-            scrollEnabled={false}
-            numColumns={2}
-            columnWrapperStyle={stations.length > 1 ? modernStyles.stationRow : undefined}
-            contentContainerStyle={modernStyles.stationsList}
-            ListEmptyComponent={
-              <View style={modernStyles.emptyState}>
-                <MaterialIcons name="location-off" size={48} color="#ccc" />
-                <Text style={modernStyles.emptyText}>No stations available</Text>
-                <Text style={modernStyles.emptySubtext}>Pull to refresh</Text>
-              </View>
-            }
-          />
-
-          {/* 🆕 NEW: Search All Stations Button */}
-          {stations.length > 6 && (
-            <TouchableOpacity
-              style={modernStyles.searchAllButton}
-              onPress={() => router.push('/(passenger)/search')}
-            >
-              <MaterialIcons name="search" size={20} color="#0066cc" />
-              <Text style={modernStyles.searchAllButtonText}>
-                Search all {stations.length} stations
-              </Text>
-              <MaterialIcons name="arrow-forward" size={16} color="#0066cc" />
-            </TouchableOpacity>
-          )}
-        </View>
+        {renderRecentActivity()}
+        {renderPopularStations()}
 
         {/* App info footer */}
-        <View style={modernStyles.footer}>
+        <Animated.View
+          style={[
+            modernStyles.footer,
+            {
+              opacity: fadeAnim,
+            }
+          ]}
+        >
           <Text style={modernStyles.footerText}>
-            Louagi • Fast, reliable shared transportation
+            Louagi • Connecting Tunisia, one journey at a time
           </Text>
-          <Text style={modernStyles.versionText}>v1.0.0</Text>
-        </View>
+          <Text style={modernStyles.versionText}>v1.0.0 • Made with ❤️ in Tunisia 🇹🇳</Text>
+        </Animated.View>
       </ScrollView>
     </View>
   );
 }
 
-// 🔧 UPDATED: Enhanced modern styles
+// Enhanced modern styles with animations support
 const modernStyles = {
-  // Hero Section
+  // Hero Section with gradient background
   heroSection: {
     backgroundColor: '#0066cc',
     paddingTop: Platform.OS === 'ios' ? 50 : 30,
     paddingBottom: 30,
     paddingHorizontal: 20,
+    position: 'relative' as const,
+    overflow: 'hidden' as const,
   },
 
   userGreeting: {
@@ -538,6 +877,7 @@ const modernStyles = {
     justifyContent: 'space-between' as const,
     alignItems: 'flex-start' as const,
     marginBottom: 30,
+    zIndex: 1,
   },
 
   greetingContent: {
@@ -546,7 +886,7 @@ const modernStyles = {
 
   greeting: {
     fontSize: 16,
-    color: 'rgba(255, 255, 255, 0.8)',
+    color: 'rgba(255, 255, 255, 0.9)',
     marginBottom: 4,
   },
 
@@ -554,6 +894,13 @@ const modernStyles = {
     fontSize: 28,
     fontWeight: '700' as const,
     color: '#ffffff',
+    marginBottom: 4,
+  },
+
+  welcomeSubtext: {
+    fontSize: 14,
+    color: 'rgba(255, 255, 255, 0.8)',
+    fontStyle: 'italic' as const,
   },
 
   headerActions: {
@@ -589,10 +936,11 @@ const modernStyles = {
     backgroundColor: 'rgba(255, 255, 255, 0.1)',
   },
 
-  // 🔧 UPDATED: Enhanced Search Section
+  // Enhanced Search Section
   searchSection: {
     alignItems: 'center' as const,
     marginBottom: 30,
+    zIndex: 1,
   },
 
   searchTitle: {
@@ -624,6 +972,7 @@ const modernStyles = {
     elevation: 6,
     gap: 12,
     marginBottom: 20,
+    minWidth: width * 0.85,
   },
 
   searchButtonText: {
@@ -633,7 +982,6 @@ const modernStyles = {
     flex: 1,
   },
 
-  // 🆕 NEW: Quick Actions Row
   quickActionsRow: {
     flexDirection: 'row' as const,
     justifyContent: 'space-around' as const,
@@ -659,7 +1007,34 @@ const modernStyles = {
     color: '#ffffff',
   },
 
-  // Stats
+  // Stats Container
+  statsContainer: {
+    marginHorizontal: 20,
+    marginTop: -15,
+    marginBottom: 20,
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+
+  statsHeader: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    marginBottom: 16,
+  },
+
+  statsTitle: {
+    fontSize: 18,
+    fontWeight: '700' as const,
+    color: '#333',
+    marginLeft: 8,
+  },
+
   statsRow: {
     flexDirection: 'row' as const,
     justifyContent: 'space-around' as const,
@@ -669,18 +1044,41 @@ const modernStyles = {
   statItem: {
     alignItems: 'center' as const,
     gap: 8,
+    flex: 1,
+  },
+
+  alertStat: {
+    backgroundColor: '#ffebee',
+    borderRadius: 12,
+    paddingVertical: 12,
   },
 
   statNumber: {
     fontSize: 20,
     fontWeight: '700' as const,
-    color: '#ffffff',
+    color: '#0066cc',
   },
 
   statLabel: {
-    fontSize: 12,
-    color: 'rgba(255, 255, 255, 0.8)',
+    fontSize: 11,
+    color: '#666',
     textAlign: 'center' as const,
+    lineHeight: 14,
+  },
+
+  // Stats footer for additional info
+  statsFooter: {
+    marginTop: 16,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#f0f0f0',
+  },
+
+  statsFooterText: {
+    fontSize: 12,
+    color: '#888',
+    textAlign: 'center' as const,
+    fontStyle: 'italic' as const,
   },
 
   // Sections
@@ -691,7 +1089,6 @@ const modernStyles = {
 
   sectionHeader: {
     flexDirection: 'row' as const,
-    justifyContent: 'space-between' as const,
     alignItems: 'center' as const,
     marginBottom: 16,
   },
@@ -700,6 +1097,8 @@ const modernStyles = {
     fontSize: 20,
     fontWeight: '700' as const,
     color: '#333',
+    marginLeft: 8,
+    flex: 1,
   },
 
   seeAllLink: {
@@ -708,18 +1107,22 @@ const modernStyles = {
     fontWeight: '600' as const,
   },
 
-  // Next Trip
+  // Next Trip Card
   nextTripCard: {
+    borderRadius: 16,
+    overflow: 'hidden' as const,
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+  },
+
+  tripCardBackground: {
     backgroundColor: '#ffffff',
     padding: 20,
-    borderRadius: 16,
     borderLeftWidth: 4,
     borderLeftColor: '#28a745',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
   },
 
   tripHeader: {
@@ -735,9 +1138,15 @@ const modernStyles = {
 
   routeText: {
     fontSize: 18,
-    fontWeight: '600' as const,
+    fontWeight: '700' as const,
     color: '#333',
-    marginBottom: 4,
+    marginBottom: 8,
+  },
+
+  tripTimeContainer: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 4,
   },
 
   tripTime: {
@@ -746,10 +1155,13 @@ const modernStyles = {
   },
 
   tripBadge: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
     backgroundColor: '#e8f5e8',
     paddingHorizontal: 12,
-    paddingVertical: 4,
+    paddingVertical: 6,
     borderRadius: 12,
+    gap: 4,
   },
 
   tripBadgeText: {
@@ -762,6 +1174,7 @@ const modernStyles = {
     flexDirection: 'row' as const,
     justifyContent: 'space-between' as const,
     alignItems: 'center' as const,
+    marginBottom: 12,
   },
 
   tripDetailItem: {
@@ -779,20 +1192,33 @@ const modernStyles = {
   // Activity Cards
   activityCard: {
     backgroundColor: '#ffffff',
-    padding: 16,
     borderRadius: 12,
     marginBottom: 12,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+    shadowRadius: 4,
+    elevation: 3,
+    overflow: 'hidden' as const,
   },
 
   activityContent: {
     flexDirection: 'row' as const,
-    justifyContent: 'space-between' as const,
     alignItems: 'center' as const,
+    padding: 16,
+  },
+
+  activityLeft: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    flex: 1,
+  },
+
+  statusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginRight: 12,
   },
 
   bookingRoute: {
@@ -809,106 +1235,108 @@ const modernStyles = {
   activitySubtitle: {
     fontSize: 14,
     color: '#666',
+    marginBottom: 2,
   },
 
-  bookingStatus: {
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
-    gap: 8,
+  bookingReference: {
+    fontSize: 11,
+    color: '#0066cc',
+    fontWeight: '500' as const,
   },
 
-  statusDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+  activityRight: {
+    alignItems: 'flex-end' as const,
+    gap: 4,
+  },
+
+  statusText: {
+    fontSize: 12,
+    fontWeight: '600' as const,
   },
 
   bookingAmount: {
     fontSize: 16,
-    fontWeight: '600' as const,
+    fontWeight: '700' as const,
     color: '#333',
   },
 
-  // Stations
-  stationsList: {
-    paddingBottom: 8,
+  // Horizontal Station Cards
+  stationsHorizontalList: {
+    paddingLeft: 20,
+    paddingRight: 20,
   },
 
-  stationRow: {
-    justifyContent: 'space-between' as const,
-    marginBottom: 12,
+  stationCardHorizontal: {
+    width: 140,
+    marginRight: 12,
   },
 
-  stationCard: {
+  stationCardContent: {
     backgroundColor: '#ffffff',
-    width: (width - 52) / 2,
-    padding: 16,
     borderRadius: 12,
-    flexDirection: 'row' as const,
+    padding: 16,
     alignItems: 'center' as const,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
-  },
-
-  stationCardLeft: {
-    marginRight: 6,
-  },
-
-  stationCardRight: {
-    marginLeft: 6,
+    minHeight: 160,
+    justifyContent: 'space-between' as const,
   },
 
   stationIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     backgroundColor: '#f0f8ff',
     justifyContent: 'center' as const,
     alignItems: 'center' as const,
-    marginRight: 12,
-  },
-
-  stationInfo: {
-    flex: 1,
+    marginBottom: 12,
   },
 
   stationName: {
     fontSize: 14,
     fontWeight: '600' as const,
     color: '#333',
-    marginBottom: 2,
+    marginBottom: 4,
+    textAlign: 'center' as const,
   },
 
   stationLocation: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#666',
-    marginBottom: 4,
+    marginBottom: 8,
+    textAlign: 'center' as const,
   },
 
-  amenitiesIndicator: {
+  amenitiesRow: {
     flexDirection: 'row' as const,
     alignItems: 'center' as const,
     gap: 2,
+    marginBottom: 8,
   },
 
   amenitiesText: {
-    fontSize: 10,
+    fontSize: 9,
     color: '#ffc107',
     fontWeight: '500' as const,
   },
 
-  // 🆕 NEW: Search All Button
+  stationCardAction: {
+    marginTop: 'auto' as const,
+  },
+
   searchAllButton: {
     flexDirection: 'row' as const,
     alignItems: 'center' as const,
     justifyContent: 'center' as const,
     backgroundColor: '#f0f8ff',
-    padding: 16,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
     borderRadius: 12,
     marginTop: 16,
+    marginHorizontal: 20,
     borderWidth: 1,
     borderColor: '#0066cc',
     gap: 8,
@@ -918,27 +1346,6 @@ const modernStyles = {
     fontSize: 16,
     fontWeight: '600' as const,
     color: '#0066cc',
-  },
-
-  // Empty states
-  emptyState: {
-    alignItems: 'center' as const,
-    padding: 40,
-  },
-
-  emptyText: {
-    fontSize: 18,
-    fontWeight: '600' as const,
-    color: '#666',
-    marginTop: 16,
-    marginBottom: 4,
-    textAlign: 'center' as const,
-  },
-
-  emptySubtext: {
-    fontSize: 14,
-    color: '#999',
-    textAlign: 'center' as const,
   },
 
   // Footer
@@ -952,10 +1359,12 @@ const modernStyles = {
     fontSize: 14,
     color: '#666',
     marginBottom: 4,
+    textAlign: 'center' as const,
   },
 
   versionText: {
     fontSize: 12,
     color: '#999',
+    textAlign: 'center' as const,
   },
 };

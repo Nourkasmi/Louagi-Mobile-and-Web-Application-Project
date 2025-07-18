@@ -1,7 +1,7 @@
 // src/config/index.ts - FIXED Configuration
 const Config = {
   // 🌐 Your Backend URL - Updated from the error logs
-  API_BASE_URL: 'https://e3a79270068e.ngrok-free.app/api', // Ensure this is the correct URL for your backend
+  API_BASE_URL: 'https://e3ad7dbc83d1.ngrok-free.app/api', // Ensure this is the correct URL for your backend
   // 💳 Stripe Test Key
   STRIPE_PUBLISHABLE_KEY: 'pk_test_51RVuo6ALVnc4tntayhIZmjEVw4bxb3xhp2ZlJLIzhy5bUP7FU1UWa1cIXOOhUyBq1dGq1SwCyzh6Uw13FSkY0q4200n6PzGxgt',
 

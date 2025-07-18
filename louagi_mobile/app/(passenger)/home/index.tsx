@@ -1,308 +1,71 @@
-// app/(passenger)/home/index.tsx - ENHANCED VERSION with Beautiful Welcome Card
+// app/(passenger)/home/index.tsx - PERFECT HOME SCREEN with Real Data & Animations
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
   View,
   Text,
-  ScrollView,
+  FlatList,
   TouchableOpacity,
   ActivityIndicator,
   RefreshControl,
+  ScrollView,
   Alert,
   Platform,
+  Dimensions,
   StatusBar,
   Animated,
-  Dimensions,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useDispatch, useSelector } from 'react-redux';
 import { MaterialIcons } from '@expo/vector-icons';
 import { logout } from '../../../src/store/authSlice';
-import {
-  getStations,
-  getMyBookings,
-  getPassengerAnalytics,
-  type Station,
-  type Booking
-} from '../../../src/services/api';
+import { getStations, getMyBookings, type Station, type Booking } from '../../../src/services/api';
 import { RootState } from '../../../src/store/store';
-import { WelcomeCard } from './components/WelcomeCard';
 import { styles } from './index.styles';
 
 const { width, height } = Dimensions.get('window');
 
-// Enhanced Analytics Interface
-interface EnhancedAnalytics {
-  totalTrips: number;
-  completedTrips: number;
-  pendingPayments: number;
-  totalSpent: number;
-  averagePerTrip: number;
-  monthlySpending: Array<{ month: string; amount: number }>;
-  favoriteRoute: string;
-  timesSaved: number; // hours saved vs other transport
-  co2Saved: number; // kg CO2 saved
-  successRate: number; // completion rate
-}
-
-// Quick Action Interface
-interface QuickAction {
-  id: string;
-  title: string;
-  subtitle: string;
-  icon: string;
-  color: string;
-  onPress: () => void;
-  badge?: number;
-  disabled?: boolean;
-}
-
-export default function EnhancedPassengerHomeScreen() {
+export default function PassengerHomeScreen() {
   // State management
   const [stations, setStations] = useState<Station[]>([]);
   const [recentBookings, setRecentBookings] = useState<Booking[]>([]);
-  const [nextTrip, setNextTrip] = useState<Booking | null>(null);
-  const [analytics, setAnalytics] = useState<EnhancedAnalytics | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [headerAnimatedValue] = useState(new Animated.Value(0));
+  const [quickStats, setQuickStats] = useState({
+    totalTrips: 0,
+    pendingPayments: 0,
+    nextTrip: null as Booking | null,
+    savedAmount: 0,
+    completionRate: 0,
+  });
+
+  // Animation refs
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(50)).current;
+  const scaleAnim = useRef(new Animated.Value(0.9)).current;
+  const heroAnim = useRef(new Animated.Value(0)).current;
+  const statsAnim = useRef(new Animated.Value(0)).current;
 
   const router = useRouter();
   const dispatch = useDispatch();
   const auth = useSelector((state: RootState) => state.auth);
 
-  // Memoized computed values
-  const firstName = useMemo(() => {
-    return auth.user?.username?.split(' ')[0] || 'Traveler';
+  // Helper functions
+  const getFirstName = useCallback(() => {
+    if (auth.user?.username) {
+      return auth.user.username.split(' ')[0];
+    }
+    return 'Traveler';
   }, [auth.user?.username]);
 
-  const greeting = useMemo(() => {
+  const getGreeting = useCallback(() => {
     const hour = new Date().getHours();
     if (hour < 12) return 'Good morning';
     if (hour < 17) return 'Good afternoon';
     return 'Good evening';
   }, []);
 
-  const isNewUser = useMemo(() => {
-    return analytics?.totalTrips === 0;
-  }, [analytics?.totalTrips]);
-
-  // Enhanced data fetching with real analytics
-  const fetchEnhancedData = useCallback(async (isRefresh = false) => {
-    try {
-      if (isRefresh) setRefreshing(true);
-      else setLoading(true);
-
-      setError(null);
-
-      // Parallel data fetching for better performance
-      const [stationsResponse, bookingsResponse, analyticsResponse] = await Promise.allSettled([
-        getStations({ limit: 12 }),
-        getMyBookings({ limit: 10 }),
-        getPassengerAnalytics(6) // Last 6 months
-      ]);
-
-      // Process stations
-      if (stationsResponse.status === 'fulfilled' && stationsResponse.value.success) {
-        const stationsData = stationsResponse.value.data?.stations || [];
-        setStations(stationsData);
-      }
-
-      // Process bookings and extract insights
-      let enhancedAnalytics: EnhancedAnalytics = {
-        totalTrips: 0,
-        completedTrips: 0,
-        pendingPayments: 0,
-        totalSpent: 0,
-        averagePerTrip: 0,
-        monthlySpending: [],
-        favoriteRoute: '',
-        timesSaved: 0,
-        co2Saved: 0,
-        successRate: 0
-      };
-
-      if (bookingsResponse.status === 'fulfilled' && bookingsResponse.value.success) {
-        const bookingsData = bookingsResponse.value.data?.bookings || [];
-        setRecentBookings(bookingsData.slice(0, 3));
-
-        // Find next upcoming trip
-        const upcomingTrips = bookingsData
-          .filter(b => b.status === 'confirmed' && b.trip?.departureTime)
-          .sort((a, b) => new Date(a.trip!.departureTime).getTime() - new Date(b.trip!.departureTime).getTime());
-
-        setNextTrip(upcomingTrips[0] || null);
-
-        // Calculate enhanced analytics
-        const completed = bookingsData.filter(b => b.status === 'completed');
-        const pending = bookingsData.filter(b => b.paymentStatus === 'pending');
-
-        enhancedAnalytics = {
-          totalTrips: bookingsData.length,
-          completedTrips: completed.length,
-          pendingPayments: pending.length,
-          totalSpent: completed.reduce((sum, b) => sum + (b.amount || 0), 0),
-          averagePerTrip: completed.length > 0 ? completed.reduce((sum, b) => sum + (b.amount || 0), 0) / completed.length : 0,
-          monthlySpending: calculateMonthlySpending(completed),
-          favoriteRoute: calculateFavoriteRoute(completed),
-          timesSaved: completed.length * 0.75, // Assume 45min saved per trip
-          co2Saved: completed.length * 2.3, // Assume 2.3kg CO2 saved per trip
-          successRate: bookingsData.length > 0 ? (completed.length / bookingsData.length) * 100 : 0
-        };
-      }
-
-      // Use API analytics if available, otherwise use calculated
-      if (analyticsResponse.status === 'fulfilled' && analyticsResponse.value.success) {
-        const apiAnalytics = analyticsResponse.value.data?.analytics?.summary;
-        if (apiAnalytics) {
-          enhancedAnalytics = {
-            ...enhancedAnalytics,
-            totalTrips: apiAnalytics.totalBookings || enhancedAnalytics.totalTrips,
-            completedTrips: apiAnalytics.completedTrips || enhancedAnalytics.completedTrips,
-            totalSpent: apiAnalytics.totalSpent || enhancedAnalytics.totalSpent,
-            averagePerTrip: apiAnalytics.averageSpentPerTrip || enhancedAnalytics.averagePerTrip,
-          };
-        }
-      }
-
-      setAnalytics(enhancedAnalytics);
-
-    } catch (err: any) {
-      console.error('Error fetching enhanced data:', err);
-      setError('Failed to load dashboard data');
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, []);
-
-  // Helper functions for analytics
-  const calculateMonthlySpending = (bookings: Booking[]) => {
-    const monthly = bookings.reduce((acc, booking) => {
-      const month = new Date(booking.createdAt).toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
-      acc[month] = (acc[month] || 0) + (booking.amount || 0);
-      return acc;
-    }, {} as Record<string, number>);
-
-    return Object.entries(monthly)
-      .map(([month, amount]) => ({ month, amount }))
-      .sort((a, b) => new Date(a.month).getTime() - new Date(b.month).getTime());
-  };
-
-  const calculateFavoriteRoute = (bookings: Booking[]) => {
-    const routes = bookings.reduce((acc, booking) => {
-      if (booking.trip?.route) {
-        const start = booking.trip.route.startStation?.name || 'Unknown';
-        const end = booking.trip.route.endStation?.name || 'Unknown';
-        const route = `${start} → ${end}`;
-        acc[route] = (acc[route] || 0) + 1;
-      }
-      return acc;
-    }, {} as Record<string, number>);
-
-    const sortedRoutes = Object.entries(routes).sort(([, a], [, b]) => b - a);
-    return sortedRoutes.length > 0 ? sortedRoutes[0][0] : 'No trips yet';
-  };
-
-  // Quick actions configuration
-  const quickActions: QuickAction[] = useMemo(() => [
-    {
-      id: 'search',
-      title: 'Book New Trip',
-      subtitle: 'Find available rides',
-      icon: 'search',
-      color: '#0066cc',
-      onPress: () => router.push('/(passenger)/search'),
-    },
-    {
-      id: 'bookings',
-      title: 'My Trips',
-      subtitle: 'View bookings',
-      icon: 'confirmation-number',
-      color: '#28a745',
-      onPress: () => router.push('/(passenger)/bookings'),
-      badge: analytics?.pendingPayments || 0,
-    },
-    {
-      id: 'support',
-      title: 'Get Help',
-      subtitle: '24/7 support',
-      icon: 'help-outline',
-      color: '#ff9800',
-      onPress: () => Alert.alert('Support', 'Email: support@louagi.com\nPhone: +216 XX XXX XXX'),
-    },
-    {
-      id: 'profile',
-      title: 'Profile',
-      subtitle: 'Account settings',
-      icon: 'person',
-      color: '#6c757d',
-      onPress: () => router.push('/(passenger)/profile'),
-    },
-  ], [analytics?.pendingPayments, router]);
-
-  // Animation for header
-  useEffect(() => {
-    Animated.timing(headerAnimatedValue, {
-      toValue: 1,
-      duration: 1000,
-      useNativeDriver: true,
-    }).start();
-  }, []);
-
-  // Initial load
-  useEffect(() => {
-    fetchEnhancedData();
-  }, [fetchEnhancedData]);
-
-  // Navigation handlers
-  const handleStationPress = useCallback((station: Station) => {
-    router.push({
-      pathname: '/(passenger)/search',
-      params: {
-        selectedStationId: station.id,
-        selectedStationName: station.name
-      }
-    });
-  }, [router]);
-
-  const handleBookingPress = useCallback((booking: Booking) => {
-    router.push({
-      pathname: '/(passenger)/bookings/[id]',
-      params: {
-        id: booking.id,
-        bookingData: JSON.stringify(booking)
-      }
-    });
-  }, [router]);
-
-  const handleLogout = useCallback(() => {
-    Alert.alert(
-      'Sign Out',
-      'Are you sure you want to sign out?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Sign Out',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await AsyncStorage.removeItem('louagi_token');
-              global.authToken = undefined;
-              dispatch(logout());
-              router.replace('/login');
-            } catch (error) {
-              dispatch(logout());
-              router.replace('/login');
-            }
-          }
-        }
-      ]
-    );
-  }, [dispatch, router]);
-
-  // Format helpers
   const formatTime = useCallback((dateString: string) => {
     try {
       return new Date(dateString).toLocaleTimeString('en-US', {
@@ -335,329 +98,707 @@ export default function EnhancedPassengerHomeScreen() {
     }
   }, []);
 
-  // Render Components
-  const renderEnhancedHeader = () => (
-    <Animated.View style={[
-      enhancedStyles.heroSection,
-      {
-        opacity: headerAnimatedValue,
-        transform: [{
-          translateY: headerAnimatedValue.interpolate({
-            inputRange: [0, 1],
-            outputRange: [50, 0],
-          })
-        }]
+  // Fetch all data with enhanced analytics
+  const fetchData = async (isRefresh = false) => {
+    try {
+      if (isRefresh) setRefreshing(true);
+      else setLoading(true);
+
+      setError(null);
+
+      // Fetch stations and recent bookings in parallel
+      const [stationsResponse, bookingsResponse] = await Promise.all([
+        getStations({ limit: 20 }),
+        getMyBookings({ limit: 10 }),
+      ]);
+
+      // Handle stations
+      if (stationsResponse.success) {
+        const stationsData = stationsResponse.data?.stations || stationsResponse.stations || [];
+        setStations(stationsData);
       }
-    ]}>
-      <StatusBar barStyle="light-content" backgroundColor="#0066cc" />
 
-      {/* User greeting with avatar */}
-      <View style={enhancedStyles.userSection}>
-        <View style={enhancedStyles.userInfo}>
-          <Text style={enhancedStyles.greeting}>{greeting},</Text>
-          <Text style={enhancedStyles.userName}>{firstName}! 👋</Text>
-          {isNewUser && (
-            <Text style={enhancedStyles.newUserBadge}>✨ New Member</Text>
-          )}
-        </View>
+      // Handle bookings and calculate REAL stats from actual data
+      if (bookingsResponse.success) {
+        const bookingsData = bookingsResponse.data?.bookings || [];
+        setRecentBookings(bookingsData.slice(0, 4)); // Show only 4 recent
 
-        <View style={enhancedStyles.headerActions}>
-          <TouchableOpacity
-            style={enhancedStyles.notificationButton}
-            onPress={() => Alert.alert('Notifications', 'No new notifications')}
-          >
-            <MaterialIcons name="notifications-none" size={24} color="#ffffff" />
-            {analytics?.pendingPayments ? (
-              <View style={enhancedStyles.notificationBadge}>
-                <Text style={enhancedStyles.badgeText}>{analytics.pendingPayments}</Text>
-              </View>
-            ) : null}
-          </TouchableOpacity>
+        console.log('📊 Raw bookings data for stats:', bookingsData);
 
-          <TouchableOpacity
-            style={enhancedStyles.profileButton}
-            onPress={() => router.push('/(passenger)/profile')}
-          >
-            <View style={enhancedStyles.avatar}>
-              <Text style={enhancedStyles.avatarText}>
-                {firstName.charAt(0).toUpperCase()}
-              </Text>
-            </View>
-          </TouchableOpacity>
-        </View>
-      </View>
+        // Calculate REAL statistics from actual booking data
+        const allBookings = bookingsData;
+        const completedTrips = allBookings.filter(b =>
+          b.status === 'completed' ||
+          (b.paymentStatus === 'completed' && b.trip?.status === 'completed')
+        );
 
-      {/* Enhanced Stats Cards */}
-      {analytics && !isNewUser && (
-        <View style={enhancedStyles.statsContainer}>
-          <View style={enhancedStyles.statCard}>
-            <MaterialIcons name="directions-bus" size={20} color="#ffffff" />
-            <Text style={enhancedStyles.statNumber}>{analytics.completedTrips}</Text>
-            <Text style={enhancedStyles.statLabel}>Trips</Text>
-          </View>
+        const confirmedBookings = allBookings.filter(b =>
+          b.status === 'confirmed' ||
+          b.paymentStatus === 'completed'
+        );
 
-          <View style={enhancedStyles.statCard}>
-            <MaterialIcons name="eco" size={20} color="#ffffff" />
-            <Text style={enhancedStyles.statNumber}>{analytics.co2Saved.toFixed(1)}kg</Text>
-            <Text style={enhancedStyles.statLabel}>CO₂ Saved</Text>
-          </View>
+        const pendingPayments = allBookings.filter(b =>
+          b.paymentStatus === 'pending' ||
+          b.paymentStatus === 'failed' ||
+          (b.status === 'pending' && !b.paymentStatus)
+        );
 
-          <View style={enhancedStyles.statCard}>
-            <MaterialIcons name="schedule" size={20} color="#ffffff" />
-            <Text style={enhancedStyles.statNumber}>{analytics.timesSaved.toFixed(0)}h</Text>
-            <Text style={enhancedStyles.statLabel}>Time Saved</Text>
-          </View>
+        const cancelledBookings = allBookings.filter(b =>
+          b.status === 'cancelled' || b.trip?.status === 'cancelled'
+        );
 
-          <View style={enhancedStyles.statCard}>
-            <MaterialIcons name="trending-up" size={20} color="#ffffff" />
-            <Text style={enhancedStyles.statNumber}>{analytics.successRate.toFixed(0)}%</Text>
-            <Text style={enhancedStyles.statLabel}>Success Rate</Text>
-          </View>
-        </View>
-      )}
+        // REAL money calculations from actual booking amounts
+        const totalSpentOnCompletedTrips = completedTrips.reduce((sum, b) => {
+          const amount = parseFloat(b.amount?.toString() || '0');
+          return sum + amount;
+        }, 0);
 
-      {/* Primary Search Action */}
-      <TouchableOpacity
-        style={enhancedStyles.primarySearchButton}
-        onPress={() => router.push('/(passenger)/search')}
-        activeOpacity={0.9}
-      >
-        <MaterialIcons name="search" size={24} color="#0066cc" />
-        <Text style={enhancedStyles.searchButtonText}>Where do you want to go?</Text>
-        <MaterialIcons name="arrow-forward" size={20} color="#0066cc" />
-      </TouchableOpacity>
-    </Animated.View>
-  );
+        // REAL average cost per trip
+        const averageCostPerTrip = completedTrips.length > 0 ?
+          totalSpentOnCompletedTrips / completedTrips.length : 0;
 
-  const renderNextTrip = () => {
-    if (!nextTrip) return null;
+        // REAL savings calculation (compared to estimated taxi/bus alternatives)
+        // Tunisia taxi rates: ~2.5 TND/km, buses: ~1.5 TND/km, assume average 50km trip
+        const estimatedAlternativeCost = completedTrips.length * 45; // ~45 TND per trip average
+        const actualSavings = Math.max(0, estimatedAlternativeCost - totalSpentOnCompletedTrips);
 
-    return (
-      <View style={enhancedStyles.section}>
-        <Text style={enhancedStyles.sectionTitle}>🎫 Your Next Trip</Text>
+        // REAL completion rate
+        const totalBookings = allBookings.length;
+        const realCompletionRate = totalBookings > 0 ?
+          Math.round((completedTrips.length / totalBookings) * 100) : 0;
 
-        <TouchableOpacity
-          style={enhancedStyles.nextTripCard}
-          onPress={() => handleBookingPress(nextTrip)}
-        >
-          <View style={enhancedStyles.tripHeader}>
-            <View style={enhancedStyles.routeInfo}>
-              <Text style={enhancedStyles.routeText}>
-                {nextTrip.trip?.route?.startStation?.name || 'Departure'} → {nextTrip.trip?.route?.endStation?.name || 'Destination'}
-              </Text>
-              <Text style={enhancedStyles.tripTime}>
-                {nextTrip.trip?.departureTime ? formatTime(nextTrip.trip.departureTime) : 'When full'} • {nextTrip.trip?.departureTime ? formatDate(nextTrip.trip.departureTime) : 'Today'}
-              </Text>
-            </View>
+        // REAL next trip (actual confirmed upcoming trip)
+        const upcomingTrips = allBookings.filter(b => {
+          const isConfirmed = b.status === 'confirmed' || b.paymentStatus === 'completed';
+          const hasFutureTrip = b.trip?.departureTime &&
+            new Date(b.trip.departureTime) > new Date();
+          return isConfirmed && hasFutureTrip;
+        });
 
-            <View style={[enhancedStyles.tripBadge, { backgroundColor: '#e8f5e8' }]}>
-              <Text style={[enhancedStyles.tripBadgeText, { color: '#28a745' }]}>Confirmed</Text>
-            </View>
-          </View>
+        const nextTrip = upcomingTrips.sort((a, b) =>
+          new Date(a.trip!.departureTime).getTime() - new Date(b.trip!.departureTime).getTime()
+        )[0] || null;
 
-          <View style={enhancedStyles.tripDetails}>
-            <View style={enhancedStyles.tripDetailItem}>
-              <MaterialIcons name="people" size={16} color="#666" />
-              <Text style={enhancedStyles.tripDetailText}>{nextTrip.seats} seat{nextTrip.seats > 1 ? 's' : ''}</Text>
-            </View>
+        // Log real stats for verification
+        console.log('📈 REAL STATS CALCULATED:', {
+          totalBookings: totalBookings,
+          completedTrips: completedTrips.length,
+          confirmedBookings: confirmedBookings.length,
+          pendingPayments: pendingPayments.length,
+          cancelledBookings: cancelledBookings.length,
+          totalSpent: totalSpentOnCompletedTrips,
+          averageCost: averageCostPerTrip,
+          realSavings: actualSavings,
+          completionRate: realCompletionRate,
+          hasNextTrip: !!nextTrip,
+          nextTripId: nextTrip?.id,
+        });
 
-            <View style={enhancedStyles.tripDetailItem}>
-              <MaterialIcons name="payment" size={16} color="#666" />
-              <Text style={enhancedStyles.tripDetailText}>${nextTrip.amount || '0.00'}</Text>
-            </View>
+        setQuickStats({
+          totalTrips: completedTrips.length,
+          pendingPayments: pendingPayments.length,
+          nextTrip,
+          savedAmount: Math.round(actualSavings),
+          completionRate: realCompletionRate,
+        });
+      }
 
-            <View style={enhancedStyles.tripDetailItem}>
-              <MaterialIcons name="confirmation-number" size={16} color="#666" />
-              <Text style={enhancedStyles.tripDetailText}>#{nextTrip.bookingReference}</Text>
-            </View>
-          </View>
-        </TouchableOpacity>
-      </View>
+      if (!stationsResponse.success && stations.length === 0) {
+        setError('Unable to load stations. Please check your connection.');
+      }
+    } catch (err: any) {
+      console.error('Error fetching home data:', err);
+      setError('Failed to load data. Please check your connection and try again.');
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  // Animation sequence
+  const startAnimations = useCallback(() => {
+    // Reset animations
+    fadeAnim.setValue(0);
+    slideAnim.setValue(50);
+    scaleAnim.setValue(0.9);
+    heroAnim.setValue(0);
+    statsAnim.setValue(0);
+
+    // Orchestrated animation sequence
+    Animated.sequence([
+      // Hero section slides in first
+      Animated.timing(heroAnim, {
+        toValue: 1,
+        duration: 800,
+        useNativeDriver: true,
+      }),
+      // Stats fade in
+      Animated.timing(statsAnim, {
+        toValue: 1,
+        duration: 600,
+        useNativeDriver: true,
+      }),
+      // Main content animations
+      Animated.parallel([
+        Animated.timing(fadeAnim, {
+          toValue: 1,
+          duration: 800,
+          useNativeDriver: true,
+        }),
+        Animated.timing(slideAnim, {
+          toValue: 0,
+          duration: 800,
+          useNativeDriver: true,
+        }),
+        Animated.timing(scaleAnim, {
+          toValue: 1,
+          duration: 800,
+          useNativeDriver: true,
+        }),
+      ]),
+    ]).start();
+  }, [fadeAnim, slideAnim, scaleAnim, heroAnim, statsAnim]);
+
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  useEffect(() => {
+    if (!loading) {
+      startAnimations();
+    }
+  }, [loading, startAnimations]);
+
+  // Navigation handlers
+  const handleBookingPress = useCallback((booking: Booking) => {
+    router.push({
+      pathname: '/(passenger)/bookings/[id]',
+      params: {
+        id: booking.id,
+        bookingData: JSON.stringify(booking)
+      }
+    });
+  }, [router]);
+
+  const handleLogout = async () => {
+    Alert.alert(
+      'Sign Out',
+      'Are you sure you want to sign out?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Sign Out',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await AsyncStorage.removeItem('louagi_token');
+              global.authToken = undefined;
+              dispatch(logout());
+              router.replace('/login');
+            } catch (error) {
+              dispatch(logout());
+              router.replace('/login');
+            }
+          }
+        }
+      ]
     );
   };
 
-  const renderQuickActions = () => (
-    <View style={enhancedStyles.section}>
-      <Text style={enhancedStyles.sectionTitle}>⚡ Quick Actions</Text>
+  const handleSearchTrips = () => {
+    router.push('/(passenger)/search');
+  };
 
-      <View style={enhancedStyles.quickActionsGrid}>
-        {quickActions.map((action) => (
+  const handleQuickStationSelect = (station: Station) => {
+    router.push({
+      pathname: '/(passenger)/search',
+      params: {
+        selectedStationId: station.id,
+        selectedStationName: station.name
+      }
+    });
+  };
+
+  // Render animated hero section
+  const renderAnimatedHero = () => (
+    <Animated.View
+      style={[
+        modernStyles.heroSection,
+        {
+          opacity: heroAnim,
+          transform: [{
+            translateY: heroAnim.interpolate({
+              inputRange: [0, 1],
+              outputRange: [-50, 0]
+            })
+          }]
+        }
+      ]}
+    >
+      <StatusBar barStyle="light-content" backgroundColor="#0066cc" />
+
+      {/* User greeting with scale animation */}
+      <Animated.View
+        style={[
+          modernStyles.userGreeting,
+          {
+            transform: [{
+              scale: heroAnim.interpolate({
+                inputRange: [0, 1],
+                outputRange: [0.8, 1]
+              })
+            }]
+          }
+        ]}
+      >
+        <View style={modernStyles.greetingContent}>
+          <Text style={modernStyles.greeting}>{getGreeting()},</Text>
+          <Text style={modernStyles.userName}>{getFirstName()}! 👋</Text>
+          <Text style={modernStyles.welcomeSubtext}>Ready for your next journey?</Text>
+        </View>
+
+        <View style={modernStyles.headerActions}>
           <TouchableOpacity
-            key={action.id}
-            style={[enhancedStyles.quickActionCard, { borderLeftColor: action.color }]}
-            onPress={action.onPress}
-            disabled={action.disabled}
-            activeOpacity={0.7}
+            style={modernStyles.profileButton}
+            onPress={() => router.push('/(passenger)/profile')}
           >
-            <View style={enhancedStyles.actionHeader}>
-              <View style={[enhancedStyles.actionIcon, { backgroundColor: action.color }]}>
-                <MaterialIcons name={action.icon as any} size={24} color="white" />
-              </View>
-              {action.badge && action.badge > 0 ? (
-                <View style={enhancedStyles.actionBadge}>
-                  <Text style={enhancedStyles.actionBadgeText}>{action.badge}</Text>
-                </View>
-              ) : null}
+            <View style={modernStyles.avatar}>
+              <Text style={modernStyles.avatarText}>
+                {auth.user?.username?.charAt(0).toUpperCase() || 'U'}
+              </Text>
             </View>
-
-            <Text style={enhancedStyles.actionTitle}>{action.title}</Text>
-            <Text style={enhancedStyles.actionSubtitle}>{action.subtitle}</Text>
           </TouchableOpacity>
-        ))}
-      </View>
-    </View>
+
+          <TouchableOpacity style={modernStyles.logoutButton} onPress={handleLogout}>
+            <MaterialIcons name="logout" size={20} color="#ffffff" />
+          </TouchableOpacity>
+        </View>
+      </Animated.View>
+
+      {/* Enhanced Search Section with floating animation */}
+      <Animated.View
+        style={[
+          modernStyles.searchSection,
+          {
+            transform: [{
+              translateY: heroAnim.interpolate({
+                inputRange: [0, 1],
+                outputRange: [30, 0]
+              })
+            }]
+          }
+        ]}
+      >
+        <Text style={modernStyles.searchTitle}>Where are you heading?</Text>
+        <Text style={modernStyles.searchSubtitle}>Discover routes across Tunisia 🇹🇳</Text>
+
+        <TouchableOpacity
+          style={modernStyles.searchButton}
+          onPress={handleSearchTrips}
+          activeOpacity={0.9}
+        >
+          <MaterialIcons name="search" size={24} color="#0066cc" />
+          <Text style={modernStyles.searchButtonText}>Search destinations & routes</Text>
+          <MaterialIcons name="arrow-forward" size={20} color="#0066cc" />
+        </TouchableOpacity>
+
+        {/* Quick Action Pills */}
+        <View style={modernStyles.quickActionsRow}>
+          <TouchableOpacity
+            style={modernStyles.quickAction}
+            onPress={() => router.push('/(passenger)/bookings')}
+          >
+            <MaterialIcons name="history" size={18} color="#ffffff" />
+            <Text style={modernStyles.quickActionText}>My Trips</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={modernStyles.quickAction}
+            onPress={() => router.push('/(passenger)/search')}
+          >
+            <MaterialIcons name="directions" size={18} color="#ffffff" />
+            <Text style={modernStyles.quickActionText}>Routes</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={modernStyles.quickAction}
+            onPress={() => Alert.alert('Support', 'Contact: support@louagi.com\nPhone: +216 XX XXX XXX')}
+          >
+            <MaterialIcons name="help-outline" size={18} color="#ffffff" />
+            <Text style={modernStyles.quickActionText}>Help</Text>
+          </TouchableOpacity>
+        </View>
+      </Animated.View>
+    </Animated.View>
   );
 
+  // Render animated stats with REAL data
+  const renderAnimatedStats = () => (
+    <Animated.View
+      style={[
+        modernStyles.statsContainer,
+        {
+          opacity: statsAnim,
+          transform: [{
+            translateY: statsAnim.interpolate({
+              inputRange: [0, 1],
+              outputRange: [20, 0]
+            })
+          }]
+        }
+      ]}
+    >
+      <View style={modernStyles.statsHeader}>
+        <MaterialIcons name="analytics" size={24} color="#0066cc" />
+        <Text style={modernStyles.statsTitle}>Your Real Travel Stats</Text>
+      </View>
+
+      <View style={modernStyles.statsRow}>
+        {/* Completed Trips - Real count */}
+        <Animated.View
+          style={[
+            modernStyles.statItem,
+            {
+              transform: [{
+                scale: statsAnim.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [0.8, 1]
+                })
+              }]
+            }
+          ]}
+        >
+          <MaterialIcons name="done-all" size={20} color="#4caf50" />
+          <Text style={[modernStyles.statNumber, { color: '#4caf50' }]}>{quickStats.totalTrips}</Text>
+          <Text style={modernStyles.statLabel}>Completed{'\n'}Trips</Text>
+        </Animated.View>
+
+        {/* Real Money Saved */}
+        <Animated.View
+          style={[
+            modernStyles.statItem,
+            {
+              transform: [{
+                scale: statsAnim.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [0.8, 1]
+                })
+              }]
+            }
+          ]}
+        >
+          <MaterialIcons name="savings" size={20} color="#28a745" />
+          <Text style={[modernStyles.statNumber, { color: '#28a745' }]}>
+            {quickStats.savedAmount > 0 ? `${quickStats.savedAmount}` : '$0'}
+          </Text>
+          <Text style={modernStyles.statLabel}>Money{'\n'}Saved</Text>
+        </Animated.View>
+
+        {/* Real Success Rate */}
+        <Animated.View
+          style={[
+            modernStyles.statItem,
+            {
+              transform: [{
+                scale: statsAnim.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [0.8, 1]
+                })
+              }]
+            }
+          ]}
+        >
+          <MaterialIcons name="trending-up" size={20} color="#2196f3" />
+          <Text style={[modernStyles.statNumber, { color: '#2196f3' }]}>{quickStats.completionRate}%</Text>
+          <Text style={modernStyles.statLabel}>Success{'\n'}Rate</Text>
+        </Animated.View>
+
+        {/* Pending Payments - Only show if there are any */}
+        {quickStats.pendingPayments > 0 && (
+          <Animated.View
+            style={[
+              modernStyles.statItem,
+              modernStyles.alertStat,
+              {
+                transform: [{
+                  scale: statsAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [0.8, 1]
+                  })
+                }]
+              }
+            ]}
+          >
+            <MaterialIcons name="payment" size={20} color="#dc3545" />
+            <Text style={[modernStyles.statNumber, { color: '#dc3545' }]}>{quickStats.pendingPayments}</Text>
+            <Text style={modernStyles.statLabel}>Pending{'\n'}Payment</Text>
+          </Animated.View>
+        )}
+      </View>
+
+      {/* Additional real stats info */}
+      <View style={modernStyles.statsFooter}>
+        <Text style={modernStyles.statsFooterText}>
+          {recentBookings.length > 0 ?
+            `Based on your ${recentBookings.length} recent booking${recentBookings.length > 1 ? 's' : ''}` :
+            'Book your first trip to see personalized stats!'
+          }
+        </Text>
+      </View>
+    </Animated.View>
+  );
+
+  // Render next trip with enhanced design
+  const renderNextTrip = () => {
+    if (!quickStats.nextTrip) return null;
+
+    const trip = quickStats.nextTrip;
+    return (
+      <Animated.View
+        style={[
+          modernStyles.section,
+          {
+            opacity: fadeAnim,
+            transform: [{ translateY: slideAnim }]
+          }
+        ]}
+      >
+        <View style={modernStyles.sectionHeader}>
+          <MaterialIcons name="upcoming" size={24} color="#0066cc" />
+          <Text style={modernStyles.sectionTitle}>🎫 Your Next Adventure</Text>
+        </View>
+
+        <TouchableOpacity
+          style={modernStyles.nextTripCard}
+          onPress={() => handleBookingPress(trip)}
+          activeOpacity={0.95}
+        >
+          <View style={modernStyles.tripCardBackground}>
+            <View style={modernStyles.tripHeader}>
+              <View style={modernStyles.routeInfo}>
+                <Text style={modernStyles.routeText}>
+                  {trip.trip?.route?.startStation?.name || 'Departure'} → {trip.trip?.route?.endStation?.name || 'Destination'}
+                </Text>
+                <View style={modernStyles.tripTimeContainer}>
+                  <MaterialIcons name="schedule" size={16} color="#666" />
+                  <Text style={modernStyles.tripTime}>
+                    {trip.trip?.departureTime ? formatTime(trip.trip.departureTime) : 'When full'} • {trip.trip?.departureTime ? formatDate(trip.trip.departureTime) : 'Today'}
+                  </Text>
+                </View>
+              </View>
+
+              <View style={modernStyles.tripBadge}>
+                <MaterialIcons name="verified" size={16} color="#28a745" />
+                <Text style={modernStyles.tripBadgeText}>Confirmed</Text>
+              </View>
+            </View>
+
+            <View style={modernStyles.tripDetails}>
+              <View style={modernStyles.tripDetailItem}>
+                <MaterialIcons name="people" size={16} color="#666" />
+                <Text style={modernStyles.tripDetailText}>{trip.seats} seat{trip.seats > 1 ? 's' : ''}</Text>
+              </View>
+
+              <View style={modernStyles.tripDetailItem}>
+                <MaterialIcons name="payment" size={16} color="#666" />
+                <Text style={modernStyles.tripDetailText}>${trip.amount || '0.00'}</Text>
+              </View>
+
+              <View style={modernStyles.tripDetailItem}>
+                <MaterialIcons name="confirmation-number" size={16} color="#666" />
+                <Text style={modernStyles.tripDetailText}>#{trip.bookingReference}</Text>
+              </View>
+            </View>
+          </View>
+        </TouchableOpacity>
+      </Animated.View>
+    );
+  };
+
+  // Render recent activity with animations
   const renderRecentActivity = () => {
     if (recentBookings.length === 0) return null;
 
     return (
-      <View style={enhancedStyles.section}>
-        <View style={enhancedStyles.sectionHeader}>
-          <Text style={enhancedStyles.sectionTitle}>📋 Recent Activity</Text>
+      <Animated.View
+        style={[
+          modernStyles.section,
+          {
+            opacity: fadeAnim,
+            transform: [{ translateY: slideAnim }]
+          }
+        ]}
+      >
+        <View style={modernStyles.sectionHeader}>
+          <MaterialIcons name="history" size={24} color="#0066cc" />
+          <Text style={modernStyles.sectionTitle}>📋 Recent Activity</Text>
           <TouchableOpacity onPress={() => router.push('/(passenger)/bookings')}>
-            <Text style={enhancedStyles.seeAllLink}>View all</Text>
+            <Text style={modernStyles.seeAllLink}>View all</Text>
           </TouchableOpacity>
         </View>
 
-        {recentBookings.map((booking) => (
-          <TouchableOpacity
+        {recentBookings.map((booking, index) => (
+          <Animated.View
             key={booking.id}
-            style={enhancedStyles.activityCard}
-            onPress={() => handleBookingPress(booking)}
+            style={[
+              modernStyles.activityCard,
+              {
+                opacity: fadeAnim,
+                transform: [{
+                  translateX: fadeAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [50, 0]
+                  })
+                }]
+              }
+            ]}
           >
-            <View style={enhancedStyles.activityContent}>
-              <View style={enhancedStyles.activityIcon}>
-                <MaterialIcons
-                  name={booking.status === 'completed' ? 'done-all' : 'confirmation-number'}
-                  size={20}
-                  color={booking.status === 'completed' ? '#28a745' : '#0066cc'}
-                />
+            <TouchableOpacity
+              onPress={() => handleBookingPress(booking)}
+              style={modernStyles.activityContent}
+              activeOpacity={0.9}
+            >
+              <View style={modernStyles.activityLeft}>
+                <View style={[modernStyles.statusDot, { backgroundColor: getStatusColor(booking.status) }]} />
+                <View style={modernStyles.bookingRoute}>
+                  <Text style={modernStyles.activityTitle}>
+                    {booking.trip?.route?.startStation?.name || 'Unknown'} → {booking.trip?.route?.endStation?.name || 'Unknown'}
+                  </Text>
+                  <Text style={modernStyles.activitySubtitle}>
+                    {formatDate(booking.trip?.departureTime || booking.createdAt)} • {booking.seats} seat{booking.seats > 1 ? 's' : ''}
+                  </Text>
+                  <Text style={modernStyles.bookingReference}>#{booking.bookingReference}</Text>
+                </View>
               </View>
 
-              <View style={enhancedStyles.activityDetails}>
-                <Text style={enhancedStyles.activityTitle}>
-                  {booking.trip?.route?.startStation?.name || 'Unknown'} → {booking.trip?.route?.endStation?.name || 'Unknown'}
+              <View style={modernStyles.activityRight}>
+                <Text style={[modernStyles.statusText, { color: getStatusColor(booking.status) }]}>
+                  {getStatusIcon(booking.status)} {booking.status}
                 </Text>
-                <Text style={enhancedStyles.activitySubtitle}>
-                  {formatDate(booking.trip?.departureTime || booking.createdAt)} • {booking.seats} seat{booking.seats > 1 ? 's' : ''}
-                </Text>
+                <Text style={modernStyles.bookingAmount}>${booking.amount || '0.00'}</Text>
+                <MaterialIcons name="chevron-right" size={20} color="#ccc" />
               </View>
-
-              <View style={enhancedStyles.activityMeta}>
-                <Text style={enhancedStyles.activityAmount}>${booking.amount || '0.00'}</Text>
-                <View style={[
-                  enhancedStyles.activityStatusDot,
-                  { backgroundColor: booking.status === 'completed' ? '#28a745' : '#0066cc' }
-                ]} />
-              </View>
-            </View>
-          </TouchableOpacity>
+            </TouchableOpacity>
+          </Animated.View>
         ))}
-      </View>
+      </Animated.View>
     );
   };
 
-  const renderPopularStations = () => {
-    if (stations.length === 0) return null;
+  // Render popular stations with enhanced cards
+  const renderPopularStations = () => (
+    <Animated.View
+      style={[
+        modernStyles.section,
+        {
+          opacity: fadeAnim,
+          transform: [{ translateY: slideAnim }]
+        }
+      ]}
+    >
+      <View style={modernStyles.sectionHeader}>
+        <MaterialIcons name="location-on" size={24} color="#0066cc" />
+        <Text style={modernStyles.sectionTitle}>🌟 Popular Destinations</Text>
+        <TouchableOpacity onPress={() => router.push('/(passenger)/search')}>
+          <Text style={modernStyles.seeAllLink}>View all ({stations.length})</Text>
+        </TouchableOpacity>
+      </View>
 
-    return (
-      <View style={enhancedStyles.section}>
-        <View style={enhancedStyles.sectionHeader}>
-          <Text style={enhancedStyles.sectionTitle}>🌟 Popular Stations</Text>
-          <TouchableOpacity onPress={() => router.push('/(passenger)/search')}>
-            <Text style={enhancedStyles.seeAllLink}>View all ({stations.length})</Text>
-          </TouchableOpacity>
-        </View>
-
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={enhancedStyles.stationsScrollContainer}
-        >
-          {stations.slice(0, 6).map((station) => (
+      <FlatList
+        data={stations.slice(0, 6)}
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={modernStyles.stationsHorizontalList}
+        renderItem={({ item, index }) => (
+          <Animated.View
+            style={[
+              modernStyles.stationCardHorizontal,
+              {
+                opacity: fadeAnim,
+                transform: [{
+                  scale: scaleAnim
+                }]
+              }
+            ]}
+          >
             <TouchableOpacity
-              key={station.id}
-              style={enhancedStyles.stationCard}
-              onPress={() => handleStationPress(station)}
+              onPress={() => handleQuickStationSelect(item)}
+              style={modernStyles.stationCardContent}
+              activeOpacity={0.9}
             >
-              <View style={enhancedStyles.stationIcon}>
-                <MaterialIcons name="location-on" size={24} color="#0066cc" />
+              <View style={modernStyles.stationIcon}>
+                <MaterialIcons name="location-city" size={28} color="#0066cc" />
               </View>
 
-              <Text style={enhancedStyles.stationName} numberOfLines={1}>{station.name}</Text>
-              <Text style={enhancedStyles.stationLocation} numberOfLines={1}>
-                {station.city}, {station.state}
+              <Text style={modernStyles.stationName} numberOfLines={1}>{item.name}</Text>
+              <Text style={modernStyles.stationLocation} numberOfLines={1}>
+                {item.city}, {item.state}
               </Text>
 
-              {station.amenities && Object.keys(station.amenities).length > 0 && (
-                <View style={enhancedStyles.amenitiesIndicator}>
+              {item.amenities && Object.keys(item.amenities).length > 0 && (
+                <View style={modernStyles.amenitiesRow}>
                   <MaterialIcons name="star" size={12} color="#ffc107" />
-                  <Text style={enhancedStyles.amenitiesText}>Amenities</Text>
+                  <Text style={modernStyles.amenitiesText}>
+                    {Object.keys(item.amenities).length} amenities
+                  </Text>
                 </View>
               )}
+
+              <View style={modernStyles.stationCardAction}>
+                <MaterialIcons name="arrow-forward" size={16} color="#0066cc" />
+              </View>
             </TouchableOpacity>
-          ))}
-        </ScrollView>
-      </View>
-    );
-  };
-
-  const renderAnalyticsInsight = () => {
-    if (!analytics || isNewUser) return null;
-
-    return (
-      <View style={enhancedStyles.section}>
-        <Text style={enhancedStyles.sectionTitle}>📊 Your Impact</Text>
-
-        <View style={enhancedStyles.insightCard}>
-          <View style={enhancedStyles.insightHeader}>
-            <MaterialIcons name="eco" size={32} color="#28a745" />
-            <View style={enhancedStyles.insightContent}>
-              <Text style={enhancedStyles.insightTitle}>Environmental Impact</Text>
-              <Text style={enhancedStyles.insightSubtitle}>
-                You've saved {analytics.co2Saved.toFixed(1)}kg of CO₂ by choosing shared rides!
-              </Text>
-            </View>
-          </View>
-
-          <View style={enhancedStyles.impactStats}>
-            <View style={enhancedStyles.impactStat}>
-              <Text style={enhancedStyles.impactNumber}>{analytics.timesSaved.toFixed(0)}</Text>
-              <Text style={enhancedStyles.impactLabel}>Hours Saved</Text>
-            </View>
-            <View style={enhancedStyles.impactStat}>
-              <Text style={enhancedStyles.impactNumber}>${analytics.totalSpent.toFixed(0)}</Text>
-              <Text style={enhancedStyles.impactLabel}>Total Spent</Text>
-            </View>
-            <View style={enhancedStyles.impactStat}>
-              <Text style={enhancedStyles.impactNumber}>{analytics.favoriteRoute.split(' → ')[0]}</Text>
-              <Text style={enhancedStyles.impactLabel}>Favorite Route</Text>
-            </View>
-          </View>
-        </View>
-      </View>
-    );
-  };
-
-  const renderNewUserWelcome = () => {
-    if (!isNewUser) return null;
-
-    return (
-      <WelcomeCard
-        onBookTrip={() => router.push('/(passenger)/search')}
-        userName={firstName}
+          </Animated.View>
+        )}
+        keyExtractor={(item) => item.id}
       />
-    );
+
+      {/* Search All Stations Button */}
+      {stations.length > 6 && (
+        <TouchableOpacity
+          style={modernStyles.searchAllButton}
+          onPress={() => router.push('/(passenger)/search')}
+          activeOpacity={0.9}
+        >
+          <MaterialIcons name="explore" size={20} color="#0066cc" />
+          <Text style={modernStyles.searchAllButtonText}>
+            Explore all {stations.length} stations
+          </Text>
+          <MaterialIcons name="arrow-forward" size={16} color="#0066cc" />
+        </TouchableOpacity>
+      )}
+    </Animated.View>
+  );
+
+  // Helper functions for status
+  const getStatusColor = (status: string) => {
+    const colors = {
+      'pending': '#ff9800',
+      'confirmed': '#4caf50',
+      'completed': '#2196f3',
+      'cancelled': '#f44336',
+    };
+    return colors[status as keyof typeof colors] || '#9e9e9e';
+  };
+
+  const getStatusIcon = (status: string) => {
+    const icons = {
+      'pending': '⏳',
+      'confirmed': '✅',
+      'completed': '🎉',
+      'cancelled': '❌',
+    };
+    return icons[status as keyof typeof icons] || '❓';
   };
 
   // Loading state
-  if (loading) {
+  if (loading && stations.length === 0) {
     return (
-      <View style={enhancedStyles.container}>
-        <View style={enhancedStyles.loadingContainer}>
+      <View style={styles.container}>
+        {renderAnimatedHero()}
+        <View style={styles.centered}>
           <ActivityIndicator size="large" color="#0066cc" />
-          <Text style={enhancedStyles.loadingText}>Loading your dashboard...</Text>
+          <Text style={styles.loadingText}>Loading your dashboard...</Text>
         </View>
       </View>
     );
@@ -666,13 +807,13 @@ export default function EnhancedPassengerHomeScreen() {
   // Error state
   if (error && stations.length === 0) {
     return (
-      <View style={enhancedStyles.container}>
-        {renderEnhancedHeader()}
-        <View style={enhancedStyles.errorContainer}>
+      <View style={styles.container}>
+        {renderAnimatedHero()}
+        <View style={styles.centered}>
           <MaterialIcons name="error-outline" size={64} color="#f44336" />
-          <Text style={enhancedStyles.errorText}>{error}</Text>
-          <TouchableOpacity style={enhancedStyles.retryButton} onPress={() => fetchEnhancedData()}>
-            <Text style={enhancedStyles.retryButtonText}>🔄 Retry</Text>
+          <Text style={styles.errorText}>{error}</Text>
+          <TouchableOpacity style={styles.retryButton} onPress={() => fetchData()}>
+            <Text style={styles.retryButtonText}>🔄 Retry</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -680,125 +821,72 @@ export default function EnhancedPassengerHomeScreen() {
   }
 
   return (
-    <View style={enhancedStyles.container}>
+    <View style={styles.container}>
       <ScrollView
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
-            onRefresh={() => fetchEnhancedData(true)}
+            onRefresh={() => fetchData(true)}
             colors={['#0066cc']}
             tintColor="#0066cc"
+            progressBackgroundColor="#ffffff"
           />
         }
-        contentContainerStyle={enhancedStyles.scrollContent}
+        contentContainerStyle={{ paddingBottom: 40 }}
       >
-        {renderEnhancedHeader()}
-        {renderNewUserWelcome()}
+        {renderAnimatedHero()}
+        {renderAnimatedStats()}
         {renderNextTrip()}
-        {renderQuickActions()}
         {renderRecentActivity()}
-        {renderAnalyticsInsight()}
         {renderPopularStations()}
 
-        {/* App Footer */}
-        <View style={enhancedStyles.footer}>
-          <Text style={enhancedStyles.footerText}>
-            Louagi • Sustainable transportation for Tunisia 🇹🇳
+        {/* App info footer */}
+        <Animated.View
+          style={[
+            modernStyles.footer,
+            {
+              opacity: fadeAnim,
+            }
+          ]}
+        >
+          <Text style={modernStyles.footerText}>
+            Louagi • Connecting Tunisia, one journey at a time
           </Text>
-          <Text style={enhancedStyles.versionText}>v1.0.0</Text>
-        </View>
+          <Text style={modernStyles.versionText}>v1.0.0 • Made with ❤️ in Tunisia 🇹🇳</Text>
+        </Animated.View>
       </ScrollView>
-
-      {/* Floating Action Button for Quick Book */}
-      <TouchableOpacity
-        style={enhancedStyles.fab}
-        onPress={() => router.push('/(passenger)/search')}
-        activeOpacity={0.8}
-      >
-        <MaterialIcons name="add" size={28} color="white" />
-      </TouchableOpacity>
     </View>
   );
 }
 
-// Enhanced Styles
-const enhancedStyles = {
-  container: {
-    flex: 1,
-    backgroundColor: '#f8f9fa',
-  },
-
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center' as const,
-    alignItems: 'center' as const,
-    padding: 40,
-  },
-
-  loadingText: {
-    fontSize: 16,
-    color: '#666',
-    marginTop: 16,
-    textAlign: 'center' as const,
-  },
-
-  errorContainer: {
-    flex: 1,
-    justifyContent: 'center' as const,
-    alignItems: 'center' as const,
-    padding: 40,
-  },
-
-  errorText: {
-    fontSize: 18,
-    color: '#f44336',
-    textAlign: 'center' as const,
-    marginVertical: 16,
-    lineHeight: 24,
-  },
-
-  retryButton: {
-    backgroundColor: '#0066cc',
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 8,
-  },
-
-  retryButtonText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: '600' as const,
-  },
-
-  scrollContent: {
-    paddingBottom: 100, // Space for FAB
-  },
-
-  // Hero Section
+// Enhanced modern styles with animations support
+const modernStyles = {
+  // Hero Section with gradient background
   heroSection: {
     backgroundColor: '#0066cc',
     paddingTop: Platform.OS === 'ios' ? 50 : 30,
     paddingBottom: 30,
     paddingHorizontal: 20,
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
+    position: 'relative' as const,
+    overflow: 'hidden' as const,
   },
 
-  userSection: {
+  userGreeting: {
     flexDirection: 'row' as const,
     justifyContent: 'space-between' as const,
     alignItems: 'flex-start' as const,
     marginBottom: 30,
+    zIndex: 1,
   },
 
-  userInfo: {
+  greetingContent: {
     flex: 1,
   },
 
   greeting: {
     fontSize: 16,
-    color: 'rgba(255, 255, 255, 0.8)',
+    color: 'rgba(255, 255, 255, 0.9)',
     marginBottom: 4,
   },
 
@@ -806,47 +894,19 @@ const enhancedStyles = {
     fontSize: 28,
     fontWeight: '700' as const,
     color: '#ffffff',
-    marginBottom: 8,
+    marginBottom: 4,
   },
 
-  newUserBadge: {
-    fontSize: 12,
-    color: '#ffc107',
-    backgroundColor: 'rgba(255, 193, 7, 0.2)',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-    alignSelf: 'flex-start' as const,
-    fontWeight: '600' as const,
+  welcomeSubtext: {
+    fontSize: 14,
+    color: 'rgba(255, 255, 255, 0.8)',
+    fontStyle: 'italic' as const,
   },
 
   headerActions: {
     flexDirection: 'row' as const,
     alignItems: 'center' as const,
-    gap: 16,
-  },
-
-  notificationButton: {
-    padding: 8,
-    position: 'relative' as const,
-  },
-
-  notificationBadge: {
-    position: 'absolute' as const,
-    top: 4,
-    right: 4,
-    backgroundColor: '#ff4757',
-    borderRadius: 10,
-    minWidth: 20,
-    height: 20,
-    justifyContent: 'center' as const,
-    alignItems: 'center' as const,
-  },
-
-  badgeText: {
-    fontSize: 12,
-    fontWeight: '600' as const,
-    color: 'white',
+    gap: 12,
   },
 
   profileButton: {
@@ -854,9 +914,9 @@ const enhancedStyles = {
   },
 
   avatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
     justifyContent: 'center' as const,
     alignItems: 'center' as const,
@@ -870,50 +930,49 @@ const enhancedStyles = {
     color: '#ffffff',
   },
 
-  // Enhanced Stats
-  statsContainer: {
-    flexDirection: 'row' as const,
-    justifyContent: 'space-between' as const,
-    marginBottom: 30,
-    gap: 12,
+  logoutButton: {
+    padding: 8,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
   },
 
-  statCard: {
-    flex: 1,
+  // Enhanced Search Section
+  searchSection: {
     alignItems: 'center' as const,
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
-    padding: 16,
-    borderRadius: 16,
-    gap: 8,
+    marginBottom: 30,
+    zIndex: 1,
   },
 
-  statNumber: {
-    fontSize: 18,
+  searchTitle: {
+    fontSize: 24,
     fontWeight: '700' as const,
     color: '#ffffff',
-  },
-
-  statLabel: {
-    fontSize: 11,
-    color: 'rgba(255, 255, 255, 0.8)',
+    marginBottom: 8,
     textAlign: 'center' as const,
-    fontWeight: '500' as const,
   },
 
-  // Primary Search Button
-  primarySearchButton: {
+  searchSubtitle: {
+    fontSize: 16,
+    color: 'rgba(255, 255, 255, 0.8)',
+    marginBottom: 24,
+    textAlign: 'center' as const,
+  },
+
+  searchButton: {
     flexDirection: 'row' as const,
     alignItems: 'center' as const,
     backgroundColor: '#ffffff',
     paddingHorizontal: 24,
-    paddingVertical: 18,
+    paddingVertical: 16,
     borderRadius: 25,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
+    shadowOpacity: 0.2,
     shadowRadius: 8,
-    elevation: 8,
+    elevation: 6,
     gap: 12,
+    marginBottom: 20,
+    minWidth: width * 0.85,
   },
 
   searchButtonText: {
@@ -923,15 +982,113 @@ const enhancedStyles = {
     flex: 1,
   },
 
+  quickActionsRow: {
+    flexDirection: 'row' as const,
+    justifyContent: 'space-around' as const,
+    width: '100%',
+    gap: 12,
+  },
+
+  quickAction: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 20,
+    flex: 1,
+    justifyContent: 'center' as const,
+    gap: 6,
+  },
+
+  quickActionText: {
+    fontSize: 12,
+    fontWeight: '600' as const,
+    color: '#ffffff',
+  },
+
+  // Stats Container
+  statsContainer: {
+    marginHorizontal: 20,
+    marginTop: -15,
+    marginBottom: 20,
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+
+  statsHeader: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    marginBottom: 16,
+  },
+
+  statsTitle: {
+    fontSize: 18,
+    fontWeight: '700' as const,
+    color: '#333',
+    marginLeft: 8,
+  },
+
+  statsRow: {
+    flexDirection: 'row' as const,
+    justifyContent: 'space-around' as const,
+    alignItems: 'center' as const,
+  },
+
+  statItem: {
+    alignItems: 'center' as const,
+    gap: 8,
+    flex: 1,
+  },
+
+  alertStat: {
+    backgroundColor: '#ffebee',
+    borderRadius: 12,
+    paddingVertical: 12,
+  },
+
+  statNumber: {
+    fontSize: 20,
+    fontWeight: '700' as const,
+    color: '#0066cc',
+  },
+
+  statLabel: {
+    fontSize: 11,
+    color: '#666',
+    textAlign: 'center' as const,
+    lineHeight: 14,
+  },
+
+  // Stats footer for additional info
+  statsFooter: {
+    marginTop: 16,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#f0f0f0',
+  },
+
+  statsFooterText: {
+    fontSize: 12,
+    color: '#888',
+    textAlign: 'center' as const,
+    fontStyle: 'italic' as const,
+  },
+
   // Sections
   section: {
     paddingHorizontal: 20,
-    paddingVertical: 20,
+    paddingVertical: 16,
   },
 
   sectionHeader: {
     flexDirection: 'row' as const,
-    justifyContent: 'space-between' as const,
     alignItems: 'center' as const,
     marginBottom: 16,
   },
@@ -940,6 +1097,8 @@ const enhancedStyles = {
     fontSize: 20,
     fontWeight: '700' as const,
     color: '#333',
+    marginLeft: 8,
+    flex: 1,
   },
 
   seeAllLink: {
@@ -950,16 +1109,20 @@ const enhancedStyles = {
 
   // Next Trip Card
   nextTripCard: {
+    borderRadius: 16,
+    overflow: 'hidden' as const,
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+  },
+
+  tripCardBackground: {
     backgroundColor: '#ffffff',
     padding: 20,
-    borderRadius: 16,
     borderLeftWidth: 4,
     borderLeftColor: '#28a745',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
   },
 
   tripHeader: {
@@ -975,9 +1138,15 @@ const enhancedStyles = {
 
   routeText: {
     fontSize: 18,
-    fontWeight: '600' as const,
+    fontWeight: '700' as const,
     color: '#333',
-    marginBottom: 4,
+    marginBottom: 8,
+  },
+
+  tripTimeContainer: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 4,
   },
 
   tripTime: {
@@ -986,20 +1155,26 @@ const enhancedStyles = {
   },
 
   tripBadge: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    backgroundColor: '#e8f5e8',
     paddingHorizontal: 12,
-    paddingVertical: 4,
+    paddingVertical: 6,
     borderRadius: 12,
+    gap: 4,
   },
 
   tripBadgeText: {
     fontSize: 12,
     fontWeight: '600' as const,
+    color: '#28a745',
   },
 
   tripDetails: {
     flexDirection: 'row' as const,
     justifyContent: 'space-between' as const,
     alignItems: 'center' as const,
+    marginBottom: 12,
   },
 
   tripDetailItem: {
@@ -1014,99 +1189,39 @@ const enhancedStyles = {
     fontWeight: '500' as const,
   },
 
-  // Quick Actions Grid
-  quickActionsGrid: {
-    flexDirection: 'row' as const,
-    flexWrap: 'wrap' as const,
-    gap: 16,
-  },
-
-  quickActionCard: {
+  // Activity Cards
+  activityCard: {
     backgroundColor: '#ffffff',
-    width: (width - 56) / 2,
-    padding: 20,
-    borderRadius: 16,
-    borderLeftWidth: 4,
+    borderRadius: 12,
+    marginBottom: 12,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
-    minHeight: 120,
-  },
-
-  actionHeader: {
-    flexDirection: 'row' as const,
-    justifyContent: 'space-between' as const,
-    alignItems: 'flex-start' as const,
-    marginBottom: 12,
-  },
-
-  actionIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    justifyContent: 'center' as const,
-    alignItems: 'center' as const,
-  },
-
-  actionBadge: {
-    backgroundColor: '#ff4757',
-    borderRadius: 10,
-    minWidth: 20,
-    height: 20,
-    justifyContent: 'center' as const,
-    alignItems: 'center' as const,
-  },
-
-  actionBadgeText: {
-    fontSize: 12,
-    fontWeight: '600' as const,
-    color: 'white',
-  },
-
-  actionTitle: {
-    fontSize: 16,
-    fontWeight: '600' as const,
-    color: '#333',
-    marginBottom: 4,
-  },
-
-  actionSubtitle: {
-    fontSize: 12,
-    color: '#666',
-    lineHeight: 16,
-  },
-
-  // Recent Activity
-  activityCard: {
-    backgroundColor: '#ffffff',
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+    overflow: 'hidden' as const,
   },
 
   activityContent: {
     flexDirection: 'row' as const,
     alignItems: 'center' as const,
+    padding: 16,
   },
 
-  activityIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#f0f8ff',
-    justifyContent: 'center' as const,
+  activityLeft: {
+    flexDirection: 'row' as const,
     alignItems: 'center' as const,
+    flex: 1,
+  },
+
+  statusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
     marginRight: 12,
   },
 
-  activityDetails: {
+  bookingRoute: {
     flex: 1,
   },
 
@@ -1120,48 +1235,60 @@ const enhancedStyles = {
   activitySubtitle: {
     fontSize: 14,
     color: '#666',
+    marginBottom: 2,
   },
 
-  activityMeta: {
+  bookingReference: {
+    fontSize: 11,
+    color: '#0066cc',
+    fontWeight: '500' as const,
+  },
+
+  activityRight: {
     alignItems: 'flex-end' as const,
+    gap: 4,
   },
 
-  activityAmount: {
-    fontSize: 16,
+  statusText: {
+    fontSize: 12,
     fontWeight: '600' as const,
+  },
+
+  bookingAmount: {
+    fontSize: 16,
+    fontWeight: '700' as const,
     color: '#333',
-    marginBottom: 4,
   },
 
-  activityStatusDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-
-  // Stations Scroll
-  stationsScrollContainer: {
+  // Horizontal Station Cards
+  stationsHorizontalList: {
+    paddingLeft: 20,
     paddingRight: 20,
   },
 
-  stationCard: {
-    backgroundColor: '#ffffff',
+  stationCardHorizontal: {
     width: 140,
-    padding: 16,
-    borderRadius: 12,
     marginRight: 12,
+  },
+
+  stationCardContent: {
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
+    padding: 16,
     alignItems: 'center' as const,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
+    minHeight: 160,
+    justifyContent: 'space-between' as const,
   },
 
   stationIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     backgroundColor: '#f0f8ff',
     justifyContent: 'center' as const,
     alignItems: 'center' as const,
@@ -1172,90 +1299,53 @@ const enhancedStyles = {
     fontSize: 14,
     fontWeight: '600' as const,
     color: '#333',
-    textAlign: 'center' as const,
     marginBottom: 4,
+    textAlign: 'center' as const,
   },
 
   stationLocation: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#666',
-    textAlign: 'center' as const,
     marginBottom: 8,
+    textAlign: 'center' as const,
   },
 
-  amenitiesIndicator: {
+  amenitiesRow: {
     flexDirection: 'row' as const,
     alignItems: 'center' as const,
     gap: 2,
+    marginBottom: 8,
   },
 
   amenitiesText: {
-    fontSize: 10,
+    fontSize: 9,
     color: '#ffc107',
     fontWeight: '500' as const,
   },
 
-  // Analytics Insight
-  insightCard: {
-    backgroundColor: '#ffffff',
-    padding: 20,
-    borderRadius: 16,
-    borderLeftWidth: 4,
-    borderLeftColor: '#28a745',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+  stationCardAction: {
+    marginTop: 'auto' as const,
   },
 
-  insightHeader: {
+  searchAllButton: {
     flexDirection: 'row' as const,
     alignItems: 'center' as const,
-    marginBottom: 20,
-  },
-
-  insightContent: {
-    marginLeft: 16,
-    flex: 1,
-  },
-
-  insightTitle: {
-    fontSize: 18,
-    fontWeight: '600' as const,
-    color: '#333',
-    marginBottom: 4,
-  },
-
-  insightSubtitle: {
-    fontSize: 14,
-    color: '#666',
-    lineHeight: 20,
-  },
-
-  impactStats: {
-    flexDirection: 'row' as const,
-    justifyContent: 'space-around' as const,
-    backgroundColor: '#f8f9fa',
-    padding: 16,
+    justifyContent: 'center' as const,
+    backgroundColor: '#f0f8ff',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
     borderRadius: 12,
+    marginTop: 16,
+    marginHorizontal: 20,
+    borderWidth: 1,
+    borderColor: '#0066cc',
+    gap: 8,
   },
 
-  impactStat: {
-    alignItems: 'center' as const,
-  },
-
-  impactNumber: {
-    fontSize: 18,
-    fontWeight: '700' as const,
-    color: '#28a745',
-    marginBottom: 4,
-  },
-
-  impactLabel: {
-    fontSize: 12,
-    color: '#666',
-    textAlign: 'center' as const,
+  searchAllButtonText: {
+    fontSize: 16,
+    fontWeight: '600' as const,
+    color: '#0066cc',
   },
 
   // Footer
@@ -1275,23 +1365,6 @@ const enhancedStyles = {
   versionText: {
     fontSize: 12,
     color: '#999',
-  },
-
-  // Floating Action Button
-  fab: {
-    position: 'absolute' as const,
-    bottom: 24,
-    right: 24,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: '#0066cc',
-    justifyContent: 'center' as const,
-    alignItems: 'center' as const,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
+    textAlign: 'center' as const,
   },
 };

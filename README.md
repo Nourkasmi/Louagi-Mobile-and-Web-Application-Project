@@ -1,13 +1,23 @@
-# Louagi Technical Documentation
+# 🚌 Louagi - Transportation Management System
 
-## 1. System Architecture Overview
+> Comprehensive shared transportation platform for Tunisia - Connecting passengers with drivers through smart technology
 
-### 1.1 Architecture Diagram
+[![React Native](https://img.shields.io/badge/React%20Native-0.73-blue.svg)](https://reactnative.dev/)
+[![Node.js](https://img.shields.io/badge/Node.js-16+-green.svg)](https://nodejs.org/)
+[![React](https://img.shields.io/badge/React-19.1-blue.svg)](https://reactjs.org/)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-12+-blue.svg)](https://postgresql.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue.svg)](https://www.typescriptlang.org/)
+
+Louagi is a modern, full-stack transportation management system that revolutionizes shared transportation in Tunisia. The platform consists of three integrated applications: a mobile app for passengers and drivers, a comprehensive admin dashboard, and a robust backend API.
+
+## 🌟 System Overview
+
+### 🏗️ Architecture
 
 ```
 ┌─────────────────────┐     ┌──────────────────────┐     ┌─────────────────────┐
 │                     │     │                      │     │                     │
-│  React Native App   │────▶│   Node.js Backend    │◀───▶│    PostgreSQL DB  │
+│  React Native App   │────▶│   Node.js Backend    │◀───▶│    PostgreSQL DB    │
 │ (Passengers/Drivers)│     │   (Express.js API)   │     │                     │
 │                     │◀────│                      │     │                     │
 └─────────────────────┘     └──────────────────────┘     └─────────────────────┘
@@ -23,776 +33,489 @@
                               └──────────────────┘                  
 ```
 
-### 1.2 Technology Stack
+### 🎯 Key Features
 
-#### Frontend Technologies
-- **Mobile Application**: React Native
-  - State Management: Redux + Redux Toolkit
-  - Navigation: React Navigation
-  - UI Components: React Native Paper
-  - Payment Integration: Stripe React Native SDK
+**🚗 For Drivers**
+- Smart queue management with time-based scheduling
+- Real-time trip assignment and passenger tracking
+- Comprehensive earnings analytics and reporting
+- Profile management and performance metrics
 
-- **Admin Dashboard**: React.js
-  - State Management: Redux + Redux Toolkit
-  - Routing: React Router
-  - UI Framework: Material-UI (MUI)
-  - Data Tables: react-table
-  - Charts/Analytics: recharts
+**🎫 For Passengers**
+- Intuitive trip search and booking system
+- Secure payment processing with Stripe integration
+- Real-time trip tracking and notifications
+- Booking history and environmental impact tracking
 
-#### Backend Technologies
-- **Server**: Node.js
-- **API Framework**: Express.js
-- **Authentication**: JSON Web Tokens (JWT)
-- **Database ORM**: sequelize
-- **API Documentation**: Swagger
-- **Payment Processing**: Stripe API
+**👨‍💼 For Administrators**
+- Complete system oversight and management
+- User, driver, and trip management interfaces
+- Real-time analytics and reporting dashboards
+- Station, schedule, and queue management tools
 
-#### Database
-- **DBMS**: PostgreSQL
+## 📦 Project Components
 
-## 2. Database Schema Design
-
-### 2.1 Entity Relationship Diagram (ERD)
+### 🗂️ Repository Structure
 
 ```
-┌─────────────┐       ┌─────────────┐       ┌────────────┐
-│    User     │       │   Station   │       │Destenation │
-├─────────────┤       ├─────────────┤       ├────────────┤
-│ id          │       │ id          │       │ id         │
-│ username    │       │ name        │       │ start_id   │──┐
-│ email       │       │ location    │       │ end_id     │──┘
-│ password    │       │ capacity    │       │ distance   │
-│ phone       │       │ is_active   │       │ base_price │
-│ role        │       └──────┬──────┘       └─────┬──────┘
-└──────┬──────┘              │                    │
-       │                     │                    │
-       │                     │                    │
-┌──────┴──────┐       ┌──────┴──────┐       ┌─────┴──────┐
-│   Driver    │       │  Schedule   │       │    Trip    │
-├─────────────┤       ├─────────────┤       ├────────────┤
-│ user_id     │       │ id          │       │ id         │
-│ license_no  │───┐   │ station_id  │       │ route_id   │
-│ experience  │   │   │ day_of_week │       │ schedule_id│
-│ rating      │   │   │ start_time  │       │ driver_id  │
-└─────────────┘   │   │ end_time    │       │ capacity   │
-                  │   │ is_active   │       │ status     │
-                  │   └──────┬──────┘       └─────┬──────┘
-                  │          │                    │
-                  │          │                    │
-┌─────────────┐   │   ┌──────┴──────┐       ┌─────┴──────┐
-│  Passenger  │   │   │ DriverQueue │       │  Booking   │
-├─────────────┤   │   ├─────────────┤       ├────────────┤
-│ user_id     │   │   │ id          │       │ id         │
-│ preferences │   │   │ station_id  │       │ trip_id    │
-│ payment_info│   │   │ driver_id   │◀──────│ passenger_id│
-└─────────────┘   │   │ position    │       │ seats      │
-                  └──▶│ schedule_id │       │ status     │
-                      │ status      │       │ payment_id │
-                      └─────────────┘       └────────────┘
-```
-## 3. API Endpoints (Entity-Based)
-
-### 3.1 Auth
-
-| Method | Endpoint              | Description        | Response         |
-|--------|-----------------------|--------------------|------------------|
-| POST   | `/api/auth/register`  | Register new user  | `{token, user}`  |
-| POST   | `/api/auth/login`     | User login         | `{token, user}`  |
-| GET    | `/api/auth/me`        | Get current user   | `{user}`         |
-| POST   | `/api/auth/logout`    | User logout        | `{message}`      |
-
-### 3.2 Users
-
-| Method | Endpoint            | Description                   | Response        |
-|--------|---------------------|-------------------------------|-----------------|
-| GET    | `/api/users`        | Get all users (admin only)    | `[{user}]`      |
-| GET    | `/api/users/:id`    | Get user by ID                | `{user}`        |
-| PUT    | `/api/users/:id`    | Update user                   | `{user}`        |
-| DELETE | `/api/users/:id`    | Delete user                   | `{message}`     |
-
-### 3.3 Trips
-
-| Method | Endpoint                                   | Description                                      | Response      |
-|--------|--------------------------------------------|--------------------------------------------------|---------------|
-| GET    | `/api/trips`                               | Get all available trips                          | `[{trip}]`    |
-| GET    | `/api/trips/:id`                           | Get trip details                                 | `{trip}`      |
-| GET    | `/api/stations/:stationId/destinations/:destinationId/trips` | Get trips by station and destination | `[{trip}]`    |
-| GET    | `/api/drivers/trips`                       | Get driver's trips (driver only)                 | `[{trip}]`    |
-
-### 3.4 Bookings
-
-| Method | Endpoint                        | Description               | Response        |
-|--------|---------------------------------|---------------------------|-----------------|
-| GET    | `/api/passengers/bookings`      | Get passenger's bookings  | `[{booking}]`   |
-| POST   | `/api/passengers/bookings`      | Create booking            | `{booking}`     |
-| DELETE | `/api/passengers/bookings/:id`  | Cancel booking            | `{message}`     |
-| GET    | `/api/bookings/:id`             | Get booking details       | `{booking}`     |
-
-### 3.5 Payments
-
-| Method | Endpoint                  | Description           | Response            |
-|--------|---------------------------|-----------------------|---------------------|
-| POST   | `/api/payments/intent`    | Create payment intent | `{clientSecret}`    |
-| POST   | `/api/payments/confirm`   | Confirm payment       | `{booking}`         |
-
-### 3.6 Drivers
-
-| Method | Endpoint                        | Description                     | Response                              |
-|--------|---------------------------------|---------------------------------|---------------------------------------|
-| POST   | `/api/drivers/availability`     | Declare availability            | `{queuePosition}`                     |
-| GET    | `/api/drivers/queue-position`   | Get current queue position      | `{position, estimatedDeparture}`      |
-
-### 3.7 Stations
-
-| Method | Endpoint                            | Description                        | Response         |
-|--------|-------------------------------------|------------------------------------|------------------|
-| GET    | `/api/stations`                     | Get all available stations (public) | `[{station}]`    |
-| GET    | `/api/stations/:id`                 | Get station details (public)       | `{station}`      |
-| GET    | `/api/stations/:id/schedules`       | Get schedules for a station        | `[{schedule}]`   |
-| GET    | `/api/stations/:id/destinations`    | Get destinations from a station    | `[{destination}]`|
-| POST   | `/api/admin/stations`               | Create station (admin)             | `{station}`      |
-| PUT    | `/api/admin/stations/:id`           | Update station (admin)             | `{station}`      |
-| DELETE | `/api/admin/stations/:id`           | Delete station (admin)             | `{message}`      |
-
-### 3.8 Schedules
-
-| Method | Endpoint                    | Description             | Response        |
-|--------|-----------------------------|-------------------------|-----------------|
-| GET    | `/api/admin/schedules`      | Get all schedules       | `[{schedule}]`  |
-| POST   | `/api/admin/schedules`      | Create schedule         | `{schedule}`    |
-| PUT    | `/api/admin/schedules/:id`  | Update schedule         | `{schedule}`    |
-| DELETE | `/api/admin/schedules/:id`  | Delete schedule         | `{message}`     |
-
-### 3.9 Destinations
-
-| Method | Endpoint                          | Description                       | Response            |
-|--------|-----------------------------------|-----------------------------------|---------------------|
-| GET    | `/api/destinations`               | Get all destinations (public)     | `[{destination}]`   |
-| GET    | `/api/destinations/:id`           | Get destination details (public)  | `{destination}`     |
-| POST   | `/api/admin/destinations`         | Create destination (admin)        | `{destination}`     |
-| PUT    | `/api/admin/destinations/:id`     | Update destination (admin)        | `{destination}`     |
-| DELETE | `/api/admin/destinations/:id`     | Delete destination (admin)        | `{message}`         |
-
-### 3.10 Driver Queue
-
-| Method | Endpoint                         | Description                  | Response        |
-|--------|----------------------------------|------------------------------|-----------------|
-| GET    | `/api/admin/driver-queue`        | Get driver queue (admin)     | `[{queueItem}]` |
-| PUT    | `/api/admin/driver-queue/:id`    | Update driver in queue       | `{queueItem}`   |
-
-## 4. Authentication and Authorization
-
-### 4.1 Authentication Flow
-
-1. **Registration Process**:
-   - User submits registration details
-   - Backend validates input data
-   - Password is hashed using bcrypt
-   - User record is created in the database
-   - JWT token is generated and returned to the client
-
-2. **Login Process**:
-   - User submits email/password
-   - Backend validates credentials
-   - JWT token is generated with a 24-hour expiry
-   - Both tokens are returned to the client
-
-### 4.2 Authorization Strategy
-
-The system implements role-based access control (RBAC) with three primary roles:
-
-1. **Passenger Role**
-   - Can view available trips  
-   - Can book trips and manage their bookings  
-   - Can view their profile and update details  
-   - Can view available destinations  
-   - Can view available stations  
-
-2. **Driver Role**:
-   - Can declare availability for trips
-   - Can view assigned trips
-   - Can view their position in the driver queue
-   - Can update their profile and vehicle details
-
-3. **Admin Role**:
-   - Can manage all system entities (users, stations, schedules, destenations)
-   - Can view and modify the driver queue
-   - Has full system access
-
-### 4.3 JWT Structure
-
-```json
-{
-  "header": {
-    "alg": "HS256",
-    "typ": "JWT"
-  },
-  "payload": {
-    "userId": "uuid",
-    "role": "passenger|driver|admin",
-    "email": "user@example.com",
-    "iat": 1620000000,
-    "exp": 1620086400
-  },
-  "signature": "..."
-}
-```
-### 4.4 Application Structure 
-
-```
-louagi-backend/
-│
-├── config/                   # Configuration files (e.g. DB, JWT, env)
-│   ├── config.js             # Sequelize DB config
-│   └── jwt.js                # JWT secret and options
-│
-├── controllers/              # Route controllers (business logic)
-│   ├── auth.controller.js
-│   ├── user.controller.js
-│   ├── trip.controller.js
-│   ├── booking.controller.js
-│   ├── payment.controller.js
-│   ├── station.controller.js
-│   ├── schedule.controller.js
-│   ├── destination.controller.js
-│   ├── driver.controller.js
-│   └── queue.controller.js
-│
-├── middlewares/             # Custom middlewares
-│   ├── auth.middleware.js   # Role-based auth
-│   ├── error.middleware.js
-│   ├── param.middleware.js
-│   └── validate.middleware.js
-│
-├── models/                  # Sequelize models
-│   ├── index.js             # Sequelize init and associations
-│   ├── user.model.js
-│   ├── trip.model.js
-│   ├── booking.model.js
-│   ├── station.model.js
-│   ├── schedule.model.js
-│   ├── destination.model.js
-│   ├── driver.model.js
-│   └── queue.model.js
-│
-├── routes/                  # API route definitions
-│   ├── auth.routes.js
-│   ├── user.routes.js
-│   ├── trip.routes.js
-│   ├── booking.routes.js
-│   ├── payment.routes.js
-│   ├── station.routes.js
-│   ├── schedule.routes.js
-│   ├── destination.routes.js
-│   ├── driver.routes.js
-│   └── queue.routes.js
-│
-├── services/                # Business services and helpers
-│   ├── stripe.service.js
-│   ├── jwt.service.js
-│   └── email.service.js     # Optional
-│
-├── utils/                   # Utility functions
-│   └── logger.js
-│   └── trip.utils.js
-│   └── trip.generator.js
-│   └── schedule.utils.js
-│
-├── .env                     # Environment variables
-├── .sequelizerc             # Sequelize config path
-├── package.json
-├── server.js                # Entry point - app setup
-└── app.js                   # Express config (middleware, routes, etc.)
-```
-## Louagi Technical Documentation
-
-### 5. Mobile Application (React Native)
-
-#### 5.1 Application Structure
-```text
-src/
-├── assets/
-│   ├── images/
-│   └── fonts/
-├── components/
-│   ├── common/
-│   │   ├── Button.js
-│   │   ├── Card.js
-│   │   ├── Input.js
-│   │   └── ...
-│   ├── passenger/
-│   │   ├── TripCard.js
-│   │   ├── BookingForm.js
-│   │   └── ...
-│   └── driver/
-│       ├── QueueStatus.js
-│       ├── TripControls.js
-│       └── ...
-├── navigation/
-│   ├── AppNavigator.js
-│   ├── AuthNavigator.js
-│   ├── PassengerNavigator.js
-│   └── DriverNavigator.js
-├── screens/
-│   ├── auth/
-│   │   ├── LoginScreen.js
-│   │   ├── RegisterScreen.js
-│   │   └── ...
-│   ├── passenger/
-│   │   ├── HomeScreen.js
-│   │   ├── BookingScreen.js
-│   │   ├── TripHistoryScreen.js
-│   │   └── ...
-│   └── driver/
-│       ├── HomeScreen.js
-│       ├── QueueScreen.js
-│       ├── TripManagementScreen.js
-│       └── ...
-├── services/
-│   ├── api.js
-│   ├── auth.js
-│   ├── trip.js
-│   └── ...
-├── store/
-│   ├── actions/
-│   ├── reducers/
-│   ├── slices/
-│   └── store.js
-├── utils/
-│   ├── constants.js
-│   ├── helpers.js
-│   └── validation.js
-└── App.js
+louagi-system/
+├── louagi-backend/           # Node.js API Server
+│   ├── controllers/          # Business logic controllers
+│   ├── models/              # Database models (Sequelize)
+│   ├── routes/              # API route definitions
+│   ├── middlewares/         # Custom middleware functions
+│   ├── services/            # External service integrations
+│   └── utils/               # Helper functions and utilities
+├── louagi-admin-dashboard/   # React.js Admin Web App
+│   ├── src/components/      # Reusable UI components
+│   ├── src/pages/          # Page components
+│   ├── src/hooks/          # Custom React hooks
+│   ├── src/services/       # API service modules
+│   └── src/context/        # React context providers
+├── louagi_mobile/           # React Native Mobile App
+│   ├── app/                # Expo Router pages
+│   ├── src/components/     # Shared components
+│   ├── src/services/       # API and external services
+│   ├── src/store/         # Redux state management
+│   └── src/styles/        # Theme system
+└── docs/                   # Documentation and guides
 ```
 
-#### 5.2 Key Features – Passenger App
+## 🚀 Quick Start Guide
 
-**User Authentication**
-- Register/Login
-- Profile management
-- Password reset
+### Prerequisites
 
-**Trip Booking**
-- Browse available stations
-- Select departure and destination
-- View available trips by station and destination
-- See trip details (time, price, seats available)
-- Book seats and proceed to online payment
-- Receive booking confirmation
+Before setting up any component, ensure you have:
 
-**Booking Management**
-- View upcoming bookings
-- Access booking history
+- **Node.js** 16.0.0 or higher
+- **PostgreSQL** 12+ database server
+- **npm** or **yarn** package manager
+- **Git** for version control
 
-**Secure Payments**
-- Stripe integration for seamless payment processing
+**For Mobile Development:**
+- **Expo CLI**: `npm install -g @expo/cli`
+- **Android Studio** (for Android emulation)
+- **Xcode** (for iOS development, macOS only)
 
-#### 5.3 Key Features – Driver App
+### 🗄️ 1. Database Setup
 
-**Driver Authentication**
-- Driver-specific registration/login
-- Profile and license information management
+```bash
+# Create PostgreSQL database
+createdb louagi_db
 
-**Queue Management**
-- Declare availability for upcoming trips
-- Monitor queue position in real time
-- **"I'm Available" flow**: After completing a trip, drivers can press "I'm Available" to request re-entry into the queue  
-   - System checks if the previous trip is completed  
-   - Ensures the driver has not exceeded daily trip limit  
-   - Confirms enough time is left in the day to complete another trip  
-   - If all checks pass → driver is added to queue and receives a new departure slot  
-   - Else → driver is notified: “No more trips available today”
-
-**Trip Management**
-- Access trip details and schedules
-- View passenger manifests
-
-**Earnings Overview**
-- Monitor daily, weekly, and monthly income
-
-### 6. Admin Dashboard (React.js)
-
-#### 6.1 Application Structure
-```text
-src/
-├── assets/
-│   ├── images/
-│   └── styles/
-├── components/
-│   ├── common/
-│   │   ├── Navbar.js
-│   │   ├── Sidebar.js
-│   │   ├── DataTable.js
-│   │   └── ...
-│   ├── dashboard/
-│   │   ├── StatsCard.js
-│   │   ├── ChartComponent.js
-│   │   └── ...
-│   ├── stations/
-│   │   ├── StationForm.js
-│   │   ├── StationList.js
-│   │   └── ...
-│   ├── schedules/
-│   ├── drivers/
-│   └── routes/
-├── contexts/
-│   ├── AuthContext.js
-│   └── ThemeContext.js
-├── pages/
-│   ├── auth/
-│   │   ├── Login.js
-│   │   └── ForgotPassword.js
-│   ├── dashboard/
-│   │   └── index.js
-│   ├── stations/
-│   │   ├── index.js
-│   │   ├── create.js
-│   │   ├── edit.js
-│   │   └── view.js
-│   ├── schedules/
-│   ├── drivers/
-│   ├── routes/
-│   └── trips/
-├── services/
-│   ├── api.js
-│   ├── auth.js
-│   ├── station.js
-│   └── ...
-├── store/
-│   ├── slices/
-│   └── store.js
-├── utils/
-│   ├── constants.js
-│   ├── helpers.js
-│   └── validation.js
-├── App.js
-└── index.js
+# Create a dedicated user (optional but recommended)
+psql -c "CREATE USER louagi_user WITH PASSWORD 'your_password';"
+psql -c "GRANT ALL PRIVILEGES ON DATABASE louagi_db TO louagi_user;"
 ```
 
-#### 6.2 Key Features
-
-**Dashboard Overview**
-- Visual stats on active trips, bookings, and revenues
-- Real-time monitoring of driver and trip activity
-
-**Station Management**
-- Add, update, or remove stations
-- Monitor activity and capacity per station
-
-**Schedule Management**
-- Set operating hours and days for stations
-- Manage exceptions (e.g., holidays or special events)
-
-**Driver Queue Management**
-- View and edit driver queues per destination
-- Assign drivers manually if necessary
-- Track driver performance metrics
-
-**Trip Management**
-- Monitor all scheduled and ongoing trips
-- Modify or cancel trips when needed
-- Access trip-level data including passengers
-
-**User Management**
-- Manage all users (passengers and drivers)
-- Approve and verify driver accounts
-- Deactivate or delete accounts if required
-
-## 8. Frontend Implementation Details
-
-### 8.1 Mobile Application Architecture (React Native)
-
-The Louagi mobile application follows a component-based architecture with the following key design patterns:
-
-- **Atomic Design Pattern**: Components are structured according to atomic design principles:
-  - Atoms: Basic UI elements (buttons, inputs, etc.)
-  - Molecules: Groups of atoms (form fields, search bars)
-  - Organisms: Groups of molecules (booking forms, trip cards)
-  - Templates: Page layouts without content
-  - Pages: Templates with real content
-
-- **Navigation Structure**:
-  - Authentication Navigator: Login, registration, password reset screens
-  - Passenger Navigator: Home, search, booking, history screens
-  - Driver Navigator: Queue status
-  - Profile Navigator: Settings, profile management screens
-
-- **State Management**:
-  - Redux store with separate slices for authentication, trips, bookings
-  - Optimistic UI updates for better user experience
-  - Persistent storage for offline access to critical information
-  - Caching strategy for frequently accessed data
-
-### 8.2 Key Mobile Screens and Features
-
-#### 8.2.1 Passenger Application
-
-1. **Authentication Screens**:
-   - Login Screen: Email/password login with validation
-   - Registration Screen: User registration with role selection
-   - Password Reset: Password recovery flow
-
-2. **Home Screen**:
-   - Quick trip search
-   - Upcoming bookings overview
-   - Recent trips history
-
-3. **Trip Search and Booking**:
-   - Station selection with autocomplete
-   - Date and time picker
-   - Available trips listing with filtering
-   - Booking confirmation
-
-4. **Payment Processing**:
-   - Credit card input with validation
-   - Payment confirmation
-   - Receipt generation
-
-5. **Booking Management**:
-   - View active bookings
-   - Booking details screen
-   - Trip history
-
-#### 8.2.2 Driver Application
-
-1. **Authentication and Profile**:
-   - Driver-specific registration
-   - Vehicle details
-   - Status dashboard
-
-2. **Queue Management**:
-   - Destenation selection interface
-   - Schedule selection
-   - Queue position visualization
-   - Estimated departure time display
-
-3. **Trip Management**:
-   - Current trip information
-   - Passenger list and details
-   - Trip history and earnings
-
-### 8.3 Admin Dashboard Architecture (React.js)
-
-The web-based administration dashboard follows modern React.js architectural patterns:
-
-- **Component Structure**:
-  - UI components using Material-UI framework
-  - Reusable data presentation components
-  - Layout components for consistent UI
-  - Form components with validation
-
-- **State Management**:
-  - React Context API for theme and authentication state
-  - Redux for complex global state
-  - React Query for server state management and caching
-
-- **Code Organization**:
-  - Feature-based folder structure
-  - Separation of UI components and business logic
-  - Centralized API service modules
-  - Reusable hooks for common functionality
-
-### 8.4 Admin Dashboard Modules
-
-2. **Station Management**:
-   - Station CRUD operations
-   - Station capacity management
-   - Operating hours configuration
-   - Station performance metrics
-
-3. **Driver Queue Management**:
-   - Real-time queue visualization
-   - Manual queue manipulation
-   - Driver assignment to trips
-
-4. **Trip Scheduling**:
-   - Schedule creation and management
-   - Route configuration
-   - Price management
-   - Special schedule handling
-
-5. **User Management**:
-   - User account administration
-   - Role assignment and permissions
-   - drivers Account verification and moderation
-   - User activity monitoring
-
-
-## 9. Data Flow and Integration
-
-### 9.1 Authentication Flow
-
-1. User enters credentials in mobile app or admin dashboard
-2. Frontend validates input and sends to authentication API
-3. Backend verifies credentials against database
-4. On success, JWT token is generated and returned
-5. Frontend stores token securely (AsyncStorage for mobile, localStorage/cookies for web)
-6. Token is included in Authorization header for subsequent requests
-
-### 9.2 Booking Process Flow
-
-1. Passenger searches for trips by selecting stations, Destenation
-2. Backend queries database for matching trips with availability
-3. Passenger selects desired trip and number of seats
-4. Frontend creates booking with 'pending' status
-5. Stripe payment intent is created with booking metadata
-6. Passenger completes payment via Stripe SDK
-7. Backend verifies payment success via webhook or API call
-8. Booking status is updated to 'confirmed'
-9. Both passenger and driver receive notifications
-10. Trip's available seat count is updated
-
-### 9.3 Driver Queue Management Flow
-
-### 9.3 Driver Queue Management Flow
-
-- Driver declares availability for specific station and schedule
-- Backend checks current queue status and driver eligibility
-- Driver is added to queue with appropriate position
-- Queue position is continuously updated as trips depart
-- When driver reaches position 1, they are assigned to next trip
-- Driver receives notification with trip details
-- After completing a trip, the driver may press **"I'm Available"** to request another trip:
-   - System checks that the previous trip was completed
-   - Ensures the driver has not reached the daily trip cap (e.g., 3)
-   - Confirms there is enough time left in the day
-   - If valid → driver is requeued and scheduled
-   - If not → driver receives: “No more trips available today”
-
-
-## 11. Testing Strategy
-
-### 11.1 Unit Testing
-
-- **Backend Unit Tests**:
-  - Controller function testing
-  - Service layer testing
-  - Model validation testing
-  - Test coverage targets (>80%)
-
-- **Frontend Unit Tests**:
-  - Component rendering tests
-  - Hook functionality tests
-  - Utility function tests
-  - State management tests
-
-### 11.2 Integration Testing
-
-- **API Integration Tests**:
-  - Endpoint functionality testing
-  - Request/response validation
-  - Error handling testing
-  - Authentication flow testing
-
-- **Frontend Integration Tests**:
-  - Component interaction tests
-  - Navigation flow tests
-  - Form submission tests
-  - State updates across components
-
-### 11.3 End-to-End Testing
-
-- **User Flow Testing**:
-  - Complete booking flow
-  - Driver availability to trip completion
-  - Admin dashboard operations
-  - Cross-role interactions
-
-## 13. Implementation Plan
-
-### 13.1 Week-by-Week Development Schedule
-
-## 10-Week Project Timeline (2.5 Months)
-
-### **Week 1: Project Setup and Planning**
-- Set up Git repositorie (backend, frontend, mobile)
-- Configure development environments
-- Finalize technology stack
-- Break down features into detailed tasks and milestones
-- Set up project management tools (e.g., Jira, Trello)
-- Draft initial wireframes for mobile app and admin dashboard
-
-### **Week 2: Database and Backend Foundation**
-- Design database schema (ER diagrams, relationships)
-- Set up PostgreSQL (or chosen DB) with ORM (e.g., Sequelize, Prisma)
-- Configure database connections and migrations
-- Implement authentication system (JWT, roles, middleware)
-- Create base API structure (versioning, routing, error handling)
-- Set up automated testing framework (unit + integration)
-
-### **Week 3: Core API Development I**
-- Implement user management APIs (CRUD, roles)
-- Develop station and destination management
-- Implement trip creation and listing logic
-- Begin API documentation (e.g., Swagger, Postman)
-
-
-### **Week 4: Core API Development II**
-- Implement booking flow (pending, confirmed, cancelled)
-- Build driver availability and queue logic
-- Add schedule management endpoints
-- Implement basic notifications logic (placeholders or logs)
-
-### **Week 5: Payments and Admin APIs**
-- Integrate Stripe for payment intent and confirmation
-- Connect payment with booking confirmation logic
-- Implement admin dashboard APIs (user, trip, driver queue)
-- Extend notification system (email, push structure)
-- Continue API testing and refine documentation
-
-### **Week 6: Mobile App Development – Part 1**
-- Set up React Native project
-- Implement login and registration flows
-- Build passenger trip search and booking UI
-- Create reusable UI components (buttons, forms, lists)
-- Set up navigation structure and screens
-
-### **Week 7: Mobile App Development – Part 2**
-- Implement driver-specific features (trip queue, trip start/end)
-- Build booking management views
-- Integrate payments via Stripe SDK
-- Add offline-friendly logic (local caching, queues)
-- Conduct device testing (Android + iOS)
-
-### **Week 8: Admin Dashboard Development**
-- Set up React.js project for admin
-- Implement authentication and role-based access
-- Build user, station, and schedule management pages
-- Visualize driver queue in real-time
-- Implement trip, booking, and analytics dashboards
-
-### **Week 9: Integration and Testing**
-- Conduct end-to-end testing across all platforms
-- Handle edge cases and error states
-- QA pass across mobile and web apps
-- Gather early feedback from testers
-
-### **Week 10: Finalization and Deployment**
-- Fix critical bugs and polish UX/UI
-- Complete project documentation (README, API docs, setup guides)
-
-### 13.2 Resource Allocation
-
-- **Backend Development**: Team member 1 (primary) with support from team member 2
-- **Frontend - Mobile**: Both team members collaborating with clearly defined responsibilities
-- **Frontend - Admin**: Team member 2 (primary) with support from team member 1
-- **Testing**: Shared responsibility with cross-testing of each other's work
-- **Documentation**: Collaborative effort with regular review sessions
-
-## 14. Future Enhancements
-
-### 14.1 Feature Roadmap
-
-- **Phase 2 Features**:
-  - GPS tracking and real-time trip monitoring
-  - In-app messaging between passengers and drivers
-  - Rating and review system
-  - Multi-language support
-  - Advanced analytics and reporting
-
-- **Technical Enhancements**:
-  - Migration to GraphQL for more efficient data fetching 
-  - Implementation of microservices architecture
-  - Machine learning for trip demand prediction
-  - Progressive Web App version of passenger application
-  - Native app optimization
+### ⚙️ 2. Backend Setup
+
+```bash
+# Navigate to backend directory
+cd louagi-backend
+
+# Install dependencies
+npm install
+
+# Configure environment variables
+cp .env.example .env
+# Edit .env with your database and Stripe credentials
+
+# Run database migrations
+npm run db:migrate
+
+# Seed sample data (optional)
+npm run db:seed
+
+# Start development server
+npm run dev
+```
+
+**Backend runs on:** `http://localhost:5000`
+
+### 🌐 3. Admin Dashboard Setup
+
+```bash
+# Navigate to admin dashboard directory
+cd louagi-admin-dashboard
+
+# Install dependencies
+npm install
+
+# Configure environment variables
+cp .env.example .env
+# Update API URL: REACT_APP_API_URL=http://localhost:5000/api
+
+# Start development server
+npm start
+```
+
+**Admin Dashboard runs on:** `http://localhost:3000`
+
+**Default Admin Credentials:**
+- Email: `admin@louagi.tn`
+- Password: `SecureAdmin@123`
+
+### 📱 4. Mobile App Setup
+
+```bash
+# Navigate to mobile app directory
+cd louagi_mobile
+
+# Install dependencies
+npm install
+
+# Configure API endpoint in src/config/index.ts
+# Update API_BASE_URL to point to your backend
+
+# Start Expo development server
+npx expo start
+
+# Run on devices:
+# - Press 'a' for Android emulator
+# - Press 'i' for iOS simulator
+# - Scan QR code with Expo Go for physical device
+```
+
+## 🔧 Configuration Guide
+
+### Environment Variables
+
+#### Backend (.env)
+```env
+NODE_ENV=development
+PORT=5000
+DB_HOST=localhost
+DB_USER=louagi_user
+DB_PASSWORD=your_password
+DB_NAME=louagi_db
+JWT_SECRET=your_jwt_secret_key
+STRIPE_SECRET_KEY=sk_test_your_stripe_secret
+STRIPE_PUBLISHABLE_KEY=pk_test_your_stripe_public
+```
+
+#### Admin Dashboard (.env)
+```env
+REACT_APP_API_URL=http://localhost:5000/api
+REACT_APP_BACKEND_URL=http://localhost:5000
+REACT_APP_APP_NAME=Louagi Admin Dashboard
+REACT_APP_STRIPE_PUBLISHABLE_KEY=pk_test_your_stripe_public
+```
+
+#### Mobile App (src/config/index.ts)
+```typescript
+const Config = {
+  API_BASE_URL: 'http://localhost:5000/api', // Update for production
+  PAYMENT_MODE: 'mock', // 'fake' | 'mock' | 'real'
+  DEBUG: __DEV__,
+};
+```
+
+## 🎯 Core Features Deep Dive
+
+### 🚗 Driver Queue Management System
+
+**Smart Time-Based Scheduling:**
+- Drivers declare availability for specific stations and destinations
+- Queue positions automatically calculate departure times (15-minute intervals)
+- Automatic trip creation when drivers reach position #1
+- End-of-day rollover maintains queue fairness
+
+**Driver Journey:**
+1. **Declare Availability** → Select station, destination, and schedule
+2. **Queue Assignment** → Receive position and estimated departure time
+3. **Trip Creation** → Trip automatically created at scheduled time
+4. **Passenger Booking** → Real-time updates as passengers book seats
+5. **Trip Execution** → Start trip (manual or auto when full)
+6. **Completion** → Mark complete and re-enter queue if desired
+
+### 🎫 Passenger Booking System
+
+**Intelligent Trip Search:**
+- Browse available stations and destinations
+- Real-time availability and pricing information
+- Smart filtering by time, price, and capacity
+
+**Seamless Booking Flow:**
+1. **Search** → Select departure station and destination
+2. **Browse** → View available trips with real-time capacity
+3. **Book** → Select seats and proceed to payment
+4. **Pay** → Secure payment processing with Stripe
+5. **Confirm** → Receive booking confirmation and trip details
+6. **Track** → Monitor trip status and departure updates
+
+### 💳 Payment Processing
+
+**Stripe Integration Features:**
+- Secure payment intent creation and confirmation
+- Customer and payment method management
+- Comprehensive webhook handling for status updates
+- Automatic refund processing for cancellations
+- Detailed payment history and analytics
+
+**Payment Modes (Mobile App):**
+- **Fake Mode**: Complete simulation for testing
+- **Mock Mode**: Stripe-like interface with test cards
+- **Real Mode**: Production Stripe integration
+
+### 📊 Analytics & Reporting
+
+**Real-time Dashboards:**
+- System health monitoring and alerts
+- Driver performance and earnings analytics
+- Passenger booking patterns and trends
+- Revenue tracking and financial reports
+- Station utilization and capacity metrics
+
+## 🛠️ Development Workflow
+
+### Local Development Setup
+
+1. **Start Backend** (Terminal 1):
+   ```bash
+   cd louagi-backend && npm run dev
+   ```
+
+2. **Start Admin Dashboard** (Terminal 2):
+   ```bash
+   cd louagi-admin-dashboard && npm start
+   ```
+
+3. **Start Mobile App** (Terminal 3):
+   ```bash
+   cd louagi_mobile && npx expo start
+   ```
+
+### Testing Strategy
+
+**Backend Testing:**
+```bash
+cd louagi-backend
+npm test                    # Run all tests
+npm run test:watch         # Watch mode
+npm run test:coverage      # Coverage report
+```
+
+**Frontend Testing:**
+```bash
+cd louagi-admin-dashboard
+npm test                    # React component tests
+```
+
+**Mobile Testing:**
+```bash
+cd louagi_mobile
+npx expo start             # Test on devices/simulators
+```
+
+### Code Quality Standards
+
+- **ESLint** configuration for consistent code style
+- **Prettier** for automatic code formatting
+- **TypeScript** for type safety (Mobile + Admin Dashboard)
+- **Joi** validation for API input validation
+- **Comprehensive error handling** across all components
+
+## 🚀 Deployment Guide
+
+### Production Environment Setup
+
+#### 1. Backend Deployment
+
+**Environment Configuration:**
+```env
+NODE_ENV=production
+PORT=5000
+DB_HOST=your-production-db-host
+JWT_SECRET=your-production-jwt-secret
+STRIPE_SECRET_KEY=sk_live_your-production-stripe-key
+```
+
+**Deployment Steps:**
+```bash
+# Production build and migration
+npm run build
+npm run db:migrate
+npm start
+```
+
+#### 2. Admin Dashboard Deployment
+
+**Build for Production:**
+```bash
+cd louagi-admin-dashboard
+REACT_APP_API_URL=https://your-api-domain.com/api npm run build
+```
+
+**Deployment Options:**
+- **Netlify**: Connect repository for automatic deployment
+- **Vercel**: Zero-config deployment with Git integration
+- **AWS S3 + CloudFront**: Static hosting with CDN
+
+#### 3. Mobile App Deployment
+
+**Build APK/IPA:**
+```bash
+cd louagi_mobile
+# Android
+npx expo build:android
+# iOS
+npx expo build:ios
+```
+
+**Expo Application Services:**
+```bash
+npm install -g eas-cli
+eas build --platform android
+eas build --platform ios
+```
+
+### Health Monitoring
+
+All components include health check endpoints:
+- **Backend**: `GET /health`
+- **Admin Dashboard**: Built-in error boundaries
+- **Mobile App**: Connection status monitoring
+
+## 🔒 Security Features
+
+### Authentication & Authorization
+- **JWT-based authentication** with automatic token refresh
+- **Role-based access control** (Admin, Driver, Passenger)
+- **Password hashing** using bcrypt
+- **Protected routes** and API endpoints
+- **Session timeout** and automatic logout
+
+### Data Security
+- **Input validation** using Joi schemas
+- **SQL injection protection** via Sequelize ORM
+- **CORS configuration** for secure cross-origin requests
+- **Helmet middleware** for security headers
+- **Secure token storage** in mobile app
+
+### Payment Security
+- **PCI DSS compliance** through Stripe
+- **No card data storage** on servers
+- **Webhook signature verification**
+- **Secure payment intent flow**
+
+## 📈 Performance Optimization
+
+### Backend Optimizations
+- **Database connection pooling** for efficient resource usage
+- **Indexed database queries** for fast data retrieval
+- **Caching strategies** for frequently accessed data
+- **Optimized SQL queries** with proper joins and filters
+
+### Frontend Optimizations
+- **Code splitting** and lazy loading
+- **Memoized components** with React.memo()
+- **Optimized re-renders** with useCallback/useMemo
+- **Image optimization** and lazy loading
+
+### Mobile Optimizations
+- **Offline support** with request queuing
+- **Real-time sync** with efficient polling
+- **Optimistic UI updates** for better UX
+- **Efficient state management** with Redux Toolkit
+
+## 📊 System Monitoring
+
+### Key Metrics Tracked
+- **System Health**: API response times, error rates
+- **Business Metrics**: Active trips, booking conversion rates
+- **Performance**: Database query times, mobile app performance
+- **Financial**: Revenue tracking, payment success rates
+
+### Logging Strategy
+- **Winston logging** in backend with structured logs
+- **Request/response logging** for API monitoring
+- **Error tracking** with detailed stack traces
+- **Performance monitoring** for optimization insights
+
+## 🤝 Contributing
+
+### Development Guidelines
+
+1. **Fork the repository** and create feature branches
+2. **Follow coding standards** and linting rules
+3. **Write comprehensive tests** for new features
+4. **Update documentation** as needed
+5. **Submit pull requests** with clear descriptions
+
+### Commit Message Format
+```
+type(scope): description
+
+feat(mobile): add passenger trip search functionality
+fix(backend): resolve payment confirmation webhook issue
+docs(readme): update installation instructions
+```
+
+### Issue Reporting
+When reporting issues, please include:
+- **Component affected** (backend/admin/mobile)
+- **Steps to reproduce** the issue
+- **Expected vs actual behavior**
+- **Environment details** (OS, Node version, etc.)
+
+## 📞 Support & Community
+
+### Getting Help
+- **📖 Documentation**: Comprehensive guides for each component
+- **🐛 GitHub Issues**: Report bugs and feature requests
+- **💬 Discussions**: Community Q&A and feature discussions
+- **📧 Email Support**: support@louagi.tn
+
+### Community Guidelines
+- Be respectful and inclusive
+- Help others learn and grow
+- Share knowledge and best practices
+- Contribute constructively to discussions
+
+## 🗺️ Roadmap
+
+### Version 2.0 (Q2 2025)
+- [ ] **Real-time Communication**: Chat between passengers and drivers
+- [ ] **Advanced Analytics**: AI-powered demand prediction
+- [ ] **Multi-language Support**: Arabic and French localization
+- [ ] **Mobile Optimization**: Enhanced offline capabilities
+
+### Version 2.1 (Q3 2025)
+- [ ] **GPS Integration**: Real-time vehicle tracking
+- [ ] **Smart Pricing**: Dynamic pricing based on demand
+- [ ] **Corporate Features**: Business account management
+- [ ] **Environmental Tracking**: Carbon footprint analytics
+
+### Long-term Vision
+- [ ] **API Platform**: Third-party integrations
+- [ ] **Mobile SDKs**: White-label solutions
+- [ ] **AI Integration**: Route optimization and demand forecasting
+- [ ] **IoT Integration**: Smart vehicle connectivity
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## 🏆 Acknowledgments
+
+### Team
+- **Development Team**: Nour Kasmi & Ahmed El Guindou
+- **Product Design**: Modern mobile-first approach
+- **Architecture**: Scalable microservices-ready design
+
+### Technology Stack
+- **Backend**: Node.js, Express.js, PostgreSQL, Sequelize
+- **Admin Dashboard**: React.js, Material-UI, Redux Toolkit
+- **Mobile App**: React Native, Expo, Redux Toolkit
+- **Payments**: Stripe API integration
+- **DevOps**: Docker support, CI/CD ready
+
+### Open Source
+Built with ❤️ using open-source technologies and best practices from the React, Node.js, and mobile development communities.
+
+---
+
+**Louagi - Revolutionizing Transportation in Tunisia 🇹🇳**
+
+*Making shared transportation accessible, efficient, and sustainable for everyone.*

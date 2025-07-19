@@ -52,7 +52,7 @@ module.exports = (sequelize, DataTypes) => {
       vehicle_capacity: {
         type: DataTypes.INTEGER,
         allowNull: false,
-        defaultValue: 4,
+        defaultValue: 8,
         field: 'vehicle_capacity'
       },
       is_verified: {

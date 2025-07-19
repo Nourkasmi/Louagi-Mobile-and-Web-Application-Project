@@ -4,13 +4,13 @@ export const colors = {
   primary: '#0066cc',
   secondary: '#28a745',
   accent: '#007bff',
-  
+
   // Status Colors
   success: '#28a745',
   warning: '#ffc107',
   danger: '#dc3545',
   info: '#007bff',
-  
+
   // Background Colors
   background: {
     primary: '#f8f9fa',    // Main app background
@@ -23,7 +23,7 @@ export const colors = {
     warning: '#fff3cd',    // Light yellow
     danger: '#ffebee',     // Light red
   },
-  
+
   // Text Colors
   text: {
     primary: '#333333',    // Main text
@@ -37,7 +37,7 @@ export const colors = {
     danger: '#721c24',     // Error text
     info: '#0c5460',       // Info text
   },
-  
+
   // Border Colors
   border: {
     light: '#eee',         // Light borders
@@ -48,7 +48,7 @@ export const colors = {
     warning: '#ffc107',
     danger: '#dc3545',
   },
-  
+
   // Button Colors
   button: {
     primary: '#0066cc',
@@ -60,7 +60,7 @@ export const colors = {
     dark: '#343a40',
     disabled: '#ccc',
   },
-  
+
   // Status Badge Colors
   status: {
     pending: '#ff9800',
@@ -71,14 +71,14 @@ export const colors = {
     inProgress: '#007bff',
     scheduled: '#ffc107',
   },
-  
+
   // Shadow Colors
   shadow: {
     light: 'rgba(0, 0, 0, 0.1)',
     medium: 'rgba(0, 0, 0, 0.15)',
     dark: 'rgba(0, 0, 0, 0.2)',
   },
-  
+
   // Transparent Colors
   transparent: {
     black10: 'rgba(0, 0, 0, 0.1)',

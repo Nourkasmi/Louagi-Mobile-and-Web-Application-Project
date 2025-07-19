@@ -1,194 +1,259 @@
-// app/(passenger)/profile/index.tsx - FIXED with Better Error Handling
-import React, { useEffect, useState, useCallback } from 'react';
+// app/(passenger)/profile/index.tsx - BEAUTIFUL SIMPLE DESIGN
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
   View,
   Text,
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
-  StyleSheet,
-  Alert,
   RefreshControl,
+  Dimensions,
+  Alert,
+  Animated,
+  StatusBar,
+  StyleSheet,
+  Image,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useDispatch, useSelector } from 'react-redux';
+import { MaterialIcons } from '@expo/vector-icons';
 import { logout } from '../../../src/store/authSlice';
 import { RootState } from '../../../src/store/store';
 import {
   getCurrentUser,
-  getPassengerAnalytics,
   getMyBookings,
-  getMyPayments,
   type User
 } from '../../../src/services/api';
 
-export default function PassengerProfileScreen() {
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+
+// Simple fade animation hook
+const useFadeIn = (delay = 0) => {
+  const opacity = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.timing(opacity, {
+      toValue: 1,
+      duration: 600,
+      delay,
+      useNativeDriver: true,
+    }).start();
+  }, []);
+
+  return opacity;
+};
+
+// Animated counter for stats
+const AnimatedNumber = ({ value, duration = 1000 }: { value: number; duration?: number }) => {
+  const [displayValue, setDisplayValue] = useState(0);
+
+  useEffect(() => {
+    if (value === 0) {
+      setDisplayValue(0);
+      return;
+    }
+
+    const startTime = Date.now();
+    const animate = () => {
+      const elapsed = Date.now() - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      const easeOut = 1 - Math.pow(1 - progress, 3);
+
+      setDisplayValue(Math.floor(value * easeOut));
+
+      if (progress < 1) {
+        requestAnimationFrame(animate);
+      }
+    };
+
+    requestAnimationFrame(animate);
+  }, [value, duration]);
+
+  return <Text style={styles.statNumber}>{displayValue}</Text>;
+};
+
+// Profile header component
+const ProfileHeader = ({ user, onEditPress }: { user: User | null; onEditPress: () => void }) => {
+  const fadeAnim = useFadeIn(200);
+
+  const getInitials = (name?: string) => {
+    return name ? name.split(' ').map(n => n[0]).join('').toUpperCase() : 'U';
+  };
+
+  return (
+    <Animated.View style={[styles.header, { opacity: fadeAnim }]}>
+      <StatusBar barStyle="light-content" backgroundColor="#0066cc" />
+
+      {/* Background with subtle gradient */}
+      <View style={styles.headerBackground}>
+        <View style={styles.gradientOverlay} />
+
+        {/* Decorative circles */}
+        <View style={[styles.decorativeCircle, styles.circle1]} />
+        <View style={[styles.decorativeCircle, styles.circle2]} />
+        <View style={[styles.decorativeCircle, styles.circle3]} />
+      </View>
+
+      {/* Profile content */}
+      <View style={styles.headerContent}>
+        <View style={styles.profileSection}>
+          <View style={styles.avatarContainer}>
+            <View style={styles.avatar}>
+              <Text style={styles.avatarText}>{getInitials(user?.username)}</Text>
+            </View>
+            <View style={styles.onlineStatus} />
+          </View>
+
+          <View style={styles.userDetails}>
+            <Text style={styles.userName}>{user?.username || 'Welcome'}</Text>
+            <Text style={styles.userEmail}>{user?.email || 'Loading...'}</Text>
+
+            <View style={styles.verifiedBadge}>
+              <MaterialIcons name="verified" size={16} color="#4CAF50" />
+              <Text style={styles.verifiedText}>Verified Passenger</Text>
+            </View>
+          </View>
+        </View>
+
+        <TouchableOpacity style={styles.editButton} onPress={onEditPress}>
+          <MaterialIcons name="edit" size={20} color="#0066cc" />
+        </TouchableOpacity>
+      </View>
+    </Animated.View>
+  );
+};
+
+// Stats card component
+const StatCard = ({ icon, title, value, delay = 0 }: {
+  icon: string;
+  title: string;
+  value: number | string;
+  delay?: number;
+}) => {
+  const fadeAnim = useFadeIn(delay);
+
+  return (
+    <Animated.View style={[styles.statCard, { opacity: fadeAnim }]}>
+      <View style={styles.statIconContainer}>
+        <MaterialIcons name={icon as any} size={24} color="#0066cc" />
+      </View>
+      <View style={styles.statContent}>
+        {typeof value === 'number' ? (
+          <AnimatedNumber value={value} />
+        ) : (
+          <Text style={styles.statNumber}>{value}</Text>
+        )}
+        <Text style={styles.statTitle}>{title}</Text>
+      </View>
+    </Animated.View>
+  );
+};
+
+// Action button component
+const ActionButton = ({ icon, title, subtitle, onPress, delay = 0 }: {
+  icon: string;
+  title: string;
+  subtitle: string;
+  onPress: () => void;
+  delay?: number;
+}) => {
+  const fadeAnim = useFadeIn(delay);
+
+  return (
+    <Animated.View style={{ opacity: fadeAnim }}>
+      <TouchableOpacity style={styles.actionButton} onPress={onPress}>
+        <View style={styles.actionIconContainer}>
+          <MaterialIcons name={icon as any} size={24} color="#0066cc" />
+        </View>
+        <View style={styles.actionContent}>
+          <Text style={styles.actionTitle}>{title}</Text>
+          <Text style={styles.actionSubtitle}>{subtitle}</Text>
+        </View>
+        <MaterialIcons name="chevron-right" size={20} color="#ccc" />
+      </TouchableOpacity>
+    </Animated.View>
+  );
+};
+
+// Main profile screen
+export default function BeautifulProfileScreen() {
   const router = useRouter();
   const dispatch = useDispatch();
   const { user } = useSelector((state: RootState) => state.auth);
 
-  // State management
+  // State
   const [userProfile, setUserProfile] = useState<User | null>(user);
-  const [analytics, setAnalytics] = useState<any>(null);
-  const [recentBookings, setRecentBookings] = useState<any[]>([]);
-  const [paymentSummary, setPaymentSummary] = useState<any>(null);
+  const [stats, setStats] = useState({
+    totalTrips: 0,
+    completedTrips: 0,
+    totalSpent: 0,
+    successRate: '0%'
+  });
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  // 🔧 FIXED: Enhanced error handling for profile data
-  const fetchProfileData = useCallback(async (isRefresh = false) => {
+  // Fetch data
+  const fetchData = useCallback(async (isRefresh = false) => {
     try {
-      if (isRefresh) {
-        setRefreshing(true);
-      } else {
-        setLoading(true);
-      }
+      if (isRefresh) setRefreshing(true);
+      else setLoading(true);
 
-      console.log('🔄 Fetching profile data...');
-
-      // 1. Fetch current user profile (critical)
+      // Get current user
       try {
         const userResponse = await getCurrentUser();
         if (userResponse.success && userResponse.data) {
           setUserProfile(userResponse.data);
-          console.log('✅ User profile loaded');
-        } else {
-          console.warn('⚠️ User profile response:', userResponse.message);
         }
-      } catch (userError) {
-        console.error('❌ Error fetching user profile:', userError);
-        // Don't fail completely, use existing user data
+      } catch (error) {
+        console.log('Using cached user data');
       }
 
-      // 2. Fetch recent bookings (critical for analytics fallback)
-      let bookingsForAnalytics: any[] = [];
+      // Get bookings for stats
       try {
-        const bookingsResponse = await getMyBookings({ limit: 10 });
+        const bookingsResponse = await getMyBookings({ limit: 50 });
+
         if (bookingsResponse.success && bookingsResponse.data) {
-          const bookings = bookingsResponse.data.bookings || [];
-          setRecentBookings(bookings.slice(0, 3)); // Show only 3 recent
-          bookingsForAnalytics = bookings;
-          console.log('✅ Recent bookings loaded:', bookings.length);
-        } else {
-          console.warn('⚠️ Bookings response:', bookingsResponse.message);
-          setRecentBookings([]);
+          const bookings = bookingsResponse.data.bookings || bookingsResponse.data || [];
+
+          if (Array.isArray(bookings)) {
+            const completed = bookings.filter(b => b.status === 'completed');
+            const cancelled = bookings.filter(b => b.status === 'cancelled');
+            const totalSpent = bookings.reduce((sum, b) => sum + (parseFloat(b.amount) || 0), 0);
+            const attempted = completed.length + cancelled.length;
+            const successRate = attempted > 0 ? Math.round((completed.length / attempted) * 100) : 0;
+
+            setStats({
+              totalTrips: bookings.length,
+              completedTrips: completed.length,
+              totalSpent: Math.round(totalSpent),
+              successRate: `${successRate}%`
+            });
+          }
         }
-      } catch (bookingsError) {
-        console.error('❌ Error fetching bookings:', bookingsError);
-        setRecentBookings([]);
+      } catch (error) {
+        console.log('No bookings data available');
       }
-
-      // 3. Try to fetch analytics, but use fallback if it fails
-      try {
-        console.log('🔄 Attempting to fetch analytics...');
-
-        // 🔧 FIX: Try without parameters first
-        const analyticsResponse = await getPassengerAnalytics();
-
-        if (analyticsResponse.success && analyticsResponse.data) {
-          setAnalytics(analyticsResponse.data.analytics);
-          console.log('✅ Analytics loaded from API');
-        } else {
-          console.warn('⚠️ Analytics API response:', analyticsResponse.message);
-          throw new Error('Analytics API returned no data');
-        }
-      } catch (analyticsError) {
-        console.warn('⚠️ Analytics API failed, using fallback calculation:', analyticsError);
-
-        // 🔧 FALLBACK: Calculate analytics from bookings
-        const completedBookings = bookingsForAnalytics.filter(b => b.status === 'completed');
-        const cancelledBookings = bookingsForAnalytics.filter(b => b.status === 'cancelled');
-        const totalSpent = completedBookings.reduce((sum, b) => sum + (b.amount || 0), 0);
-        const totalBookings = bookingsForAnalytics.length;
-
-        const fallbackAnalytics = {
-          summary: {
-            totalBookings,
-            completedTrips: completedBookings.length,
-            totalSpent,
-            averageSpentPerTrip: completedBookings.length > 0 ? totalSpent / completedBookings.length : 0,
-            completionRate: totalBookings > 0 ? `${Math.round((completedBookings.length / totalBookings) * 100)}%` : '0%',
-            cancellationRate: totalBookings > 0 ? `${Math.round((cancelledBookings.length / totalBookings) * 100)}%` : '0%',
-          },
-          monthlyBreakdown: [] // Could calculate from booking dates if needed
-        };
-
-        setAnalytics(fallbackAnalytics);
-        console.log('✅ Using fallback analytics:', fallbackAnalytics.summary);
-      }
-
-      // 4. Fetch payment summary (non-critical)
-      try {
-        const paymentsResponse = await getMyPayments({ limit: 10 });
-        if (paymentsResponse.success && paymentsResponse.data) {
-          const payments = paymentsResponse.data.payments || [];
-          const totalSpent = payments
-            .filter(p => p.status === 'completed')
-            .reduce((sum, p) => sum + parseFloat(p.amount), 0);
-
-          setPaymentSummary({
-            totalSpent,
-            paymentsCount: payments.length,
-            lastPayment: payments[0] || null
-          });
-          console.log('✅ Payment summary loaded');
-        } else {
-          console.warn('⚠️ Payments response:', paymentsResponse.message);
-        }
-      } catch (paymentsError) {
-        console.warn('⚠️ Payments API failed (non-critical):', paymentsError);
-        setPaymentSummary({
-          totalSpent: 0,
-          paymentsCount: 0,
-          lastPayment: null
-        });
-      }
-
-      console.log('✅ Profile data fetch completed');
 
     } catch (error) {
-      console.error('❌ Critical error fetching profile data:', error);
-      // Only show alert for critical errors
-      if (!isRefresh) {
-        Alert.alert('Error', 'Failed to load profile information. Please try again.');
-      }
+      console.error('Error fetching profile data:', error);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
   }, []);
 
-  // 🔧 FIXED: Alternative getPassengerAnalytics call without parameters
-  const getPassengerAnalyticsSimple = async () => {
-    try {
-      // Try without any parameters
-      const response = await fetch(`${process.env.API_BASE_URL || 'your-api-url'}/bookings/passenger-analytics`, {
-        headers: {
-          'Authorization': `Bearer ${global.authToken}`,
-          'Content-Type': 'application/json',
-        },
-      });
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
-      if (response.ok) {
-        return await response.json();
-      } else {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-    } catch (error) {
-      console.error('Direct analytics fetch failed:', error);
-      throw error;
-    }
-  };
-
-  // Handle logout
   const handleLogout = () => {
     Alert.alert(
-      'Logout',
-      'Are you sure you want to logout?',
+      'Sign Out',
+      'Are you sure you want to sign out?',
       [
         { text: 'Cancel', style: 'cancel' },
         {
-          text: 'Logout',
+          text: 'Sign Out',
           style: 'destructive',
           onPress: () => {
             dispatch(logout());
@@ -200,272 +265,9 @@ export default function PassengerProfileScreen() {
     );
   };
 
-  // Initial load
-  useEffect(() => {
-    fetchProfileData();
-  }, [fetchProfileData]);
-
-  // Render user info card
-  const renderUserInfoCard = () => (
-    <View style={styles.userCard}>
-      <View style={styles.userHeader}>
-        <View style={styles.avatar}>
-          <Text style={styles.avatarText}>
-            {userProfile?.username?.charAt(0).toUpperCase() || 'U'}
-          </Text>
-        </View>
-        <View style={styles.userInfo}>
-          <Text style={styles.userName}>{userProfile?.username}</Text>
-          <Text style={styles.userEmail}>{userProfile?.email}</Text>
-          <Text style={styles.userPhone}>{userProfile?.phone}</Text>
-          <Text style={styles.userRole}>🎫 Passenger</Text>
-        </View>
-      </View>
-
-      <TouchableOpacity
-        style={styles.editButton}
-        onPress={() => router.push('/(passenger)/profile/edit')}
-      >
-        <Text style={styles.editButtonText}>Edit Profile</Text>
-      </TouchableOpacity>
-    </View>
-  );
-
-  // 🔧 FIXED: Render travel stats with fallback handling
-  const renderTravelStatsCard = () => {
-    if (!analytics) {
-      return (
-        <View style={styles.statsCard}>
-          <Text style={styles.cardTitle}>Travel Statistics 📊</Text>
-          <View style={styles.statsLoadingContainer}>
-            <ActivityIndicator size="small" color="#0066cc" />
-            <Text style={styles.statsLoadingText}>Loading statistics...</Text>
-          </View>
-        </View>
-      );
-    }
-
-    return (
-      <View style={styles.statsCard}>
-        <Text style={styles.cardTitle}>Travel Statistics 📊</Text>
-
-        <View style={styles.statsGrid}>
-          <View style={styles.statItem}>
-            <Text style={styles.statNumber}>{analytics.summary.totalBookings}</Text>
-            <Text style={styles.statLabel}>Total Bookings</Text>
-          </View>
-
-          <View style={styles.statItem}>
-            <Text style={styles.statNumber}>{analytics.summary.completedTrips}</Text>
-            <Text style={styles.statLabel}>Completed Trips</Text>
-          </View>
-
-          <View style={styles.statItem}>
-            <Text style={styles.statNumber}>${analytics.summary.totalSpent.toFixed(0)}</Text>
-            <Text style={styles.statLabel}>Total Spent</Text>
-          </View>
-
-          <View style={styles.statItem}>
-            <Text style={styles.statNumber}>{analytics.summary.completionRate}</Text>
-            <Text style={styles.statLabel}>Success Rate</Text>
-          </View>
-        </View>
-
-        <View style={styles.averageSection}>
-          <Text style={styles.averageText}>
-            💰 Average per trip: ${analytics.summary.averageSpentPerTrip.toFixed(2)}
-          </Text>
-        </View>
-
-        <TouchableOpacity
-          style={styles.viewMoreButton}
-          onPress={() => router.push('/(passenger)/bookings')}
-        >
-          <Text style={styles.viewMoreText}>View All Bookings →</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  };
-
-  // Render recent bookings
-  const renderRecentBookingsCard = () => (
-    <View style={styles.recentCard}>
-      <Text style={styles.cardTitle}>Recent Activity 🎫</Text>
-
-      {recentBookings.length === 0 ? (
-        <View style={styles.emptyState}>
-          <Text style={styles.emptyIcon}>🚐</Text>
-          <Text style={styles.emptyText}>No recent bookings</Text>
-          <Text style={styles.emptySubtext}>Start your journey today!</Text>
-          <TouchableOpacity
-            style={styles.exploreButton}
-            onPress={() => router.push('/(passenger)/home')}
-          >
-            <Text style={styles.exploreButtonText}>Explore Trips</Text>
-          </TouchableOpacity>
-        </View>
-      ) : (
-        <>
-          {recentBookings.slice(0, 3).map((booking) => (
-            <View key={booking.id} style={styles.bookingItem}>
-              <View style={styles.bookingInfo}>
-                <Text style={styles.bookingRoute}>
-                  {booking.trip?.route?.startStation?.name || 'Unknown'} → {booking.trip?.route?.endStation?.name || 'Unknown'}
-                </Text>
-                <Text style={styles.bookingDate}>
-                  {new Date(booking.createdAt).toLocaleDateString('en-US', {
-                    weekday: 'short',
-                    month: 'short',
-                    day: 'numeric'
-                  })}
-                </Text>
-                <Text style={styles.bookingReference}>#{booking.bookingReference}</Text>
-              </View>
-
-              <View style={styles.bookingStatus}>
-                <Text style={[
-                  styles.statusText,
-                  { color: getStatusColor(booking.status) }
-                ]}>
-                  {getStatusIcon(booking.status)} {booking.status}
-                </Text>
-                <Text style={styles.bookingAmount}>
-                  ${booking.amount || '0.00'}
-                </Text>
-              </View>
-            </View>
-          ))}
-
-          <TouchableOpacity
-            style={styles.viewAllButton}
-            onPress={() => router.push('/(passenger)/bookings')}
-          >
-            <Text style={styles.viewAllText}>View All Bookings →</Text>
-          </TouchableOpacity>
-        </>
-      )}
-    </View>
-  );
-
-  // Render payment summary
-  const renderPaymentSummaryCard = () => {
-    if (!paymentSummary) return null;
-
-    return (
-      <View style={styles.paymentCard}>
-        <Text style={styles.cardTitle}>Payment Summary 💳</Text>
-
-        <View style={styles.paymentStats}>
-          <View style={styles.paymentStat}>
-            <Text style={styles.paymentNumber}>${paymentSummary.totalSpent.toFixed(2)}</Text>
-            <Text style={styles.paymentLabel}>Total Spent</Text>
-          </View>
-
-          <View style={styles.paymentStat}>
-            <Text style={styles.paymentNumber}>{paymentSummary.paymentsCount}</Text>
-            <Text style={styles.paymentLabel}>Transactions</Text>
-          </View>
-        </View>
-
-        {paymentSummary.lastPayment && (
-          <View style={styles.lastPaymentInfo}>
-            <Text style={styles.lastPaymentText}>
-              Last payment: ${paymentSummary.lastPayment.amount} on{' '}
-              {new Date(paymentSummary.lastPayment.createdAt).toLocaleDateString()}
-            </Text>
-          </View>
-        )}
-
-        <TouchableOpacity
-          style={styles.managePaymentButton}
-          onPress={() => {
-            Alert.alert('Coming Soon', 'Payment method management coming soon!');
-          }}
-        >
-          <Text style={styles.managePaymentText}>Manage Payment Methods</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  };
-
-  // Render quick actions
-  const renderQuickActionsCard = () => (
-    <View style={styles.actionsCard}>
-      <Text style={styles.cardTitle}>Quick Actions ⚡</Text>
-
-      <View style={styles.actionButtons}>
-        <TouchableOpacity
-          style={styles.actionButton}
-          onPress={() => router.push('/(passenger)/home')}
-        >
-          <Text style={styles.actionIcon}>🔍</Text>
-          <Text style={styles.actionText}>Search Trips</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.actionButton}
-          onPress={() => router.push('/(passenger)/bookings')}
-        >
-          <Text style={styles.actionIcon}>📋</Text>
-          <Text style={styles.actionText}>My Bookings</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.actionButton}
-          onPress={() => {
-            Alert.alert('Support', 'Email: support@louagi.com\nPhone: +216 XX XXX XXX');
-          }}
-        >
-          <Text style={styles.actionIcon}>💬</Text>
-          <Text style={styles.actionText}>Support</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.actionButton}
-          onPress={() => {
-            Alert.alert('Settings', 'Notification settings coming soon!');
-          }}
-        >
-          <Text style={styles.actionIcon}>⚙️</Text>
-          <Text style={styles.actionText}>Settings</Text>
-        </TouchableOpacity>
-      </View>
-    </View>
-  );
-
-  // Render app info
-  const renderAppInfo = () => (
-    <View style={styles.appInfo}>
-      <Text style={styles.appInfoText}>Louagi Mobile v1.0.0</Text>
-      <Text style={styles.appInfoText}>Made with ❤️ in Tunisia 🇹🇳</Text>
-      <Text style={styles.appInfoText}>Your trusted travel companion</Text>
-    </View>
-  );
-
-  // Helper functions
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'pending': return '#ffc107';
-      case 'confirmed': return '#28a745';
-      case 'completed': return '#007bff';
-      case 'cancelled': return '#dc3545';
-      default: return '#6c757d';
-    }
-  };
-
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'pending': return '⏳';
-      case 'confirmed': return '✅';
-      case 'completed': return '🎉';
-      case 'cancelled': return '❌';
-      default: return '❓';
-    }
-  };
-
   if (loading) {
     return (
-      <View style={styles.centered}>
+      <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#0066cc" />
         <Text style={styles.loadingText}>Loading your profile...</Text>
       </View>
@@ -473,408 +275,489 @@ export default function PassengerProfileScreen() {
   }
 
   return (
-    <ScrollView
-      style={styles.container}
-      refreshControl={
-        <RefreshControl
-          refreshing={refreshing}
-          onRefresh={() => fetchProfileData(true)}
-          colors={['#0066cc']}
+    <View style={styles.container}>
+      <ScrollView
+        style={styles.scrollView}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={() => fetchData(true)}
+            colors={['#0066cc']}
+          />
+        }
+      >
+        {/* Profile Header */}
+        <ProfileHeader
+          user={userProfile}
+          onEditPress={() => router.push('/(passenger)/profile/edit' as any)}
         />
-      }
-      showsVerticalScrollIndicator={false}
-    >
-      <View style={styles.header}>
-        <Text style={styles.title}>My Profile</Text>
-        <TouchableOpacity
-          onPress={handleLogout}
-          style={styles.logoutButton}
-        >
-          <Text style={styles.logoutText}>Logout</Text>
-        </TouchableOpacity>
-      </View>
 
-      {renderUserInfoCard()}
-      {renderTravelStatsCard()}
-      {renderRecentBookingsCard()}
-      {renderPaymentSummaryCard()}
-      {renderQuickActionsCard()}
-      {renderAppInfo()}
-    </ScrollView>
+        {/* Content */}
+        <View style={styles.content}>
+          {/* Travel Stats */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Travel Statistics</Text>
+            <View style={styles.statsContainer}>
+              <StatCard
+                icon="flight-takeoff"
+                title="Total Trips"
+                value={stats.totalTrips}
+                delay={100}
+              />
+              <StatCard
+                icon="check-circle"
+                title="Completed"
+                value={stats.completedTrips}
+                delay={200}
+              />
+              <StatCard
+                icon="attach-money"
+                title="Total Spent"
+                value={`$${stats.totalSpent}`}
+                delay={300}
+              />
+              <StatCard
+                icon="trending-up"
+                title="Success Rate"
+                value={stats.successRate}
+                delay={400}
+              />
+            </View>
+          </View>
+
+          {/* Quick Actions */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Quick Actions</Text>
+            <View style={styles.actionsContainer}>
+              <ActionButton
+                icon="search"
+                title="Find Trips"
+                subtitle="Search for available rides"
+                onPress={() => router.push('/(passenger)/home' as any)}
+                delay={500}
+              />
+              <ActionButton
+                icon="history"
+                title="My Bookings"
+                subtitle="View your trip history"
+                onPress={() => router.push('/(passenger)/bookings' as any)}
+                delay={600}
+              />
+              <ActionButton
+                icon="payment"
+                title="Payment Methods"
+                subtitle="Manage your cards"
+                onPress={() => Alert.alert('Coming Soon', 'Payment management will be available soon!')}
+                delay={700}
+              />
+              <ActionButton
+                icon="support-agent"
+                title="Help & Support"
+                subtitle="Get help with your account"
+                onPress={() => Alert.alert('Support', 'Email: support@louagi.com\nPhone: +216 XX XXX XXX')}
+                delay={800}
+              />
+            </View>
+          </View>
+
+          {/* Account Info */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Account</Text>
+            <View style={styles.accountCard}>
+              <View style={styles.accountRow}>
+                <MaterialIcons name="person" size={20} color="#666" />
+                <View style={styles.accountInfo}>
+                  <Text style={styles.accountLabel}>Username</Text>
+                  <Text style={styles.accountValue}>{userProfile?.username}</Text>
+                </View>
+              </View>
+
+              <View style={styles.accountRow}>
+                <MaterialIcons name="email" size={20} color="#666" />
+                <View style={styles.accountInfo}>
+                  <Text style={styles.accountLabel}>Email</Text>
+                  <Text style={styles.accountValue}>{userProfile?.email}</Text>
+                </View>
+              </View>
+
+              <View style={styles.accountRow}>
+                <MaterialIcons name="phone" size={20} color="#666" />
+                <View style={styles.accountInfo}>
+                  <Text style={styles.accountLabel}>Phone</Text>
+                  <Text style={styles.accountValue}>{userProfile?.phone || 'Not provided'}</Text>
+                </View>
+              </View>
+
+              <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+                <MaterialIcons name="logout" size={20} color="#dc3545" />
+                <Text style={styles.logoutText}>Sign Out</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* App Info */}
+          <View style={styles.footer}>
+            <Text style={styles.footerText}>Louagi v1.0.0</Text>
+            <Text style={styles.footerText}>Made with ❤️ in Tunisia</Text>
+          </View>
+        </View>
+      </ScrollView>
+    </View>
   );
 }
 
-// Add new styles for loading states
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f8f9fa',
   },
-  centered: {
+
+  scrollView: {
+    flex: 1,
+  },
+
+  loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: '#f8f9fa',
   },
+
   loadingText: {
-    marginTop: 12,
+    marginTop: 16,
     fontSize: 16,
     color: '#666',
   },
+
+  // Header styles
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 20,
-    paddingTop: 60,
-    backgroundColor: 'white',
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+    height: 240,
+    position: 'relative',
+    overflow: 'hidden',
   },
-  title: {
+
+  headerBackground: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: '#0066cc',
+  },
+
+  gradientOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 102, 204, 0.9)',
+  },
+
+  decorativeCircle: {
+    position: 'absolute',
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 100,
+  },
+
+  circle1: {
+    width: 120,
+    height: 120,
+    top: -60,
+    right: -60,
+  },
+
+  circle2: {
+    width: 80,
+    height: 80,
+    top: 20,
+    left: -40,
+  },
+
+  circle3: {
+    width: 60,
+    height: 60,
+    bottom: -30,
+    right: 20,
+  },
+
+  headerContent: {
+    flex: 1,
+    paddingTop: 50,
+    paddingHorizontal: 24,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+
+  profileSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+
+  avatarContainer: {
+    position: 'relative',
+    marginRight: 16,
+  },
+
+  avatar: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 3,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+  },
+
+  avatarText: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: '#333',
+    color: 'white',
   },
-  logoutButton: {
-    padding: 8,
+
+  onlineStatus: {
+    position: 'absolute',
+    bottom: 4,
+    right: 4,
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: '#4CAF50',
+    borderWidth: 2,
+    borderColor: 'white',
   },
-  logoutText: {
-    fontSize: 16,
-    color: '#dc3545',
-    fontWeight: '600',
+
+  userDetails: {
+    flex: 1,
   },
-  userCard: {
-    backgroundColor: 'white',
-    margin: 16,
-    padding: 20,
+
+  userName: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: 'white',
+    marginBottom: 4,
+  },
+
+  userEmail: {
+    fontSize: 14,
+    color: 'rgba(255, 255, 255, 0.8)',
+    marginBottom: 8,
+  },
+
+  verifiedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
     borderRadius: 12,
+    alignSelf: 'flex-start',
+  },
+
+  verifiedText: {
+    fontSize: 12,
+    color: 'white',
+    marginLeft: 4,
+    fontWeight: '500',
+  },
+
+  editButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'white',
+    justifyContent: 'center',
+    alignItems: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
   },
-  userHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
+
+  // Content styles
+  content: {
+    flex: 1,
+    backgroundColor: '#f8f9fa',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    marginTop: -24,
+    paddingTop: 32,
+  },
+
+  section: {
+    marginBottom: 32,
+    paddingHorizontal: 24,
+  },
+
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#333',
     marginBottom: 16,
   },
-  avatar: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: '#0066cc',
+
+  // Stats styles
+  statsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+
+  statCard: {
+    flex: 1,
+    minWidth: (SCREEN_WIDTH - 60) / 2,
+    backgroundColor: 'white',
+    borderRadius: 16,
+    padding: 20,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+
+  statIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#e3f2fd',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+
+  statContent: {
+    alignItems: 'center',
+  },
+
+  statNumber: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 4,
+  },
+
+  statTitle: {
+    fontSize: 12,
+    color: '#666',
+    textAlign: 'center',
+    fontWeight: '500',
+  },
+
+  // Actions styles
+  actionsContainer: {
+    gap: 12,
+  },
+
+  actionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'white',
+    borderRadius: 16,
+    padding: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+
+  actionIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#e3f2fd',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 16,
   },
-  avatarText: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: 'white',
-  },
-  userInfo: {
+
+  actionContent: {
     flex: 1,
   },
-  userName: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 4,
-  },
-  userEmail: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 2,
-  },
-  userPhone: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 4,
-  },
-  userRole: {
-    fontSize: 14,
-    color: '#0066cc',
-    fontWeight: '500',
-  },
-  editButton: {
-    backgroundColor: '#f8f9fa',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#dee2e6',
-    alignSelf: 'flex-start',
-  },
-  editButtonText: {
-    fontSize: 14,
-    color: '#0066cc',
-    fontWeight: '600',
-  },
-  statsCard: {
-    backgroundColor: 'white',
-    marginHorizontal: 16,
-    marginBottom: 16,
-    padding: 20,
-    borderRadius: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  cardTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 16,
-  },
 
-  // 🔧 NEW: Loading states for analytics
-  statsLoadingContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 20,
-  },
-  statsLoadingText: {
-    marginLeft: 8,
-    fontSize: 14,
-    color: '#666',
-  },
-
-  statsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    marginBottom: 16,
-  },
-  statItem: {
-    width: '48%',
-    alignItems: 'center',
-    backgroundColor: '#f8f9fa',
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 8,
-  },
-  statNumber: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#0066cc',
-    marginBottom: 4,
-  },
-  statLabel: {
-    fontSize: 12,
-    color: '#666',
-    textAlign: 'center',
-  },
-  averageSection: {
-    backgroundColor: '#e3f2fd',
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 12,
-  },
-  averageText: {
-    fontSize: 14,
-    color: '#0066cc',
-    textAlign: 'center',
-    fontWeight: '500',
-  },
-  viewMoreButton: {
-    alignSelf: 'flex-end',
-  },
-  viewMoreText: {
-    fontSize: 14,
-    color: '#0066cc',
-    fontWeight: '600',
-  },
-  recentCard: {
-    backgroundColor: 'white',
-    marginHorizontal: 16,
-    marginBottom: 16,
-    padding: 20,
-    borderRadius: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  emptyState: {
-    alignItems: 'center',
-    padding: 20,
-  },
-  emptyIcon: {
-    fontSize: 48,
-    marginBottom: 12,
-  },
-  emptyText: {
+  actionTitle: {
     fontSize: 16,
     fontWeight: '600',
+    color: '#333',
+    marginBottom: 2,
+  },
+
+  actionSubtitle: {
+    fontSize: 14,
     color: '#666',
-    marginBottom: 4,
   },
-  emptySubtext: {
-    fontSize: 14,
-    color: '#888',
-    marginBottom: 16,
+
+  // Account styles
+  accountCard: {
+    backgroundColor: 'white',
+    borderRadius: 16,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
   },
-  exploreButton: {
-    backgroundColor: '#0066cc',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
-  },
-  exploreButtonText: {
-    color: 'white',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  bookingItem: {
+
+  accountRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
     paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: '#f0f0f0',
   },
-  bookingInfo: {
+
+  accountInfo: {
+    marginLeft: 16,
     flex: 1,
   },
-  bookingRoute: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 2,
-  },
-  bookingDate: {
+
+  accountLabel: {
     fontSize: 12,
     color: '#666',
     marginBottom: 2,
   },
-  bookingReference: {
-    fontSize: 11,
-    color: '#0066cc',
-    fontWeight: '500',
-  },
-  bookingStatus: {
-    alignItems: 'flex-end',
-  },
-  statusText: {
-    fontSize: 12,
-    fontWeight: '600',
-    marginBottom: 2,
-  },
-  bookingAmount: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#333',
-  },
-  viewAllButton: {
-    alignSelf: 'flex-end',
-    marginTop: 8,
-  },
-  viewAllText: {
-    fontSize: 14,
-    color: '#0066cc',
-    fontWeight: '600',
-  },
-  paymentCard: {
-    backgroundColor: 'white',
-    marginHorizontal: 16,
-    marginBottom: 16,
-    padding: 20,
-    borderRadius: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  paymentStats: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginBottom: 16,
-  },
-  paymentStat: {
-    alignItems: 'center',
-  },
-  paymentNumber: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#28a745',
-    marginBottom: 4,
-  },
-  paymentLabel: {
-    fontSize: 12,
-    color: '#666',
-  },
-  lastPaymentInfo: {
-    backgroundColor: '#f8f9fa',
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 12,
-  },
-  lastPaymentText: {
-    fontSize: 12,
-    color: '#666',
-    textAlign: 'center',
-  },
-  managePaymentButton: {
-    backgroundColor: '#0066cc',
-    paddingVertical: 10,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  managePaymentText: {
-    color: 'white',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  actionsCard: {
-    backgroundColor: 'white',
-    marginHorizontal: 16,
-    marginBottom: 16,
-    padding: 20,
-    borderRadius: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  actionButtons: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-  },
-  actionButton: {
-    width: '48%',
-    backgroundColor: '#f8f9fa',
-    padding: 16,
-    borderRadius: 8,
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  actionIcon: {
-    fontSize: 24,
-    marginBottom: 8,
-  },
-  actionText: {
-    fontSize: 14,
+
+  accountValue: {
+    fontSize: 16,
     color: '#333',
     fontWeight: '500',
-    textAlign: 'center',
   },
-  appInfo: {
+
+  logoutButton: {
+    flexDirection: 'row',
     alignItems: 'center',
-    padding: 20,
-    marginBottom: 40,
+    justifyContent: 'center',
+    marginTop: 16,
+    paddingVertical: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#f0f0f0',
   },
-  appInfoText: {
+
+  logoutText: {
+    fontSize: 16,
+    color: '#dc3545',
+    fontWeight: '600',
+    marginLeft: 8,
+  },
+
+  // Footer styles
+  footer: {
+    alignItems: 'center',
+    paddingVertical: 24,
+    paddingHorizontal: 24,
+  },
+
+  footerText: {
     fontSize: 12,
-    color: '#888',
+    color: '#999',
     marginBottom: 4,
-    textAlign: 'center',
   },
 });

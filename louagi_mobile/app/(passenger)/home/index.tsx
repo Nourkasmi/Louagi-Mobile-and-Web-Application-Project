@@ -1,4 +1,4 @@
-// app/(passenger)/home/index.tsx - PERFECT HOME SCREEN with Real Data & Animations
+// app/(passenger)/home/index.tsx - COMPLETE FIXED VERSION with Real Data
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
@@ -29,15 +29,20 @@ export default function PassengerHomeScreen() {
   // State management
   const [stations, setStations] = useState<Station[]>([]);
   const [recentBookings, setRecentBookings] = useState<Booking[]>([]);
+  const [allBookings, setAllBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [quickStats, setQuickStats] = useState({
+  const [realStats, setRealStats] = useState({
     totalTrips: 0,
     pendingPayments: 0,
     nextTrip: null as Booking | null,
-    savedAmount: 0,
+    totalSpent: 0,
+    avgPerTrip: 0,
     completionRate: 0,
+    co2Saved: 0,
+    moneySaved: 0,
+    confirmedTrips: 0,
   });
 
   // Animation refs
@@ -66,39 +71,197 @@ export default function PassengerHomeScreen() {
     return 'Good evening';
   }, []);
 
-  const formatTime = useCallback((dateString: string) => {
-    try {
-      return new Date(dateString).toLocaleTimeString('en-US', {
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: true
-      });
-    } catch {
-      return 'Invalid time';
+  // 🔧 COMPLETELY FIXED: Real status calculation
+  const getBookingStatus = (booking: Booking): 'pending' | 'confirmed' | 'completed' | 'cancelled' => {
+    console.log(`🔍 Analyzing booking ${booking.bookingReference}:`, {
+      bookingStatus: booking.status,
+      paymentStatus: booking.paymentStatus,
+      tripStatus: booking.trip?.status,
+      amount: booking.amount,
+      hasTrip: !!booking.trip,
+      departureTime: booking.trip?.departureTime
+    });
+
+    // Check for cancellation first
+    if (booking.status === 'cancelled' || booking.trip?.status === 'cancelled') {
+      console.log(`❌ ${booking.bookingReference}: CANCELLED`);
+      return 'cancelled';
     }
-  }, []);
 
-  const formatDate = useCallback((dateString: string) => {
-    try {
-      const date = new Date(dateString);
-      const today = new Date();
-      const tomorrow = new Date(today);
-      tomorrow.setDate(today.getDate() + 1);
+    // If payment is completed, consider the booking valid
+    if (booking.paymentStatus === 'completed') {
+      // Check if trip is completed
+      if (booking.trip?.status === 'completed') {
+        console.log(`✅ ${booking.bookingReference}: COMPLETED (paid + trip finished)`);
+        return 'completed';
+      }
 
-      if (date.toDateString() === today.toDateString()) return 'Today';
-      if (date.toDateString() === tomorrow.toDateString()) return 'Tomorrow';
+      // Check if trip has happened (past departure time)
+      if (booking.trip?.departureTime) {
+        const departureTime = new Date(booking.trip.departureTime);
+        const now = new Date();
+        if (departureTime < now) {
+          console.log(`✅ ${booking.bookingReference}: COMPLETED (paid + past departure)`);
+          return 'completed';
+        }
+      }
 
-      return date.toLocaleDateString('en-US', {
-        weekday: 'short',
-        month: 'short',
-        day: 'numeric'
-      });
-    } catch {
-      return 'Invalid date';
+      // Payment done but trip not yet happened or completed
+      console.log(`✅ ${booking.bookingReference}: CONFIRMED (paid, waiting for trip)`);
+      return 'confirmed';
     }
-  }, []);
 
-  // Fetch all data with enhanced analytics
+    // Check trip completion even without payment status
+    if (booking.trip?.status === 'completed') {
+      console.log(`✅ ${booking.bookingReference}: COMPLETED (trip finished)`);
+      return 'completed';
+    }
+
+    // Check booking status directly
+    if (booking.status === 'completed') {
+      console.log(`✅ ${booking.bookingReference}: COMPLETED (booking status)`);
+      return 'completed';
+    }
+
+    if (booking.status === 'confirmed') {
+      console.log(`✅ ${booking.bookingReference}: CONFIRMED (booking status)`);
+      return 'confirmed';
+    }
+
+    // Default to pending
+    console.log(`⏳ ${booking.bookingReference}: PENDING (needs payment/confirmation)`);
+    return 'pending';
+  };
+
+  // 🔧 COMPLETELY FIXED: Calculate REAL stats from actual bookings
+  const calculateRealStats = (bookings: Booking[]) => {
+    console.log('📊 ===== CALCULATING REAL STATS =====');
+    console.log('📋 Total bookings to analyze:', bookings.length);
+
+    if (!bookings || bookings.length === 0) {
+      console.log('❌ No bookings to calculate stats from');
+      return {
+        totalTrips: 0,
+        pendingPayments: 0,
+        nextTrip: null,
+        totalSpent: 0,
+        avgPerTrip: 0,
+        completionRate: 0,
+        co2Saved: 0,
+        moneySaved: 0,
+        confirmedTrips: 0,
+      };
+    }
+
+    // Process each booking with detailed logging
+    const completedBookings: Booking[] = [];
+    const confirmedBookings: Booking[] = [];
+    const pendingBookings: Booking[] = [];
+    const upcomingBookings: Booking[] = [];
+    let totalMoneySpent = 0;
+
+    bookings.forEach((booking, index) => {
+      console.log(`\n📋 Processing booking ${index + 1}/${bookings.length}:`);
+      const status = getBookingStatus(booking);
+
+      // Parse amount safely
+      let amount = 0;
+      if (booking.amount) {
+        if (typeof booking.amount === 'string') {
+          amount = parseFloat(booking.amount);
+        } else if (typeof booking.amount === 'number') {
+          amount = booking.amount;
+        }
+      }
+
+      console.log(`💰 Amount parsed: ${amount} (from ${booking.amount}, type: ${typeof booking.amount})`);
+
+      // Categorize booking based on status
+      switch (status) {
+        case 'completed':
+          completedBookings.push(booking);
+          totalMoneySpent += amount;
+          console.log(`✅ Added to COMPLETED: $${amount}, Total so far: $${totalMoneySpent}`);
+          break;
+
+        case 'confirmed':
+          confirmedBookings.push(booking);
+          totalMoneySpent += amount; // Count confirmed trips as spent money
+
+          // Check if it's upcoming
+          if (booking.trip?.departureTime) {
+            const departureTime = new Date(booking.trip.departureTime);
+            if (departureTime > new Date()) {
+              upcomingBookings.push(booking);
+              console.log(`🔜 Added to UPCOMING: ${booking.bookingReference}`);
+            }
+          }
+          console.log(`✅ Added to CONFIRMED: $${amount}, Total so far: $${totalMoneySpent}`);
+          break;
+
+        case 'pending':
+          pendingBookings.push(booking);
+          console.log(`⏳ Added to PENDING: ${booking.bookingReference}`);
+          break;
+
+        case 'cancelled':
+          console.log(`❌ CANCELLED: ${booking.bookingReference} (not counted)`);
+          break;
+      }
+    });
+
+    // Find next upcoming trip
+    const nextTrip = upcomingBookings
+      .sort((a, b) => {
+        const dateA = new Date(a.trip?.departureTime || a.createdAt);
+        const dateB = new Date(b.trip?.departureTime || b.createdAt);
+        return dateA.getTime() - dateB.getTime();
+      })[0] || null;
+
+    // Calculate final metrics
+    const totalCompleted = completedBookings.length;
+    const totalConfirmed = confirmedBookings.length;
+    const totalActive = totalCompleted + totalConfirmed; // Total meaningful trips
+    const totalBookings = bookings.length;
+
+    const avgPerTrip = totalActive > 0 ? totalMoneySpent / totalActive : 0;
+    const completionRate = totalBookings > 0 ? Math.round((totalCompleted / totalBookings) * 100) : 0;
+
+    // Environmental impact (based on all active trips)
+    const co2Saved = totalActive * 2.5; // 2.5kg CO2 per shared trip vs driving alone
+
+    // Money saved calculation (assume Louagi costs 60% of taxi/private transport)
+    const estimatedTaxiCost = totalMoneySpent / 0.6;
+    const moneySaved = estimatedTaxiCost - totalMoneySpent;
+
+    const finalStats = {
+      totalTrips: totalCompleted, // Only completed trips
+      confirmedTrips: totalConfirmed, // Confirmed but not yet completed
+      pendingPayments: pendingBookings.length,
+      nextTrip,
+      totalSpent: Math.round(totalMoneySpent * 100) / 100,
+      avgPerTrip: Math.round(avgPerTrip * 100) / 100,
+      completionRate,
+      co2Saved: Math.round(co2Saved * 10) / 10,
+      moneySaved: Math.round(moneySaved * 100) / 100,
+    };
+
+    console.log('\n📊 ===== FINAL REAL STATS =====');
+    console.log('✅ Completed trips:', totalCompleted);
+    console.log('🔄 Confirmed trips:', totalConfirmed);
+    console.log('⏳ Pending payments:', pendingBookings.length);
+    console.log('💰 Total spent: $', finalStats.totalSpent);
+    console.log('📈 Average per trip: $', finalStats.avgPerTrip);
+    console.log('🎯 Completion rate:', finalStats.completionRate + '%');
+    console.log('🌱 CO2 saved:', finalStats.co2Saved + 'kg');
+    console.log('💸 Money saved: $', finalStats.moneySaved);
+    console.log('🔜 Next trip:', nextTrip?.bookingReference || 'None');
+    console.log('=====================================\n');
+
+    return finalStats;
+  };
+
+  // Fetch all data with REAL calculations
   const fetchData = async (isRefresh = false) => {
     try {
       if (isRefresh) setRefreshing(true);
@@ -106,100 +269,87 @@ export default function PassengerHomeScreen() {
 
       setError(null);
 
-      // Fetch stations and recent bookings in parallel
+      console.log('📡 ===== FETCHING REAL DATA =====');
+
+      // Fetch stations and bookings in parallel
       const [stationsResponse, bookingsResponse] = await Promise.all([
         getStations({ limit: 20 }),
-        getMyBookings({ limit: 10 }),
+        getMyBookings({ limit: 100 }), // Get more bookings for better stats
       ]);
 
       // Handle stations
       if (stationsResponse.success) {
         const stationsData = stationsResponse.data?.stations || stationsResponse.stations || [];
         setStations(stationsData);
+        console.log('✅ Loaded stations:', stationsData.length);
       }
 
-      // Handle bookings and calculate REAL stats from actual data
+      // Handle bookings and calculate REAL stats
       if (bookingsResponse.success) {
-        const bookingsData = bookingsResponse.data?.bookings || [];
-        setRecentBookings(bookingsData.slice(0, 4)); // Show only 4 recent
-
-        console.log('📊 Raw bookings data for stats:', bookingsData);
-
-        // Calculate REAL statistics from actual booking data
-        const allBookings = bookingsData;
-        const completedTrips = allBookings.filter(b =>
-          b.status === 'completed' ||
-          (b.paymentStatus === 'completed' && b.trip?.status === 'completed')
-        );
-
-        const confirmedBookings = allBookings.filter(b =>
-          b.status === 'confirmed' ||
-          b.paymentStatus === 'completed'
-        );
-
-        const pendingPayments = allBookings.filter(b =>
-          b.paymentStatus === 'pending' ||
-          b.paymentStatus === 'failed' ||
-          (b.status === 'pending' && !b.paymentStatus)
-        );
-
-        const cancelledBookings = allBookings.filter(b =>
-          b.status === 'cancelled' || b.trip?.status === 'cancelled'
-        );
-
-        // REAL money calculations from actual booking amounts
-        const totalSpentOnCompletedTrips = completedTrips.reduce((sum, b) => {
-          const amount = parseFloat(b.amount?.toString() || '0');
-          return sum + amount;
-        }, 0);
-
-        // REAL average cost per trip
-        const averageCostPerTrip = completedTrips.length > 0 ?
-          totalSpentOnCompletedTrips / completedTrips.length : 0;
-
-        // REAL savings calculation (compared to estimated taxi/bus alternatives)
-        // Tunisia taxi rates: ~2.5 TND/km, buses: ~1.5 TND/km, assume average 50km trip
-        const estimatedAlternativeCost = completedTrips.length * 45; // ~45 TND per trip average
-        const actualSavings = Math.max(0, estimatedAlternativeCost - totalSpentOnCompletedTrips);
-
-        // REAL completion rate
-        const totalBookings = allBookings.length;
-        const realCompletionRate = totalBookings > 0 ?
-          Math.round((completedTrips.length / totalBookings) * 100) : 0;
-
-        // REAL next trip (actual confirmed upcoming trip)
-        const upcomingTrips = allBookings.filter(b => {
-          const isConfirmed = b.status === 'confirmed' || b.paymentStatus === 'completed';
-          const hasFutureTrip = b.trip?.departureTime &&
-            new Date(b.trip.departureTime) > new Date();
-          return isConfirmed && hasFutureTrip;
+        console.log('📡 Raw bookings response structure:', {
+          success: bookingsResponse.success,
+          hasData: !!bookingsResponse.data,
+          dataKeys: bookingsResponse.data ? Object.keys(bookingsResponse.data) : [],
+          hasBookings: !!bookingsResponse.data?.bookings,
+          directBookings: !!bookingsResponse.bookings,
+          isDataArray: Array.isArray(bookingsResponse.data)
         });
 
-        const nextTrip = upcomingTrips.sort((a, b) =>
-          new Date(a.trip!.departureTime).getTime() - new Date(b.trip!.departureTime).getTime()
-        )[0] || null;
+        // Extract bookings from different response structures
+        let bookingsData: Booking[] = [];
 
-        // Log real stats for verification
-        console.log('📈 REAL STATS CALCULATED:', {
-          totalBookings: totalBookings,
-          completedTrips: completedTrips.length,
-          confirmedBookings: confirmedBookings.length,
-          pendingPayments: pendingPayments.length,
-          cancelledBookings: cancelledBookings.length,
-          totalSpent: totalSpentOnCompletedTrips,
-          averageCost: averageCostPerTrip,
-          realSavings: actualSavings,
-          completionRate: realCompletionRate,
-          hasNextTrip: !!nextTrip,
-          nextTripId: nextTrip?.id,
-        });
+        if (bookingsResponse.data?.bookings && Array.isArray(bookingsResponse.data.bookings)) {
+          bookingsData = bookingsResponse.data.bookings;
+          console.log('📋 Using response.data.bookings');
+        } else if (Array.isArray(bookingsResponse.data)) {
+          bookingsData = bookingsResponse.data;
+          console.log('📋 Using response.data as array');
+        } else if (bookingsResponse.bookings && Array.isArray(bookingsResponse.bookings)) {
+          bookingsData = bookingsResponse.bookings;
+          console.log('📋 Using response.bookings');
+        } else {
+          console.log('❌ Could not find bookings in response:', bookingsResponse);
+          bookingsData = [];
+        }
 
-        setQuickStats({
-          totalTrips: completedTrips.length,
-          pendingPayments: pendingPayments.length,
-          nextTrip,
-          savedAmount: Math.round(actualSavings),
-          completionRate: realCompletionRate,
+        console.log('📋 Extracted bookings count:', bookingsData.length);
+
+        // Log first booking for debugging
+        if (bookingsData.length > 0) {
+          console.log('📋 Sample booking structure:', {
+            id: bookingsData[0].id,
+            reference: bookingsData[0].bookingReference,
+            status: bookingsData[0].status,
+            paymentStatus: bookingsData[0].paymentStatus,
+            amount: bookingsData[0].amount,
+            amountType: typeof bookingsData[0].amount,
+            hasTrip: !!bookingsData[0].trip,
+            tripStatus: bookingsData[0].trip?.status
+          });
+        }
+
+        // Store all bookings and recent ones
+        setAllBookings(bookingsData);
+        setRecentBookings(bookingsData.slice(0, 4));
+
+        // Calculate REAL statistics
+        const calculatedStats = calculateRealStats(bookingsData);
+        setRealStats(calculatedStats);
+
+      } else {
+        console.log('❌ Bookings fetch failed:', bookingsResponse.message);
+        setAllBookings([]);
+        setRecentBookings([]);
+        setRealStats({
+          totalTrips: 0,
+          pendingPayments: 0,
+          nextTrip: null,
+          totalSpent: 0,
+          avgPerTrip: 0,
+          completionRate: 0,
+          co2Saved: 0,
+          moneySaved: 0,
+          confirmedTrips: 0,
         });
       }
 
@@ -207,7 +357,7 @@ export default function PassengerHomeScreen() {
         setError('Unable to load stations. Please check your connection.');
       }
     } catch (err: any) {
-      console.error('Error fetching home data:', err);
+      console.error('❌ Error fetching home data:', err);
       setError('Failed to load data. Please check your connection and try again.');
     } finally {
       setLoading(false);
@@ -319,6 +469,39 @@ export default function PassengerHomeScreen() {
     });
   };
 
+  // Format helpers
+  const formatTime = useCallback((dateString: string) => {
+    try {
+      return new Date(dateString).toLocaleTimeString('en-US', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true
+      });
+    } catch {
+      return 'Invalid time';
+    }
+  }, []);
+
+  const formatDate = useCallback((dateString: string) => {
+    try {
+      const date = new Date(dateString);
+      const today = new Date();
+      const tomorrow = new Date(today);
+      tomorrow.setDate(today.getDate() + 1);
+
+      if (date.toDateString() === today.toDateString()) return 'Today';
+      if (date.toDateString() === tomorrow.toDateString()) return 'Tomorrow';
+
+      return date.toLocaleDateString('en-US', {
+        weekday: 'short',
+        month: 'short',
+        day: 'numeric'
+      });
+    } catch {
+      return 'Invalid date';
+    }
+  }, []);
+
   // Render animated hero section
   const renderAnimatedHero = () => (
     <Animated.View
@@ -410,6 +593,11 @@ export default function PassengerHomeScreen() {
           >
             <MaterialIcons name="history" size={18} color="#ffffff" />
             <Text style={modernStyles.quickActionText}>My Trips</Text>
+            {realStats.pendingPayments > 0 && (
+              <View style={modernStyles.notificationDot}>
+                <Text style={modernStyles.notificationText}>{realStats.pendingPayments}</Text>
+              </View>
+            )}
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -432,8 +620,8 @@ export default function PassengerHomeScreen() {
     </Animated.View>
   );
 
-  // Render animated stats with REAL data
-  const renderAnimatedStats = () => (
+  // 🔧 COMPLETELY FIXED: Render REAL stats with actual data
+  const renderRealStats = () => (
     <Animated.View
       style={[
         modernStyles.statsContainer,
@@ -450,11 +638,13 @@ export default function PassengerHomeScreen() {
     >
       <View style={modernStyles.statsHeader}>
         <MaterialIcons name="analytics" size={24} color="#0066cc" />
-        <Text style={modernStyles.statsTitle}>Your Real Travel Stats</Text>
+        <Text style={modernStyles.statsTitle}>
+          {realStats.totalTrips > 0 || realStats.confirmedTrips > 0 ? 'Your Real Travel Impact' : 'Ready to Start Your Journey?'}
+        </Text>
       </View>
 
       <View style={modernStyles.statsRow}>
-        {/* Completed Trips - Real count */}
+        {/* REAL Completed Trips */}
         <Animated.View
           style={[
             modernStyles.statItem,
@@ -469,11 +659,11 @@ export default function PassengerHomeScreen() {
           ]}
         >
           <MaterialIcons name="done-all" size={20} color="#4caf50" />
-          <Text style={[modernStyles.statNumber, { color: '#4caf50' }]}>{quickStats.totalTrips}</Text>
+          <Text style={[modernStyles.statNumber, { color: '#4caf50' }]}>{realStats.totalTrips}</Text>
           <Text style={modernStyles.statLabel}>Completed{'\n'}Trips</Text>
         </Animated.View>
 
-        {/* Real Money Saved */}
+        {/* REAL Confirmed Trips */}
         <Animated.View
           style={[
             modernStyles.statItem,
@@ -487,14 +677,33 @@ export default function PassengerHomeScreen() {
             }
           ]}
         >
-          <MaterialIcons name="savings" size={20} color="#28a745" />
+          <MaterialIcons name="verified" size={20} color="#2196f3" />
+          <Text style={[modernStyles.statNumber, { color: '#2196f3' }]}>{realStats.confirmedTrips}</Text>
+          <Text style={modernStyles.statLabel}>Confirmed{'\n'}Trips</Text>
+        </Animated.View>
+
+        {/* REAL Money Spent */}
+        <Animated.View
+          style={[
+            modernStyles.statItem,
+            {
+              transform: [{
+                scale: statsAnim.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [0.8, 1]
+                })
+              }]
+            }
+          ]}
+        >
+          <MaterialIcons name="payments" size={20} color="#28a745" />
           <Text style={[modernStyles.statNumber, { color: '#28a745' }]}>
-            {quickStats.savedAmount > 0 ? `${quickStats.savedAmount}` : '$0'}
+            ${realStats.totalSpent}
           </Text>
-          <Text style={modernStyles.statLabel}>Money{'\n'}Saved</Text>
+          <Text style={modernStyles.statLabel}>Total{'\n'}Spent</Text>
         </Animated.View>
 
-        {/* Real Success Rate */}
+        {/* REAL Average Cost or Pending Payments */}
         <Animated.View
           style={[
             modernStyles.statItem,
@@ -508,39 +717,61 @@ export default function PassengerHomeScreen() {
             }
           ]}
         >
-          <MaterialIcons name="trending-up" size={20} color="#2196f3" />
-          <Text style={[modernStyles.statNumber, { color: '#2196f3' }]}>{quickStats.completionRate}%</Text>
-          <Text style={modernStyles.statLabel}>Success{'\n'}Rate</Text>
+          {realStats.pendingPayments > 0 ? (
+            <>
+              <MaterialIcons name="payment" size={20} color="#ff9800" />
+              <Text style={[modernStyles.statNumber, { color: '#ff9800' }]}>{realStats.pendingPayments}</Text>
+              <Text style={modernStyles.statLabel}>Pending{'\n'}Payments</Text>
+            </>
+          ) : (
+            <>
+              <MaterialIcons name="trending-down" size={20} color="#ff9800" />
+              <Text style={[modernStyles.statNumber, { color: '#ff9800' }]}>
+                ${realStats.avgPerTrip}
+              </Text>
+              <Text style={modernStyles.statLabel}>Avg per{'\n'}Trip</Text>
+            </>
+          )}
         </Animated.View>
-
-        {/* Pending Payments - Only show if there are any */}
-        {quickStats.pendingPayments > 0 && (
-          <Animated.View
-            style={[
-              modernStyles.statItem,
-              modernStyles.alertStat,
-              {
-                transform: [{
-                  scale: statsAnim.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [0.8, 1]
-                  })
-                }]
-              }
-            ]}
-          >
-            <MaterialIcons name="payment" size={20} color="#dc3545" />
-            <Text style={[modernStyles.statNumber, { color: '#dc3545' }]}>{quickStats.pendingPayments}</Text>
-            <Text style={modernStyles.statLabel}>Pending{'\n'}Payment</Text>
-          </Animated.View>
-        )}
       </View>
 
-      {/* Additional real stats info */}
+      {/* Environmental Impact */}
+      {(realStats.totalTrips > 0 || realStats.confirmedTrips > 0) && (
+        <View style={modernStyles.impactRow}>
+          <View style={modernStyles.impactItem}>
+            <MaterialIcons name="eco" size={16} color="#4caf50" />
+            <Text style={modernStyles.impactText}>
+              {realStats.co2Saved}kg CO₂ saved
+            </Text>
+          </View>
+          <View style={modernStyles.impactItem}>
+            <MaterialIcons name="savings" size={16} color="#2196f3" />
+            <Text style={modernStyles.impactText}>
+              ${realStats.moneySaved} saved vs taxi
+            </Text>
+          </View>
+        </View>
+      )}
+
+      {/* Pending Payments Alert */}
+      {realStats.pendingPayments > 0 && (
+        <TouchableOpacity
+          style={modernStyles.pendingAlert}
+          onPress={() => router.push('/(passenger)/bookings')}
+        >
+          <MaterialIcons name="payment" size={16} color="#dc3545" />
+          <Text style={modernStyles.pendingText}>
+            {realStats.pendingPayments} booking{realStats.pendingPayments > 1 ? 's' : ''} need payment
+          </Text>
+          <MaterialIcons name="arrow-forward" size={16} color="#dc3545" />
+        </TouchableOpacity>
+      )}
+
+      {/* Stats footer */}
       <View style={modernStyles.statsFooter}>
         <Text style={modernStyles.statsFooterText}>
-          {recentBookings.length > 0 ?
-            `Based on your ${recentBookings.length} recent booking${recentBookings.length > 1 ? 's' : ''}` :
+          {allBookings.length > 0 ?
+            `Based on your ${allBookings.length} booking${allBookings.length > 1 ? 's' : ''}` :
             'Book your first trip to see personalized stats!'
           }
         </Text>
@@ -548,11 +779,11 @@ export default function PassengerHomeScreen() {
     </Animated.View>
   );
 
-  // Render next trip with enhanced design
+  // Render next trip with REAL data
   const renderNextTrip = () => {
-    if (!quickStats.nextTrip) return null;
+    if (!realStats.nextTrip) return null;
 
-    const trip = quickStats.nextTrip;
+    const trip = realStats.nextTrip;
     return (
       <Animated.View
         style={[
@@ -615,7 +846,7 @@ export default function PassengerHomeScreen() {
     );
   };
 
-  // Render recent activity with animations
+  // Render recent activity with REAL data
   const renderRecentActivity = () => {
     if (recentBookings.length === 0) return null;
 
@@ -637,55 +868,58 @@ export default function PassengerHomeScreen() {
           </TouchableOpacity>
         </View>
 
-        {recentBookings.map((booking, index) => (
-          <Animated.View
-            key={booking.id}
-            style={[
-              modernStyles.activityCard,
-              {
-                opacity: fadeAnim,
-                transform: [{
-                  translateX: fadeAnim.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [50, 0]
-                  })
-                }]
-              }
-            ]}
-          >
-            <TouchableOpacity
-              onPress={() => handleBookingPress(booking)}
-              style={modernStyles.activityContent}
-              activeOpacity={0.9}
+        {recentBookings.map((booking, index) => {
+          const status = getBookingStatus(booking);
+          return (
+            <Animated.View
+              key={booking.id}
+              style={[
+                modernStyles.activityCard,
+                {
+                  opacity: fadeAnim,
+                  transform: [{
+                    translateX: fadeAnim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [50, 0]
+                    })
+                  }]
+                }
+              ]}
             >
-              <View style={modernStyles.activityLeft}>
-                <View style={[modernStyles.statusDot, { backgroundColor: getStatusColor(booking.status) }]} />
-                <View style={modernStyles.bookingRoute}>
-                  <Text style={modernStyles.activityTitle}>
-                    {booking.trip?.route?.startStation?.name || 'Unknown'} → {booking.trip?.route?.endStation?.name || 'Unknown'}
-                  </Text>
-                  <Text style={modernStyles.activitySubtitle}>
-                    {formatDate(booking.trip?.departureTime || booking.createdAt)} • {booking.seats} seat{booking.seats > 1 ? 's' : ''}
-                  </Text>
-                  <Text style={modernStyles.bookingReference}>#{booking.bookingReference}</Text>
+              <TouchableOpacity
+                onPress={() => handleBookingPress(booking)}
+                style={modernStyles.activityContent}
+                activeOpacity={0.9}
+              >
+                <View style={modernStyles.activityLeft}>
+                  <View style={[modernStyles.statusDot, { backgroundColor: getStatusColor(status) }]} />
+                  <View style={modernStyles.bookingRoute}>
+                    <Text style={modernStyles.activityTitle}>
+                      {booking.trip?.route?.startStation?.name || 'Unknown'} → {booking.trip?.route?.endStation?.name || 'Unknown'}
+                    </Text>
+                    <Text style={modernStyles.activitySubtitle}>
+                      {formatDate(booking.trip?.departureTime || booking.createdAt)} • {booking.seats} seat{booking.seats > 1 ? 's' : ''}
+                    </Text>
+                    <Text style={modernStyles.bookingReference}>#{booking.bookingReference}</Text>
+                  </View>
                 </View>
-              </View>
 
-              <View style={modernStyles.activityRight}>
-                <Text style={[modernStyles.statusText, { color: getStatusColor(booking.status) }]}>
-                  {getStatusIcon(booking.status)} {booking.status}
-                </Text>
-                <Text style={modernStyles.bookingAmount}>${booking.amount || '0.00'}</Text>
-                <MaterialIcons name="chevron-right" size={20} color="#ccc" />
-              </View>
-            </TouchableOpacity>
-          </Animated.View>
-        ))}
+                <View style={modernStyles.activityRight}>
+                  <Text style={[modernStyles.statusText, { color: getStatusColor(status) }]}>
+                    {getStatusIcon(status)} {status}
+                  </Text>
+                  <Text style={modernStyles.bookingAmount}>${booking.amount || '0.00'}</Text>
+                  <MaterialIcons name="chevron-right" size={20} color="#ccc" />
+                </View>
+              </TouchableOpacity>
+            </Animated.View>
+          );
+        })}
       </Animated.View>
     );
   };
 
-  // Render popular stations with enhanced cards
+  // Render popular stations
   const renderPopularStations = () => (
     <Animated.View
       style={[
@@ -798,7 +1032,7 @@ export default function PassengerHomeScreen() {
         {renderAnimatedHero()}
         <View style={styles.centered}>
           <ActivityIndicator size="large" color="#0066cc" />
-          <Text style={styles.loadingText}>Loading your dashboard...</Text>
+          <Text style={styles.loadingText}>Loading your real dashboard...</Text>
         </View>
       </View>
     );
@@ -836,7 +1070,7 @@ export default function PassengerHomeScreen() {
         contentContainerStyle={{ paddingBottom: 40 }}
       >
         {renderAnimatedHero()}
-        {renderAnimatedStats()}
+        {renderRealStats()}
         {renderNextTrip()}
         {renderRecentActivity()}
         {renderPopularStations()}
@@ -860,7 +1094,7 @@ export default function PassengerHomeScreen() {
   );
 }
 
-// Enhanced modern styles with animations support
+// Enhanced modern styles with real data emphasis
 const modernStyles = {
   // Hero Section with gradient background
   heroSection: {
@@ -999,6 +1233,7 @@ const modernStyles = {
     flex: 1,
     justifyContent: 'center' as const,
     gap: 6,
+    position: 'relative' as const,
   },
 
   quickActionText: {
@@ -1007,7 +1242,27 @@ const modernStyles = {
     color: '#ffffff',
   },
 
-  // Stats Container
+  notificationDot: {
+    position: 'absolute' as const,
+    top: -8,
+    right: 8,
+    backgroundColor: '#dc3545',
+    borderRadius: 10,
+    minWidth: 20,
+    height: 20,
+    justifyContent: 'center' as const,
+    alignItems: 'center' as const,
+    borderWidth: 2,
+    borderColor: '#0066cc',
+  },
+
+  notificationText: {
+    fontSize: 10,
+    fontWeight: '700' as const,
+    color: '#ffffff',
+  },
+
+  // REAL Stats Container
   statsContainer: {
     marginHorizontal: 20,
     marginTop: -15,
@@ -1039,18 +1294,13 @@ const modernStyles = {
     flexDirection: 'row' as const,
     justifyContent: 'space-around' as const,
     alignItems: 'center' as const,
+    marginBottom: 16,
   },
 
   statItem: {
     alignItems: 'center' as const,
     gap: 8,
     flex: 1,
-  },
-
-  alertStat: {
-    backgroundColor: '#ffebee',
-    borderRadius: 12,
-    paddingVertical: 12,
   },
 
   statNumber: {
@@ -1066,9 +1316,50 @@ const modernStyles = {
     lineHeight: 14,
   },
 
+  // Environmental Impact Row
+  impactRow: {
+    flexDirection: 'row' as const,
+    justifyContent: 'space-around' as const,
+    backgroundColor: '#e8f5e8',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 12,
+  },
+
+  impactItem: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 6,
+  },
+
+  impactText: {
+    fontSize: 12,
+    color: '#2e7d32',
+    fontWeight: '600' as const,
+  },
+
+  // Pending payments alert
+  pendingAlert: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    backgroundColor: '#ffebee',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 12,
+    borderLeftWidth: 4,
+    borderLeftColor: '#dc3545',
+  },
+
+  pendingText: {
+    flex: 1,
+    fontSize: 14,
+    color: '#d32f2f',
+    fontWeight: '500' as const,
+    marginLeft: 8,
+  },
+
   // Stats footer for additional info
   statsFooter: {
-    marginTop: 16,
     paddingTop: 12,
     borderTopWidth: 1,
     borderTopColor: '#f0f0f0',

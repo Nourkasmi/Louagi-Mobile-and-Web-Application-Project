@@ -85,11 +85,10 @@ const UserModal = ({ user, onClose, onToggleStatus }) => (
         <div className="p-6 border-t border-gray-100 flex justify-end space-x-3 shrink-0">
           <button
             onClick={() => onToggleStatus(user.id, user.isActive)}
-            className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-              user.isActive
+            className={`px-4 py-2 rounded-lg font-medium transition-colors ${user.isActive
                 ? 'bg-red-100 text-red-700 hover:bg-red-200'
                 : 'bg-green-100 text-green-700 hover:bg-green-200'
-            }`}
+              }`}
           >
             {user.isActive ? 'Deactivate' : 'Activate'}
           </button>

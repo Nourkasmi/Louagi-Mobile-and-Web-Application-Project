@@ -1,4 +1,4 @@
-// src/hooks/useSchedulesData.js
+// src/hooks/useSchedulesData.js - FIXED VERSION with working delete
 import { useState, useEffect, useCallback } from 'react';
 
 export const useSchedulesData = () => {
@@ -103,14 +103,19 @@ export const useSchedulesData = () => {
         }
     }, []);
 
+    // FIXED DELETE FUNCTION - No double confirmation, proper error handling
     const deleteSchedule = async (scheduleId, stationName) => {
-        if (!window.confirm(`Are you sure you want to delete the schedule for "${stationName}"? This action cannot be undone.`)) {
-            return;
-        }
-
         try {
+            console.log('🗑️ Starting delete process for schedule:', scheduleId);
+
             const token = localStorage.getItem('louagi_token');
+            if (!token) {
+                alert('Authentication token not found. Please login again.');
+                return;
+            }
+
             const baseUrl = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+            console.log('📡 Making DELETE request to:', `${baseUrl}/schedules/${scheduleId}`);
 
             const response = await fetch(`${baseUrl}/schedules/${scheduleId}`, {
                 method: 'DELETE',
@@ -120,18 +125,69 @@ export const useSchedulesData = () => {
                 }
             });
 
-            const data = await response.json();
+            console.log('📥 Response status:', response.status);
 
-            if (data.success) {
-                setSchedules(schedules.filter(schedule => schedule.id !== scheduleId));
-                setPagination(prev => ({ ...prev, total: prev.total - 1 }));
-                alert('Schedule deleted successfully!');
-            } else {
-                alert('Failed to delete schedule: ' + (data.message || 'Unknown error'));
+            if (!response.ok) {
+                let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+
+                try {
+                    const errorData = await response.json();
+                    errorMessage = errorData.message || errorMessage;
+                } catch (parseError) {
+                    console.warn('Could not parse error response as JSON');
+                }
+
+                console.error('❌ Delete failed:', errorMessage);
+
+                if (response.status === 404) {
+                    alert('Schedule not found. It may have already been deleted.');
+                } else if (response.status === 403) {
+                    alert('You do not have permission to delete this schedule.');
+                } else if (response.status === 401) {
+                    alert('Authentication failed. Please login again.');
+                } else {
+                    alert(`Failed to delete schedule: ${errorMessage}`);
+                }
+                return;
             }
-        } catch (err) {
-            console.error('Error deleting schedule:', err);
-            alert('Error deleting schedule: ' + err.message);
+
+            // Try to parse response
+            let data;
+            try {
+                data = await response.json();
+                console.log('✅ Delete response data:', data);
+            } catch (parseError) {
+                console.warn('Response was not JSON, but status was OK');
+                data = { success: true }; // Assume success if we can't parse but got OK status
+            }
+
+            // Check if deletion was successful
+            if (data.success !== false) { // Success if explicitly true OR not explicitly false
+                console.log('🔄 Updating local state...');
+
+                // Update local state immediately
+                setSchedules(prevSchedules => prevSchedules.filter(schedule => schedule.id !== scheduleId));
+                setPagination(prev => ({ ...prev, total: Math.max(0, prev.total - 1) }));
+
+                console.log('✅ Schedule deleted successfully');
+                alert(`Schedule for "${stationName}" deleted successfully!`);
+
+                // Refresh the list to ensure consistency
+                await fetchSchedules();
+            } else {
+                const errorMessage = data.message || 'Unknown error occurred';
+                console.error('❌ Delete operation failed:', errorMessage);
+                alert('Failed to delete schedule: ' + errorMessage);
+            }
+
+        } catch (error) {
+            console.error('❌ Delete schedule error:', error);
+
+            if (error.name === 'TypeError' && error.message.includes('Failed to fetch')) {
+                alert('Connection error. Please check if the backend is running and try again.');
+            } else {
+                alert('Error deleting schedule: ' + error.message);
+            }
         }
     };
 
@@ -169,7 +225,7 @@ export const useSchedulesData = () => {
         filters,
         daysOfWeek,
         fetchSchedules,
-        deleteSchedule,
+        deleteSchedule, // This is the fixed version
         handleFilterChange,
         handlePageChange,
         handleScheduleSave,

@@ -1,4 +1,4 @@
-// src/components/schedules/ScheduleDetailsModal.js
+// src/components/schedules/ScheduleDetailsModal.js - UPDATED (Removed Edit functionality)
 import React from 'react';
 import {
     X,
@@ -100,20 +100,18 @@ const ScheduleDetailsModal = ({ schedule, daysOfWeek, onClose }) => {
                     {/* Modal Body (scrollable if needed) */}
                     <div className="p-6" style={{ maxHeight: '60vh', overflowY: 'auto' }}>
                         {/* Status Banner */}
-                        <div className={`mb-6 p-4 rounded-lg border ${
-                            schedule.isActive
+                        <div className={`mb-6 p-4 rounded-lg border ${schedule.isActive
                                 ? 'bg-green-50 border-green-200'
                                 : 'bg-red-50 border-red-200'
-                        }`}>
+                            }`}>
                             <div className="flex items-center">
                                 {schedule.isActive ? (
                                     <CheckCircle className="w-5 h-5 text-green-600 mr-2" />
                                 ) : (
                                     <XCircle className="w-5 h-5 text-red-600 mr-2" />
                                 )}
-                                <span className={`font-medium ${
-                                    schedule.isActive ? 'text-green-800' : 'text-red-800'
-                                }`}>
+                                <span className={`font-medium ${schedule.isActive ? 'text-green-800' : 'text-red-800'
+                                    }`}>
                                     Schedule is {schedule.isActive ? 'Active' : 'Inactive'}
                                 </span>
                             </div>
@@ -184,9 +182,8 @@ const ScheduleDetailsModal = ({ schedule, daysOfWeek, onClose }) => {
                                     </div>
                                     <div>
                                         <span className="font-medium text-gray-700">Status:</span>
-                                        <p className={`font-medium ${
-                                            schedule.isActive ? 'text-green-600' : 'text-red-600'
-                                        }`}>
+                                        <p className={`font-medium ${schedule.isActive ? 'text-green-600' : 'text-red-600'
+                                            }`}>
                                             {schedule.isActive ? 'Active' : 'Inactive'}
                                         </p>
                                     </div>
@@ -242,7 +239,7 @@ const ScheduleDetailsModal = ({ schedule, daysOfWeek, onClose }) => {
                         </div>
                     </div>
 
-                    {/* Modal Footer (only Close button) */}
+                    {/* Modal Footer - Only Close button, no Edit */}
                     <div className="bg-gray-50 px-6 py-4 border-t border-gray-200 rounded-b-2xl flex items-center justify-end">
                         <button
                             onClick={onClose}

@@ -1,10 +1,9 @@
-// src/components/schedules/ScheduleCard.js - Updated with working Details button
+// src/components/schedules/ScheduleCard.js - WORKING VERSION with proper delete
 import React from 'react';
 import {
     Calendar,
     Clock,
     MapPin,
-    Edit,
     Trash2,
     Eye,
     Check,
@@ -12,7 +11,7 @@ import {
     Users
 } from 'lucide-react';
 
-const ScheduleCard = ({ schedule, daysOfWeek, onEdit, onDelete, onViewDetails }) => {
+const ScheduleCard = ({ schedule, daysOfWeek, onDelete, onViewDetails }) => {
     const getDayName = (dayNumber) => {
         return daysOfWeek.find(day => day.value === dayNumber)?.label || 'Unknown';
     };
@@ -32,6 +31,22 @@ const ScheduleCard = ({ schedule, daysOfWeek, onEdit, onDelete, onViewDetails })
 
     const getStatusColor = (isActive) => {
         return isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800';
+    };
+
+    // Simple delete handler - just call the onDelete function passed from parent
+    const handleDeleteClick = () => {
+        const stationName = schedule.station?.name || 'Unknown Station';
+        const dayName = getDayName(schedule.dayOfWeek);
+        const timeRange = `${formatTime(schedule.startTime)} - ${formatTime(schedule.endTime)}`;
+
+        const confirmMessage = `Are you sure you want to delete this schedule?\n\nStation: ${stationName}\nDay: ${dayName}\nTime: ${timeRange}\n\nThis action cannot be undone.`;
+
+        if (window.confirm(confirmMessage)) {
+            console.log('🗑️ Delete confirmed, calling onDelete with:', schedule.id, stationName);
+            onDelete(schedule.id, stationName);
+        } else {
+            console.log('❌ Delete cancelled by user');
+        }
     };
 
     return (
@@ -98,6 +113,7 @@ const ScheduleCard = ({ schedule, daysOfWeek, onEdit, onDelete, onViewDetails })
                     )}
 
                     <div className="mt-3 text-xs text-gray-400">
+                        ID: {schedule.id?.slice(0, 8)}... •
                         Created: {new Date(schedule.createdAt).toLocaleDateString()}
                         {schedule.updatedAt !== schedule.createdAt && (
                             <> • Updated: {new Date(schedule.updatedAt).toLocaleDateString()}</>
@@ -108,30 +124,21 @@ const ScheduleCard = ({ schedule, daysOfWeek, onEdit, onDelete, onViewDetails })
                 {/* Action Buttons */}
                 <div className="flex flex-col space-y-2 ml-4">
                     <button
-                        onClick={() => onEdit(schedule)}
+                        onClick={() => onViewDetails(schedule)}
                         className="inline-flex items-center px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 transition-colors"
-                        title="Edit Schedule"
+                        title="View Details"
                     >
-                        <Edit className="w-3 h-3 mr-1" />
-                        Edit
+                        <Eye className="w-3 h-3 mr-1" />
+                        Details
                     </button>
-                    
+
                     <button
-                        onClick={() => onDelete(schedule.id, schedule.station?.name)}
+                        onClick={handleDeleteClick}
                         className="inline-flex items-center px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700 transition-colors"
                         title="Delete Schedule"
                     >
                         <Trash2 className="w-3 h-3 mr-1" />
                         Delete
-                    </button>
-                    
-                    <button 
-                        onClick={() => onViewDetails(schedule)}
-                        className="inline-flex items-center px-3 py-1 bg-gray-100 text-gray-700 text-sm rounded hover:bg-gray-200 transition-colors"
-                        title="View Details"
-                    >
-                        <Eye className="w-3 h-3 mr-1" />
-                        Details
                     </button>
                 </div>
             </div>

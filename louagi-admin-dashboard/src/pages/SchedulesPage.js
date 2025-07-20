@@ -1,8 +1,3 @@
-// src/pages/SchedulesPage.js - FIXED VERSION with ScheduleDetailsModal
-
-// ✅ STEP 1: Make sure ScheduleDetailsModal is exported in src/components/schedules/index.js
-// The index.js should include:
-// export { default as ScheduleDetailsModal } from './ScheduleDetailsModal';
 
 import React, { useState } from 'react';
 import { Plus, RefreshCw } from 'lucide-react';
@@ -14,7 +9,7 @@ import {
     ScheduleEmptyState,
     ScheduleErrorState,
     SchedulePagination,
-    ScheduleDetailsModal  // ✅ ADD THIS IMPORT
+    ScheduleDetailsModal
 } from '../components/schedules';
 import { LoadingSpinner } from '../components/common';
 
@@ -28,7 +23,7 @@ const SchedulesPage = () => {
         filters,
         daysOfWeek,
         fetchSchedules,
-        deleteSchedule,
+        deleteSchedule, // This comes from the fixed hook
         handleFilterChange,
         handlePageChange,
         handleScheduleSave,
@@ -36,19 +31,13 @@ const SchedulesPage = () => {
     } = useSchedulesData();
 
     const [showCreateModal, setShowCreateModal] = useState(false);
-    const [editingSchedule, setEditingSchedule] = useState(null);
-    const [showDetailsModal, setShowDetailsModal] = useState(false);  // ✅ ADD THIS STATE
-    const [selectedSchedule, setSelectedSchedule] = useState(null);   // ✅ ADD THIS STATE
+    const [showDetailsModal, setShowDetailsModal] = useState(false);
+    const [selectedSchedule, setSelectedSchedule] = useState(null);
 
     const handleCreateSchedule = () => {
         setShowCreateModal(true);
     };
 
-    const handleEditSchedule = (schedule) => {
-        setEditingSchedule(schedule);
-    };
-
-    // ✅ ADD THIS FUNCTION
     const handleViewDetails = (schedule) => {
         setSelectedSchedule(schedule);
         setShowDetailsModal(true);
@@ -56,14 +45,19 @@ const SchedulesPage = () => {
 
     const handleModalClose = () => {
         setShowCreateModal(false);
-        setEditingSchedule(null);
-        setShowDetailsModal(false);    // ✅ ADD THIS
-        setSelectedSchedule(null);     // ✅ ADD THIS
+        setShowDetailsModal(false);
+        setSelectedSchedule(null);
     };
 
     const handleModalSave = (savedSchedule) => {
         handleScheduleSave(savedSchedule);
         handleModalClose();
+    };
+
+    // Simple wrapper that just calls the hook's deleteSchedule function
+    const handleDeleteSchedule = (scheduleId, stationName) => {
+        console.log('📄 SchedulesPage: Delete requested for:', scheduleId, stationName);
+        deleteSchedule(scheduleId, stationName);
     };
 
     // Loading state
@@ -121,6 +115,13 @@ const SchedulesPage = () => {
                 onFilterChange={handleFilterChange}
             />
 
+            {/* Debug Info */}
+            {process.env.NODE_ENV === 'development' && (
+                <div className="bg-gray-100 p-3 rounded text-xs text-gray-600">
+                    Debug: {schedules.length} schedules loaded • API: {process.env.REACT_APP_API_URL || 'http://localhost:5000/api'}
+                </div>
+            )}
+
             {/* Schedules List */}
             <div className="space-y-4">
                 {schedules.length === 0 ? (
@@ -134,9 +135,8 @@ const SchedulesPage = () => {
                             key={schedule.id}
                             schedule={schedule}
                             daysOfWeek={daysOfWeek}
-                            onEdit={handleEditSchedule}
-                            onDelete={deleteSchedule}
-                            onViewDetails={handleViewDetails}  // ✅ PASS THE FUNCTION
+                            onDelete={handleDeleteSchedule}
+                            onViewDetails={handleViewDetails}
                         />
                     ))
                 )}
@@ -148,10 +148,10 @@ const SchedulesPage = () => {
                 onPageChange={handlePageChange}
             />
 
-            {/* Create/Edit Modal */}
-            {(showCreateModal || editingSchedule) && (
+            {/* Create Modal */}
+            {showCreateModal && (
                 <ScheduleModal
-                    schedule={editingSchedule}
+                    schedule={null}
                     stations={stations}
                     daysOfWeek={daysOfWeek}
                     onClose={handleModalClose}
@@ -159,19 +159,19 @@ const SchedulesPage = () => {
                 />
             )}
 
-            {/* ✅ ADD THE DETAILS MODAL */}
+            {/* Details Modal */}
             {showDetailsModal && selectedSchedule && (
                 <ScheduleDetailsModal
                     schedule={selectedSchedule}
                     daysOfWeek={daysOfWeek}
                     onClose={handleModalClose}
-                    onEdit={handleEditSchedule}
                 />
             )}
 
             {/* Connection Status */}
             <div className="text-xs text-gray-500 text-center">
-                ✅ Connected to backend: {process.env.REACT_APP_API_URL || 'http://localhost:5000/api'}
+                ✅ Connected to backend: {process.env.REACT_APP_API_URL || 'http://localhost:5000/api'} •
+                Last updated: {new Date().toLocaleTimeString()}
             </div>
         </div>
     );

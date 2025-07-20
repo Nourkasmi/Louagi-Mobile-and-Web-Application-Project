@@ -1,4 +1,5 @@
-// 📁 louagi_mobile/app/(driver)/dashboard/index.tsx - UPDATED: Active Trip Section Removed
+// 📁 louagi_mobile/app/(driver)/dashboard/index.tsx - UPDATED: SafeAreaView Fix
+
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
   View,
@@ -11,6 +12,7 @@ import {
   Animated,
   StatusBar,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context'; // <-- ADDED
 import { useRouter } from 'expo-router';
 import { useDispatch, useSelector } from 'react-redux';
 import { logout } from '../../../src/store/authSlice';
@@ -277,282 +279,255 @@ export default function DriverDashboard() {
     );
   }
 
+  // MAIN SCREEN WITH SAFEAREAVIEW
   return (
-    <Animated.View
-      style={[
-        styles.container,
-        { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }
-      ]}
+    <SafeAreaView
+      style={{ flex: 1, backgroundColor: theme.colors.background.primary }}
+      edges={['top', 'left', 'right']}
     >
       <StatusBar barStyle="dark-content" backgroundColor={theme.colors.background.secondary} />
-
-      {/* Enhanced Header */}
-      <View style={styles.header}>
-        <View style={styles.headerContent}>
-          <View style={styles.greetingSection}>
-            <Text style={styles.greeting}>{getGreeting()}</Text>
-            <Text style={styles.driverName}>{user?.username || 'Driver'}! 👋</Text>
-          </View>
-
-          <TouchableOpacity onPress={handleLogout} style={styles.logoutButton}>
-            <Text style={styles.logoutIcon}>🚪</Text>
-            <Text style={styles.logoutButtonText}>Logout</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Status Indicator */}
-        {driverStatus && (
-          <View style={styles.statusContainer}>
-            <View
-              style={[
-                styles.statusDot,
-                { backgroundColor: getStatusColor(driverStatus.availabilityStatus) }
-              ]}
-            />
-            <Text style={styles.statusText}>
-              {driverStatus.statusMessage}
-            </Text>
-            <Text style={styles.currentTime}>
-              {currentTime.toLocaleTimeString('en-US', {
-                hour: '2-digit',
-                minute: '2-digit'
-              })}
-            </Text>
-          </View>
-        )}
-      </View>
-
-      <ScrollView
-        style={styles.scrollContainer}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={() => fetchDashboardData(true)}
-            colors={[theme.colors.primary]}
-            tintColor={theme.colors.primary}
-          />
-        }
-        showsVerticalScrollIndicator={false}
+      <Animated.View
+        style={[
+          styles.container,
+          { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }
+        ]}
       >
-        {/* 🆕 Queue Status Card - Shows only when driver is in queue */}
-        <QueueStatusCard
-          onRefresh={() => fetchDashboardData(true)}
-          onLeaveQueue={handleLeaveQueue}
-        />
-
-        {/* Declare Availability Button */}
-        <View style={styles.declareSection}>
-          <TouchableOpacity
-            style={styles.declareButton}
-            onPress={() => router.push('/(driver)/declare-availability')}
-          >
-            <Text style={styles.declareButtonIcon}>📍</Text>
-            <Text style={styles.declareButtonText}>Declare Availability</Text>
-          </TouchableOpacity>
+        {/* ---- The rest of your JSX remains unchanged ---- */}
+        {/* Enhanced Header */}
+        <View style={styles.header}>
+          <View style={styles.headerContent}>
+            <View style={styles.greetingSection}>
+              <Text style={styles.greeting}>{getGreeting()}</Text>
+              <Text style={styles.driverName}>{user?.username || 'Driver'}! 👋</Text>
+            </View>
+            <TouchableOpacity onPress={handleLogout} style={styles.logoutButton}>
+              <Text style={styles.logoutIcon}>🚪</Text>
+              <Text style={styles.logoutButtonText}>Logout</Text>
+            </TouchableOpacity>
+          </View>
+          {/* Status Indicator */}
+          {driverStatus && (
+            <View style={styles.statusContainer}>
+              <View
+                style={[
+                  styles.statusDot,
+                  { backgroundColor: getStatusColor(driverStatus.availabilityStatus) }
+                ]}
+              />
+              <Text style={styles.statusText}>
+                {driverStatus.statusMessage}
+              </Text>
+              <Text style={styles.currentTime}>
+                {currentTime.toLocaleTimeString('en-US', {
+                  hour: '2-digit',
+                  minute: '2-digit'
+                })}
+              </Text>
+            </View>
+          )}
         </View>
-
-        {/* Today's Stats */}
-        {earnings && (
-          <View style={styles.statsSection}>
-            <Text style={styles.sectionTitle}>Today's Performance</Text>
-            <View style={styles.statsContainer}>
-              <View style={styles.statCard}>
-                <Text style={styles.statNumber}>
-                  {formatCurrency(earnings.totalEarnings || 0)}
-                </Text>
-                <Text style={styles.statLabel}>Today's Earnings</Text>
-                <Text style={styles.statTrend}>+12% from yesterday</Text>
-              </View>
-
-              <View style={styles.statCard}>
-                <Text style={styles.statNumber}>{earnings.totalTrips || 0}</Text>
-                <Text style={styles.statLabel}>Trips Today</Text>
-                <Text style={styles.statTrend}>
-                  {earnings.totalTrips > 0 ? 'Great job!' : 'Get started!'}
-                </Text>
-              </View>
-
-              <View style={styles.statCard}>
-                <Text style={styles.statNumber}>
-                  {driverStatus?.profile?.rating?.toFixed(1) || '5.0'}⭐
-                </Text>
-                <Text style={styles.statLabel}>Rating</Text>
-                <Text style={styles.statTrend}>Excellent!</Text>
+        <ScrollView
+          style={styles.scrollContainer}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={() => fetchDashboardData(true)}
+              colors={[theme.colors.primary]}
+              tintColor={theme.colors.primary}
+            />
+          }
+          showsVerticalScrollIndicator={false}
+        >
+          <QueueStatusCard
+            onRefresh={() => fetchDashboardData(true)}
+            onLeaveQueue={handleLeaveQueue}
+          />
+          <View style={styles.declareSection}>
+            <TouchableOpacity
+              style={styles.declareButton}
+              onPress={() => router.push('/(driver)/declare-availability')}
+            >
+              <Text style={styles.declareButtonIcon}>📍</Text>
+              <Text style={styles.declareButtonText}>Declare Availability</Text>
+            </TouchableOpacity>
+          </View>
+          {earnings && (
+            <View style={styles.statsSection}>
+              <Text style={styles.sectionTitle}>Today's Performance</Text>
+              <View style={styles.statsContainer}>
+                <View style={styles.statCard}>
+                  <Text style={styles.statNumber}>
+                    {formatCurrency(earnings.totalEarnings || 0)}
+                  </Text>
+                  <Text style={styles.statLabel}>Today's Earnings</Text>
+                  <Text style={styles.statTrend}>+12% from yesterday</Text>
+                </View>
+                <View style={styles.statCard}>
+                  <Text style={styles.statNumber}>{earnings.totalTrips || 0}</Text>
+                  <Text style={styles.statLabel}>Trips Today</Text>
+                  <Text style={styles.statTrend}>
+                    {earnings.totalTrips > 0 ? 'Great job!' : 'Get started!'}
+                  </Text>
+                </View>
+                <View style={styles.statCard}>
+                  <Text style={styles.statNumber}>
+                    {driverStatus?.profile?.rating?.toFixed(1) || '5.0'}⭐
+                  </Text>
+                  <Text style={styles.statLabel}>Rating</Text>
+                  <Text style={styles.statTrend}>Excellent!</Text>
+                </View>
               </View>
             </View>
-          </View>
-        )}
-
-        {/* Quick Actions */}
-        <View style={styles.quickActionsSection}>
-          <Text style={styles.sectionTitle}>Quick Actions</Text>
-          <View style={styles.quickActions}>
-            <TouchableOpacity
-              style={styles.quickActionButton}
-              onPress={() => router.push('/(driver)/trips')}
-            >
-              <Text style={styles.quickActionIcon}>📋</Text>
-              <Text style={styles.quickActionText}>Trip History</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.quickActionButton}
-              onPress={() => router.push('/(driver)/earnings')}
-            >
-              <Text style={styles.quickActionIcon}>💰</Text>
-              <Text style={styles.quickActionText}>Earnings</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.quickActionButton}
-              onPress={() => router.push('/(driver)/profile')}
-            >
-              <Text style={styles.quickActionIcon}>👤</Text>
-              <Text style={styles.quickActionText}>Profile</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* Active Trip Section - REMOVED PERMANENTLY */}
-
-        {/* Recent Trips History */}
-        {recentTrips && recentTrips.length > 0 && (
-          <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Recent Trips</Text>
-              <TouchableOpacity onPress={() => router.push('/(driver)/trips')}>
-                <Text style={styles.viewAllText}>View All →</Text>
+          )}
+          <View style={styles.quickActionsSection}>
+            <Text style={styles.sectionTitle}>Quick Actions</Text>
+            <View style={styles.quickActions}>
+              <TouchableOpacity
+                style={styles.quickActionButton}
+                onPress={() => router.push('/(driver)/trips')}
+              >
+                <Text style={styles.quickActionIcon}>📋</Text>
+                <Text style={styles.quickActionText}>Trip History</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.quickActionButton}
+                onPress={() => router.push('/(driver)/earnings')}
+              >
+                <Text style={styles.quickActionIcon}>💰</Text>
+                <Text style={styles.quickActionText}>Earnings</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.quickActionButton}
+                onPress={() => router.push('/(driver)/profile')}
+              >
+                <Text style={styles.quickActionIcon}>👤</Text>
+                <Text style={styles.quickActionText}>Profile</Text>
               </TouchableOpacity>
             </View>
-
-            {recentTrips.slice(0, 3).map((trip, index) => (
-              <View key={trip.id || index} style={styles.recentTripCard}>
-                <View style={styles.recentTripHeader}>
-                  <View style={styles.recentTripRoute}>
-                    <Text style={styles.recentTripText}>
-                      {trip?.route?.startStation?.name || 'Unknown'} → {trip?.route?.endStation?.name || 'Unknown'}
-                    </Text>
-                    <Text style={styles.recentTripDate}>
-                      {trip?.createdAt ? new Date(trip.createdAt).toLocaleDateString() : ''}
-                    </Text>
-                  </View>
-
-                  <View style={styles.recentTripDetails}>
-                    <Text style={styles.recentTripEarnings}>
-                      {formatCurrency((trip?.currentPrice ?? 0) * 0.8 || 0)}
-                    </Text>
-                    <View style={[
-                      styles.recentTripStatus,
-                      { backgroundColor: getStatusColor(trip?.status || '') }
-                    ]}>
-                      <Text style={styles.recentTripStatusText}>
-                        {trip?.status || 'N/A'}
+          </View>
+          {recentTrips && recentTrips.length > 0 && (
+            <View style={styles.section}>
+              <View style={styles.sectionHeader}>
+                <Text style={styles.sectionTitle}>Recent Trips</Text>
+                <TouchableOpacity onPress={() => router.push('/(driver)/trips')}>
+                  <Text style={styles.viewAllText}>View All →</Text>
+                </TouchableOpacity>
+              </View>
+              {recentTrips.slice(0, 3).map((trip, index) => (
+                <View key={trip.id || index} style={styles.recentTripCard}>
+                  <View style={styles.recentTripHeader}>
+                    <View style={styles.recentTripRoute}>
+                      <Text style={styles.recentTripText}>
+                        {trip?.route?.startStation?.name || 'Unknown'} → {trip?.route?.endStation?.name || 'Unknown'}
                       </Text>
+                      <Text style={styles.recentTripDate}>
+                        {trip?.createdAt ? new Date(trip.createdAt).toLocaleDateString() : ''}
+                      </Text>
+                    </View>
+                    <View style={styles.recentTripDetails}>
+                      <Text style={styles.recentTripEarnings}>
+                        {formatCurrency((trip?.currentPrice ?? 0) * 0.8 || 0)}
+                      </Text>
+                      <View style={[
+                        styles.recentTripStatus,
+                        { backgroundColor: getStatusColor(trip?.status || '') }
+                      ]}>
+                        <Text style={styles.recentTripStatusText}>
+                          {trip?.status || 'N/A'}
+                        </Text>
+                      </View>
                     </View>
                   </View>
                 </View>
+              ))}
+            </View>
+          )}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>This Week Summary</Text>
+            <View style={styles.weeklyCard}>
+              <View style={styles.weeklyStats}>
+                <View style={styles.weeklyStat}>
+                  <Text style={styles.weeklyStatNumber}>
+                    {formatCurrency(((earnings?.totalEarnings ?? 0) * 6.2) || 0)}
+                  </Text>
+                  <Text style={styles.weeklyStatLabel}>Weekly Earnings</Text>
+                </View>
+                <View style={styles.weeklyStat}>
+                  <Text style={styles.weeklyStatNumber}>
+                    {(earnings?.totalTrips ?? 0) * 5}
+                  </Text>
+                  <Text style={styles.weeklyStatLabel}>Total Trips</Text>
+                </View>
               </View>
-            ))}
-          </View>
-        )}
-
-        {/* Weekly Summary */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>This Week Summary</Text>
-          <View style={styles.weeklyCard}>
-            <View style={styles.weeklyStats}>
-              <View style={styles.weeklyStat}>
-                <Text style={styles.weeklyStatNumber}>
-                  {formatCurrency(((earnings?.totalEarnings ?? 0) * 6.2) || 0)}
+              <View style={styles.weeklyProgress}>
+                <Text style={styles.weeklyProgressLabel}>Weekly Goal Progress</Text>
+                <View style={styles.progressBar}>
+                  <View style={[
+                    styles.progressFill,
+                    {
+                      width: `${Math.min((((earnings?.totalEarnings ?? 0) * 6.2) / 500) * 100, 100)}%`,
+                      backgroundColor: theme.colors.success
+                    }
+                  ]} />
+                </View>
+                <Text style={styles.weeklyProgressText}>
+                  {Math.round((((earnings?.totalEarnings ?? 0) * 6.2) / 500) * 100)}% of 500 TND goal
                 </Text>
-                <Text style={styles.weeklyStatLabel}>Weekly Earnings</Text>
               </View>
-
-              <View style={styles.weeklyStat}>
-                <Text style={styles.weeklyStatNumber}>
-                  {(earnings?.totalTrips ?? 0) * 5}
+            </View>
+          </View>
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>💡 Driver Tips</Text>
+            <View style={styles.tipsCard}>
+              <View style={styles.tipItem}>
+                <Text style={styles.tipIcon}>⏰</Text>
+                <Text style={styles.tipText}>
+                  Peak hours are 7-9 AM and 5-7 PM for maximum earnings
                 </Text>
-                <Text style={styles.weeklyStatLabel}>Total Trips</Text>
+              </View>
+              <View style={styles.tipItem}>
+                <Text style={styles.tipIcon}>⭐</Text>
+                <Text style={styles.tipText}>
+                  Maintain a 4.5+ rating to receive priority bookings
+                </Text>
+              </View>
+              <View style={styles.tipItem}>
+                <Text style={styles.tipIcon}>🚗</Text>
+                <Text style={styles.tipText}>
+                  Keep your vehicle clean and comfortable for better reviews
+                </Text>
               </View>
             </View>
-
-            <View style={styles.weeklyProgress}>
-              <Text style={styles.weeklyProgressLabel}>Weekly Goal Progress</Text>
-              <View style={styles.progressBar}>
-                <View style={[
-                  styles.progressFill,
-                  {
-                    width: `${Math.min((((earnings?.totalEarnings ?? 0) * 6.2) / 500) * 100, 100)}%`,
-                    backgroundColor: theme.colors.success
-                  }
-                ]} />
-              </View>
-              <Text style={styles.weeklyProgressText}>
-                {Math.round((((earnings?.totalEarnings ?? 0) * 6.2) / 500) * 100)}% of 500 TND goal
-              </Text>
+          </View>
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Need Help?</Text>
+            <View style={styles.supportCard}>
+              <TouchableOpacity
+                style={styles.supportButton}
+                onPress={() => {
+                  Alert.alert(
+                    'Driver Support',
+                    'For assistance, please contact:\n📧 drivers@louagi.com\n📞 +216 XX XXX XXX'
+                  );
+                }}
+              >
+                <Text style={styles.supportIcon}>💬</Text>
+                <Text style={styles.supportText}>Contact Support</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.supportButton}
+                onPress={() => {
+                  Alert.alert('FAQ', 'FAQ section coming soon!');
+                }}
+              >
+                <Text style={styles.supportIcon}>❓</Text>
+                <Text style={styles.supportText}>FAQ</Text>
+              </TouchableOpacity>
             </View>
           </View>
-        </View>
-
-        {/* Driver Tips */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>💡 Driver Tips</Text>
-          <View style={styles.tipsCard}>
-            <View style={styles.tipItem}>
-              <Text style={styles.tipIcon}>⏰</Text>
-              <Text style={styles.tipText}>
-                Peak hours are 7-9 AM and 5-7 PM for maximum earnings
-              </Text>
-            </View>
-
-            <View style={styles.tipItem}>
-              <Text style={styles.tipIcon}>⭐</Text>
-              <Text style={styles.tipText}>
-                Maintain a 4.5+ rating to receive priority bookings
-              </Text>
-            </View>
-
-            <View style={styles.tipItem}>
-              <Text style={styles.tipIcon}>🚗</Text>
-              <Text style={styles.tipText}>
-                Keep your vehicle clean and comfortable for better reviews
-              </Text>
-            </View>
-          </View>
-        </View>
-
-        {/* Support Section */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Need Help?</Text>
-          <View style={styles.supportCard}>
-            <TouchableOpacity
-              style={styles.supportButton}
-              onPress={() => {
-                Alert.alert(
-                  'Driver Support',
-                  'For assistance, please contact:\n📧 drivers@louagi.com\n📞 +216 XX XXX XXX'
-                );
-              }}
-            >
-              <Text style={styles.supportIcon}>💬</Text>
-              <Text style={styles.supportText}>Contact Support</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.supportButton}
-              onPress={() => {
-                Alert.alert('FAQ', 'FAQ section coming soon!');
-              }}
-            >
-              <Text style={styles.supportIcon}>❓</Text>
-              <Text style={styles.supportText}>FAQ</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* Bottom spacing */}
-        <View style={{ height: 20 }} />
-      </ScrollView>
-    </Animated.View>
+          <View style={{ height: 20 }} />
+        </ScrollView>
+      </Animated.View>
+    </SafeAreaView>
   );
 }

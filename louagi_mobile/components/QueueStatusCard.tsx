@@ -13,10 +13,6 @@ import { getDriverStatus } from '../src/services/api';
 interface QueueInfo {
   position: number;
   status: string;
-  waitingTimeMinutes: number;
-  estimatedDepartureTime: string;
-  formattedDepartureTime: string;
-  minutesUntilDeparture: number;
   station: string;
   destination: string;
   schedule: string;
@@ -39,29 +35,23 @@ export const QueueStatusCard: React.FC<QueueStatusCardProps> = ({
 
   const fetchQueueStatus = async (isRefresh = false) => {
     try {
-      if (isRefresh) {
-        setRefreshing(true);
-      } else {
-        setLoading(true);
-      }
+      if (isRefresh) setRefreshing(true);
+      else setLoading(true);
 
       const response = await getDriverStatus();
-      
+
       if (response.success && response.data) {
         const { queueEntry } = response.data;
-        
         if (queueEntry) {
           setInQueue(true);
           setQueueInfo({
             position: queueEntry.position || 0,
             status: queueEntry.status || 'waiting',
-            waitingTimeMinutes: Math.round((new Date().getTime() - new Date(queueEntry.joinedAt).getTime()) / (1000 * 60)),
-            estimatedDepartureTime: queueEntry.estimatedDepartureTime || '',
-            formattedDepartureTime: queueEntry.formattedDepartureTime || 'Calculating...',
-            minutesUntilDeparture: queueEntry.minutesUntilDeparture || 0,
             station: queueEntry.station?.name || 'Unknown Station',
             destination: queueEntry.destination?.description || 'Unknown Destination',
-            schedule: queueEntry.schedule ? `${queueEntry.schedule.startTime} - ${queueEntry.schedule.endTime}` : 'No Schedule',
+            schedule: queueEntry.schedule
+              ? `${queueEntry.schedule.startTime} - ${queueEntry.schedule.endTime}`
+              : 'No Schedule',
             scheduleStatus: queueEntry.scheduleStatus || 'active',
           });
         } else {
@@ -84,12 +74,9 @@ export const QueueStatusCard: React.FC<QueueStatusCardProps> = ({
 
   useEffect(() => {
     fetchQueueStatus();
-    
-    // Auto-refresh every 30 seconds
     const interval = setInterval(() => {
       fetchQueueStatus(true);
     }, 30000);
-
     return () => clearInterval(interval);
   }, []);
 
@@ -177,10 +164,6 @@ export const QueueStatusCard: React.FC<QueueStatusCardProps> = ({
             <Text style={styles.positionLabel}>in queue</Text>
           </View>
         </View>
-        <View style={styles.positionRight}>
-          <Text style={styles.timeValue}>{queueInfo.formattedDepartureTime}</Text>
-          <Text style={styles.timeLabel}>Estimated departure</Text>
-        </View>
       </View>
 
       {/* Route Info */}
@@ -191,18 +174,6 @@ export const QueueStatusCard: React.FC<QueueStatusCardProps> = ({
         <Text style={styles.scheduleText}>
           🕐 {queueInfo.schedule}
         </Text>
-      </View>
-
-      {/* Wait Time */}
-      <View style={styles.waitTimeSection}>
-        <View style={styles.waitTimeItem}>
-          <Text style={styles.waitTimeValue}>{queueInfo.waitingTimeMinutes}m</Text>
-          <Text style={styles.waitTimeLabel}>Waiting time</Text>
-        </View>
-        <View style={styles.waitTimeItem}>
-          <Text style={styles.waitTimeValue}>{queueInfo.minutesUntilDeparture}m</Text>
-          <Text style={styles.waitTimeLabel}>Until departure</Text>
-        </View>
       </View>
 
       {/* Actions */}
@@ -286,12 +257,12 @@ const styles = StyleSheet.create({
   },
   positionSection: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
     backgroundColor: '#f8f9fa',
     borderRadius: 8,
     padding: 16,
     marginBottom: 16,
+    justifyContent: 'flex-start',
   },
   positionLeft: {
     flexDirection: 'row',
@@ -310,20 +281,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#666',
   },
-  positionRight: {
-    alignItems: 'flex-end',
-  },
-  timeValue: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#333',
-    textAlign: 'right',
-  },
-  timeLabel: {
-    fontSize: 12,
-    color: '#666',
-    marginTop: 2,
-  },
   routeSection: {
     marginBottom: 16,
   },
@@ -336,27 +293,6 @@ const styles = StyleSheet.create({
   scheduleText: {
     fontSize: 12,
     color: '#666',
-  },
-  waitTimeSection: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    backgroundColor: '#e3f2fd',
-    borderRadius: 8,
-    paddingVertical: 12,
-    marginBottom: 16,
-  },
-  waitTimeItem: {
-    alignItems: 'center',
-  },
-  waitTimeValue: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#007bff',
-  },
-  waitTimeLabel: {
-    fontSize: 12,
-    color: '#0056b3',
-    marginTop: 2,
   },
   actions: {
     flexDirection: 'row',

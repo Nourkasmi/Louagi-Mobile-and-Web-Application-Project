@@ -337,57 +337,6 @@ export default function BookingDetailScreen() {
                     </View>
                 </View>
 
-                {/* Driver Information - Show real driver data */}
-                {driverInfo ? (
-                    <View style={styles.card}>
-                        <Text style={styles.cardTitle}>Driver Information</Text>
-
-                        <View style={styles.driverInfo}>
-                            <View style={styles.driverAvatar}>
-                                <Text style={styles.driverInitial}>
-                                    {driverInfo.name ? driverInfo.name.charAt(0).toUpperCase() : 'D'}
-                                </Text>
-                            </View>
-
-                            <View style={styles.driverDetails}>
-                                <Text style={styles.driverName}>
-                                    {driverInfo.name || 'Driver'}
-                                </Text>
-
-                                <View style={styles.driverMeta}>
-                                    {driverInfo.rating && (
-                                        <>
-                                            <MaterialIcons name="star" size={16} color={theme.colors.warning} />
-                                            <Text style={styles.driverRating}>
-                                                {driverInfo.rating.toFixed(1)}
-                                            </Text>
-                                        </>
-                                    )}
-                                    {driverInfo.experience && (
-                                        <Text style={styles.driverExperience}>
-                                            {driverInfo.rating ? ' • ' : ''}{driverInfo.experience} years experience
-                                        </Text>
-                                    )}
-                                </View>
-
-                                <Text style={styles.vehicleInfo}>
-                                    {driverInfo.vehicleType || 'Vehicle'} • {driverInfo.vehicleCapacity || 4} seats
-                                </Text>
-                            </View>
-                        </View>
-                    </View>
-                ) : (
-                    <View style={styles.card}>
-                        <Text style={styles.cardTitle}>Driver Information</Text>
-                        <View style={styles.driverPendingInfo}>
-                            <MaterialIcons name="schedule" size={24} color={theme.colors.text.secondary} />
-                            <Text style={styles.driverPendingText}>
-                                Driver will be assigned closer to departure time
-                            </Text>
-                        </View>
-                    </View>
-                )}
-
                 {/* Payment Information */}
                 <View style={styles.card}>
                     <Text style={styles.cardTitle}>Payment Details</Text>

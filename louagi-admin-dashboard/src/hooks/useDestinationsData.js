@@ -1,4 +1,4 @@
-// src/hooks/useDestinationsData.js
+// src/hooks/useDestinationsData.js - FIXED VERSION
 import { useState, useEffect, useCallback } from 'react';
 import { showToast } from '../utils/toast';
 
@@ -185,27 +185,23 @@ export const useDestinationsData = () => {
         }
     };
 
-    // Load initial data
-    useEffect(() => {
-        const loadData = async () => {
-            await Promise.all([
-                fetchStations(),
-                fetchDestinations()
-            ]);
-        };
-        loadData();
-    }, [fetchStations, fetchDestinations]);
+    // --- FIXED EFFECTS ---
 
-    // Refetch when filters change
+    // Load initial data (mount only)
     useEffect(() => {
-        if (!loading) {
-            const timer = setTimeout(() => {
-                fetchDestinations();
-            }, 300); // Debounce search
+        fetchStations();
+        fetchDestinations();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
-            return () => clearTimeout(timer);
-        }
-    }, [searchTerm, filters, currentPage, fetchDestinations, loading]);
+    // Refetch destinations on search/filter/page change (no loading dependency!)
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            fetchDestinations();
+        }, 300); // Debounce
+
+        return () => clearTimeout(timer);
+    }, [searchTerm, filters, currentPage, fetchDestinations]);
 
     return {
         // Data

@@ -23,7 +23,38 @@ import { getStations, getMyBookings, type Station, type Booking } from '../../..
 import { RootState } from '../../../src/store/store';
 import { styles } from './index.styles';
 
+
 const { width, height } = Dimensions.get('window');
+
+// Helper to get real route names, copied from details page logic
+const getRouteNames = (booking) => {
+    if (!booking?.trip?.route) {
+        return { startName: null, endName: null };
+    }
+    const startName = booking.trip.route.startStation?.name || null;
+    const endName = booking.trip.route.endStation?.name || null;
+
+    if (startName && endName) {
+        return { startName, endName };
+    }
+    // Try to parse from route description if stations are partially missing
+    if (booking.trip.route.description) {
+        const patterns = [
+            /(.+?)\s*(?:to|→|-|->|–)\s*(.+)/i,
+            /from\s+(.+?)\s+to\s+(.+)/i,
+        ];
+        for (const pattern of patterns) {
+            const match = booking.trip.route.description.match(pattern);
+            if (match && match[1] && match[2]) {
+                return {
+                    startName: startName || match[1].trim(),
+                    endName: endName || match[2].trim()
+                };
+            }
+        }
+    }
+    return { startName, endName };
+};
 
 export default function PassengerHomeScreen() {
   // State management
@@ -610,7 +641,7 @@ export default function PassengerHomeScreen() {
 
           <TouchableOpacity
             style={modernStyles.quickAction}
-            onPress={() => Alert.alert('Support', 'Contact: support@louagi.com\nPhone: +216 XX XXX XXX')}
+            onPress={() => Alert.alert('Support', 'Contact: support@louagi.com\nPhone: +216 58 996 355')}
           >
             <MaterialIcons name="help-outline" size={18} color="#ffffff" />
             <Text style={modernStyles.quickActionText}>Help</Text>
@@ -734,38 +765,6 @@ export default function PassengerHomeScreen() {
           )}
         </Animated.View>
       </View>
-
-      {/* Environmental Impact */}
-      {(realStats.totalTrips > 0 || realStats.confirmedTrips > 0) && (
-        <View style={modernStyles.impactRow}>
-          <View style={modernStyles.impactItem}>
-            <MaterialIcons name="eco" size={16} color="#4caf50" />
-            <Text style={modernStyles.impactText}>
-              {realStats.co2Saved}kg CO₂ saved
-            </Text>
-          </View>
-          <View style={modernStyles.impactItem}>
-            <MaterialIcons name="savings" size={16} color="#2196f3" />
-            <Text style={modernStyles.impactText}>
-              ${realStats.moneySaved} saved vs taxi
-            </Text>
-          </View>
-        </View>
-      )}
-
-      {/* Pending Payments Alert */}
-      {realStats.pendingPayments > 0 && (
-        <TouchableOpacity
-          style={modernStyles.pendingAlert}
-          onPress={() => router.push('/(passenger)/bookings')}
-        >
-          <MaterialIcons name="payment" size={16} color="#dc3545" />
-          <Text style={modernStyles.pendingText}>
-            {realStats.pendingPayments} booking{realStats.pendingPayments > 1 ? 's' : ''} need payment
-          </Text>
-          <MaterialIcons name="arrow-forward" size={16} color="#dc3545" />
-        </TouchableOpacity>
-      )}
 
       {/* Stats footer */}
       <View style={modernStyles.statsFooter}>
@@ -894,9 +893,14 @@ export default function PassengerHomeScreen() {
                 <View style={modernStyles.activityLeft}>
                   <View style={[modernStyles.statusDot, { backgroundColor: getStatusColor(status) }]} />
                   <View style={modernStyles.bookingRoute}>
-                    <Text style={modernStyles.activityTitle}>
-                      {booking.trip?.route?.startStation?.name || 'Unknown'} → {booking.trip?.route?.endStation?.name || 'Unknown'}
-                    </Text>
+                  {(() => {
+  const { startName, endName } = getRouteNames(booking);
+  return (
+    <Text style={modernStyles.activityTitle}>
+      {startName && endName ? `${startName} → ${endName}` : 'Route unavailable'}
+    </Text>
+  );
+})()}
                     <Text style={modernStyles.activitySubtitle}>
                       {formatDate(booking.trip?.departureTime || booking.createdAt)} • {booking.seats} seat{booking.seats > 1 ? 's' : ''}
                     </Text>

@@ -5,7 +5,7 @@ const { logger } = require('../utils/logger');
 const { v4: uuidv4 } = require('uuid');
 
 /**
- * 🟢 Helper: Move all end-of-day leftovers to front of tomorrow's queue, per (station, destination).
+ *  Helper: Move all end-of-day leftovers to front of tomorrow's queue, per (station, destination).
  */
 const moveAllEndOfDayLeftoversToFront = async (queueEntries) => {
   if (!queueEntries.length) return;
@@ -71,7 +71,7 @@ const moveAllEndOfDayLeftoversToFront = async (queueEntries) => {
 };
 
 /**
- * ✅ UPDATED: End of schedule cleanup (runs at 10:00 PM and 1:00 AM daily)
+ *  End of schedule cleanup (runs at 10:00 PM and 1:00 AM daily)
  * Move leftovers to tomorrow’s queue (at front, in order)
  */
 cron.schedule('0 22 * * *', async () => {
@@ -137,7 +137,7 @@ cron.schedule('*/30 * * * *', async () => {
 });
 
 /**
- * ✅ Health check for system components (runs every 5 minutes)
+ *  Health check for system components (runs every 5 minutes)
  */
 cron.schedule('*/5 * * * *', async () => {
   try {
@@ -181,7 +181,7 @@ cron.schedule('*/5 * * * *', async () => {
 });
 
 /**
- * ✅ Weekly statistics report (runs every Sunday at 23:00)
+ *  Weekly statistics report (runs every Sunday at 23:00)
  */
 cron.schedule('0 23 * * 0', async () => {
   try {
@@ -242,12 +242,12 @@ cron.schedule('0 23 * * 0', async () => {
   }
 });
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// 🕕 END OF SCHEDULE DAY LOGIC
-// ═══════════════════════════════════════════════════════════════════════════════
+// 
+//  END OF SCHEDULE DAY LOGIC
+// 
 
 /**
- * ✅ UPDATED: Handle what happens when schedule day ends
+ *  UPDATED: Handle what happens when schedule day ends
  */
 const handleEndOfScheduleDay = async () => {
   const now = new Date();
@@ -275,7 +275,7 @@ const handleEndOfScheduleDay = async () => {
 };
 
 /**
- * ✅ KEEP ALL REMAINING FUNCTIONS AS BEFORE (for endpoints, manual triggers, helpers, etc.)
+ *  KEEP ALL REMAINING FUNCTIONS AS BEFORE (for endpoints, manual triggers, helpers, etc.)
  */
 
 const moveDriverToTomorrow = async (queueEntry, trip, reason) => {

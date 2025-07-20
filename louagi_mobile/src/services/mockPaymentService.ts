@@ -1,4 +1,4 @@
-// src/services/mockPaymentService.ts - FIXED Working Mock Payment
+// src/services/mockPaymentService.ts 
 import { Alert, Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React from 'react';

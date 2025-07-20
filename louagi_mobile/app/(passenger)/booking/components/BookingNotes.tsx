@@ -1,4 +1,4 @@
-// 📁 app/(passenger)/booking/components/BookingNotes.tsx - FIXED VERSION
+//  app/(passenger)/booking/components/BookingNotes.tsx 
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';

@@ -1,4 +1,5 @@
-// app/(passenger)/bookings/[id].tsx - FIXED TO SHOW REAL DATA ONLY
+// app/(passenger)/bookings/[id].tsx 
+
 import React, { useEffect, useState } from 'react';
 import {
     View,

@@ -1,4 +1,5 @@
-// app/(driver)/declare-availability/index.tsx - FIXED VERSION
+// app/(driver)/declare-availability/index.tsx 
+
 import React, { useEffect, useState } from 'react';
 import {
   View,

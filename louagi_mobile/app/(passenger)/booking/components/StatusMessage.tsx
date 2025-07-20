@@ -1,4 +1,5 @@
-// 📁 app/(passenger)/booking/components/StatusMessage.tsx - STATUS MESSAGE COMPONENT
+//  app/(passenger)/booking/components/StatusMessage.tsx 
+
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';

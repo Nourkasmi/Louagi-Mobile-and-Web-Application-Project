@@ -1,4 +1,4 @@
-// 📁 app/register.tsx - FINAL, FULL, UNSKIPPED Registration Screen
+// 📁 app/register.tsx 
 
 import React, { useState, useRef, useCallback, useMemo } from 'react';
 import {

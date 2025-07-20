@@ -1,4 +1,5 @@
-// 📁 app/register.styles.ts - ENHANCED Register Styles with Clean Architecture
+// 📁 app/register.styles.ts 
+
 import { StyleSheet, Dimensions, Platform } from 'react-native';
 import { theme } from '../src/styles/theme';
 

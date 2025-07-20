@@ -1,4 +1,5 @@
-// app/(passenger)/home/components/AnalyticsCard.tsx - Enhanced Analytics Component
+// app/(passenger)/home/components/AnalyticsCard.tsx 
+
 import React, { useState, useEffect } from 'react';
 import {
     View,

@@ -1,8 +1,9 @@
-// 📁 src/store/store.ts - FINAL FIXED Redux Store with NaN/State Validation
+// src/store/store.ts 
+
 import { configureStore } from '@reduxjs/toolkit';
 import authReducer from './authSlice';
 
-// NaN detection middleware
+
 const nanDetectionMiddleware = (store: any) => (next: any) => (action: any) => {
   const checkForNaN = (obj: any, path = ''): boolean => {
     if (obj === null || obj === undefined) return false;

@@ -1,7 +1,7 @@
-// 📁 app/(driver)/dashboard/index.style.ts - REPLACE ENTIRE FILE WITH THIS
+// 📁 app/(driver)/dashboard/index.style.ts 
+
 import { StyleSheet, Dimensions, Platform } from 'react-native';
 import { theme } from '../../../src/styles/theme';
-import { sharedComponents } from '../../../src/styles/shared/components';
 
 const { width } = Dimensions.get('window');
 

@@ -1,4 +1,5 @@
-// 📁 app/(passenger)/booking/hooks/useBookingValidation.ts - VALIDATION HOOK
+//  app/(passenger)/booking/hooks/useBookingValidation.ts 
+
 import { useCallback } from 'react';
 import type { Trip } from '../../../../src/services/api';
 

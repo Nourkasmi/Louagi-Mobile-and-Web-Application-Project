@@ -1,9 +1,9 @@
-// app/(passenger)/bookings/utils/statusUtils.ts - Simple Status Helper Functions
+// app/(passenger)/bookings/utils/statusUtils.ts 
 import { Booking } from '../../../../src/services/api';
 import { BookingStatus } from '../types/booking.types';
 
 /**
- * 🔧 FIXED: Get the real booking status based on payment and trip status
+ *  Get the real booking status based on payment and trip status
  * This is the single source of truth for status determination
  */
 export const getActualBookingStatus = (booking: Booking): BookingStatus => {
@@ -112,7 +112,7 @@ export const getStatusDisplayInfo = (booking: Booking) => {
 };
 
 /**
- * 🔧 FIXED: Calculate real stats from bookings array
+ *  Calculate real stats from bookings array
  */
 export const calculateBookingStats = (bookings: Booking[]) => {
     const stats = {

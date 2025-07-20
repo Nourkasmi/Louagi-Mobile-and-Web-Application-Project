@@ -1,4 +1,5 @@
-// 📁 app/(passenger)/booking/components/SpecialRequestsInput.tsx - SPECIAL REQUESTS INPUT
+// app/(passenger)/booking/components/SpecialRequestsInput.tsx 
+
 import React from 'react';
 import { View, Text, TextInput, StyleSheet } from 'react-native';
 import { useBookingFlow } from '../hooks/useBookingFlow';

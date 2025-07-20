@@ -1,4 +1,4 @@
-// 📁 louagi_mobile/app/(driver)/dashboard/index.tsx - UPDATED: SafeAreaView Fix
+//  louagi_mobile/app/(driver)/dashboard/index.tsx 
 
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
@@ -12,7 +12,7 @@ import {
   Animated,
   StatusBar,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context'; // <-- ADDED
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useDispatch, useSelector } from 'react-redux';
 import { logout } from '../../../src/store/authSlice';
@@ -48,7 +48,7 @@ export default function DriverDashboard() {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [isMounted, setIsMounted] = useState(false);
 
-  // 🔧 FIX: Check authentication only after component mounts
+  //  Check authentication only after component mounts
   useEffect(() => {
     setIsMounted(true);
   }, []);
@@ -112,7 +112,7 @@ export default function DriverDashboard() {
     );
   };
 
-  // 🆕 Handle leave queue function
+  // Handle leave queue function
   const handleLeaveQueue = async () => {
     try {
       const response = await leaveQueue();

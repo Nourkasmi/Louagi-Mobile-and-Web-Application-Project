@@ -1,4 +1,5 @@
-// app/(passenger)/search/index.tsx - UPDATED: Direct Station Search
+// app/(passenger)/search/index.tsx 
+
 import React, { useEffect, useState, useCallback } from 'react';
 import {
   View,

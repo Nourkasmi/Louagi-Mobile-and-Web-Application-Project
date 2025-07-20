@@ -1,4 +1,4 @@
-// 📁 src/styles/theme/typography.ts
+//  src/styles/theme/typography.ts
 export const typography = {
   // Font Sizes
   fontSize: {

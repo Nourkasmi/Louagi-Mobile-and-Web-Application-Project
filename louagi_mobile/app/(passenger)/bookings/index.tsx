@@ -1,5 +1,4 @@
-// app/(passenger)/bookings/index.tsx - SIMPLIFIED VERSION
-// Replacing your existing complex version with simple paid bookings only
+// app/(passenger)/bookings/index.tsx 
 
 import React, { useEffect, useState, useCallback } from 'react';
 import {

@@ -1,4 +1,5 @@
-// app/(passenger)/bookings/utils/bookingUtils.ts - Booking Utility Functions
+// app/(passenger)/bookings/utils/bookingUtils.ts 
+
 import { Booking } from '../../../../src/services/api';
 import { BookingStatus, BookingDisplayData } from '../types/booking.types';
 

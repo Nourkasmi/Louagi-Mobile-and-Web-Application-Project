@@ -1,10 +1,11 @@
-// 📁 app/index.tsx - UPDATED (Clean Logic Only)
+// 📁 app/index.tsx 
+
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'expo-router';
 import { useSelector } from 'react-redux';
 import { ActivityIndicator, View } from 'react-native';
 import { RootState } from '../src/store/store';
-import { styles } from './index.styles'; // 🆕 Import styles
+import { styles } from './index.styles'; 
 
 export default function Index() {
   const auth = useSelector((state: RootState) => state.auth);
@@ -36,8 +37,8 @@ export default function Index() {
           router.replace('/(driver)/dashboard');
           break;
         case 'admin':
-          // Future: router.replace('/(admin)/dashboard');
-          router.replace('/(driver)/dashboard'); // Fallback to driver for now
+
+          router.replace('/(driver)/dashboard'); 
           break;
         default:
           router.replace('/login');

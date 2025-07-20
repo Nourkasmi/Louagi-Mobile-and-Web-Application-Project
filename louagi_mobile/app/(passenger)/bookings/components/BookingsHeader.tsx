@@ -1,4 +1,5 @@
-// app/(passenger)/bookings/components/BookingsHeader.tsx - FIXED with Real Analytics
+// app/(passenger)/bookings/components/BookingsHeader.tsx 
+
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
@@ -12,7 +13,7 @@ interface BookingsHeaderProps {
 
 export default function BookingsHeader({ stats, onCreateBooking }: BookingsHeaderProps) {
 
-    // 🔧 FIXED: Calculate real analytics from actual data
+    //  Calculate real analytics from actual data
     const getAnalytics = () => {
         const { total, pending, confirmed, completed, cancelled } = stats;
 

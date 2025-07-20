@@ -1,4 +1,4 @@
-// app/(passenger)/home/components/WelcomeCard.tsx - Beautiful Welcome Card
+// app/(passenger)/home/components/WelcomeCard.tsx 
 import React, { useState, useEffect } from 'react';
 import {
     View,

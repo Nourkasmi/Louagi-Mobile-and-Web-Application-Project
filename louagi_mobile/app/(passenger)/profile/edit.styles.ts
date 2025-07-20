@@ -1,4 +1,5 @@
-// 📁 app/(passenger)/profile/edit.style.ts - UPDATED with Theme System
+//  app/(passenger)/profile/edit.style.ts 
+
 import { StyleSheet } from 'react-native';
 import { theme } from '../../../src/styles/theme';
 import { sharedComponents } from '../../../src/styles/shared/components';

@@ -1,4 +1,5 @@
-// app/(passenger)/search/trips.tsx - Simple Trips Listing
+// app/(passenger)/search/trips.tsx 
+
 import React, { useEffect, useState, useCallback } from 'react';
 import {
     View,

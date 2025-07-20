@@ -1,4 +1,5 @@
-// app/(passenger)/booking/hooks/usePaymentFlow.ts - FIXED Payment Hook
+// app/(passenger)/booking/hooks/usePaymentFlow.ts 
+
 import { useState } from 'react';
 import { useMockPaymentSheet, mockPaymentService } from '../../../../src/services/mockPaymentService';
 import type { Booking } from '../../../../src/services/api';

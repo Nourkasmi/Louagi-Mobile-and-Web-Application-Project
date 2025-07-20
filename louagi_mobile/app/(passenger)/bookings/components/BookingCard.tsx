@@ -1,4 +1,5 @@
-// app/(passenger)/bookings/components/BookingCard.tsx - FIXED with Real Status Display
+// app/(passenger)/bookings/components/BookingCard.tsx 
+
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
@@ -12,9 +13,8 @@ interface BookingCardProps {
     onAction: (action: BookingAction) => void;
 }
 
-// 🔧 FIXED: Real status determination function
 const getActualBookingStatus = (booking: Booking) => {
-    // Priority 1: Check payment status (most accurate indicator)
+
     if (booking.paymentStatus === 'completed') {
         return 'confirmed';
     }
@@ -23,7 +23,7 @@ const getActualBookingStatus = (booking: Booking) => {
         return 'pending';
     }
 
-    // Priority 2: Check trip status
+
     if (booking.trip?.status === 'completed') {
         return 'completed';
     }
@@ -32,7 +32,6 @@ const getActualBookingStatus = (booking: Booking) => {
         return 'cancelled';
     }
 
-    // Priority 3: Check booking status with normalization
     const statusMap: Record<string, string> = {
         'pending': 'pending',
         'confirmed': 'confirmed',
@@ -47,15 +46,15 @@ const getActualBookingStatus = (booking: Booking) => {
 };
 
 export default function BookingCard({ booking, onPress, onAction }: BookingCardProps) {
-    // 🔧 FIXED: Get real status instead of just using booking.status
+
     const actualStatus = getActualBookingStatus(booking);
 
-    // 🔧 FIXED: Enhanced route name resolution
+
     const getRoute = () => {
         let startName = 'Departure';
         let endName = 'Destination';
 
-        // Strategy 1: From trip.route.startStation/endStation (most reliable)
+
         if (booking.trip?.route?.startStation?.name) {
             startName = booking.trip.route.startStation.name;
         }
@@ -63,7 +62,6 @@ export default function BookingCard({ booking, onPress, onAction }: BookingCardP
             endName = booking.trip.route.endStation.name;
         }
 
-        // Strategy 2: Parse from route description if stations are missing
         if ((startName === 'Departure' || endName === 'Destination') && booking.trip?.route?.description) {
             const description = booking.trip.route.description;
 
@@ -83,7 +81,7 @@ export default function BookingCard({ booking, onPress, onAction }: BookingCardP
             }
         }
 
-        // Strategy 3: From booking metadata
+
         if (startName === 'Departure' && booking.metadata?.startStationName) {
             startName = booking.metadata.startStationName;
         }
@@ -95,7 +93,6 @@ export default function BookingCard({ booking, onPress, onAction }: BookingCardP
         return route;
     };
 
-    // 🔧 FIXED: Real status info based on actual status and payment
     const getStatusInfo = (status: string, booking: Booking) => {
         const needsPayment = booking.paymentStatus === 'pending' || booking.paymentStatus === 'failed';
 
@@ -296,7 +293,7 @@ export default function BookingCard({ booking, onPress, onAction }: BookingCardP
                 </View>
             )}
 
-            {/* 🔧 FIXED: Debug info for development (shows real vs displayed status) */}
+            {/*  FIXED: Debug info for development */}
             {__DEV__ && (
                 <View style={styles.debugInfo}>
                     <Text style={styles.debugText}>
@@ -388,7 +385,6 @@ const styles = StyleSheet.create({
         color: theme.colors.text.secondary,
     },
 
-    // 🔧 NEW: Payment status display
     paymentStatusContainer: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -471,7 +467,6 @@ const styles = StyleSheet.create({
         marginLeft: theme.spacing.xs,
     },
 
-    // Debug styles (remove in production)
     debugInfo: {
         marginTop: theme.spacing.md,
         padding: theme.spacing.sm,

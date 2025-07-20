@@ -1,4 +1,4 @@
-// app/(passenger)/booking/components/BookingActions.tsx - FIXED Action Buttons Component
+// app/(passenger)/booking/components/BookingActions.tsx 
 import React from 'react';
 import { View, TouchableOpacity, Text, ActivityIndicator, StyleSheet, Alert } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';

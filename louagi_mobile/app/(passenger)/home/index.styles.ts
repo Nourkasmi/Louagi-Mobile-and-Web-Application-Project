@@ -1,6 +1,6 @@
-// app/(passenger)/home/index.styles.ts - ENHANCED VERSION with Modern Design System
+// app/(passenger)/home/index.styles.ts 
+
 import { StyleSheet, Dimensions, Platform } from 'react-native';
-import { theme } from '../../../src/styles/theme';
 
 const { width, height } = Dimensions.get('window');
 

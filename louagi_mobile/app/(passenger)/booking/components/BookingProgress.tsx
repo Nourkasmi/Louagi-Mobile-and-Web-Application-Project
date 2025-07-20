@@ -1,4 +1,4 @@
-// 📁 app/(passenger)/booking/components/BookingProgress.tsx - PROGRESS INDICATOR
+//  app/(passenger)/booking/components/BookingProgress.tsx 
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 

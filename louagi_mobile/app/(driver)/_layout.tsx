@@ -1,4 +1,5 @@
-// app/(driver)/_layout.tsx - FIXED: Hide Declare Availability Tab
+// app/(driver)/_layout.tsx 
+
 import React from 'react';
 import { Tabs } from 'expo-router';
 import { Platform } from 'react-native';
@@ -54,7 +55,7 @@ export default function DriverLayout() {
           ),
         }}
       />
-      {/* 🔧 FIXED: Hide Declare Availability tab from bottom navigation */}
+      {/*  Hide Declare Availability tab from bottom navigation */}
       <Tabs.Screen
         name="declare-availability/index"
         options={{

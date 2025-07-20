@@ -1,4 +1,5 @@
-// app/(passenger)/bookings/components/BookingsFilter.tsx - FIXED Filter with Working Logic
+// app/(passenger)/bookings/components/BookingsFilter.tsx 
+
 import React from 'react';
 import { View, Text, TouchableOpacity, ScrollView, StyleSheet } from 'react-native';
 import { theme } from '../../../../src/styles/theme';
@@ -10,7 +11,7 @@ interface BookingsFilterProps {
     stats: BookingStats;
 }
 
-// 🔧 FIXED: Updated filter options with real status mapping
+//  filter options with real status mapping
 const FILTER_OPTIONS: Array<{
     key: BookingStatus | 'all';
     label: string;
@@ -57,7 +58,7 @@ const FILTER_OPTIONS: Array<{
 
 export default function BookingsFilter({ selectedFilter, onFilterChange, stats }: BookingsFilterProps) {
 
-    // 🔧 FIXED: Handle filter change with validation
+    //  Handle filter change with validation
     const handleFilterChange = (filter: BookingStatus | 'all') => {
         console.log(`🔍 Filter changed from ${selectedFilter} to ${filter}`);
         onFilterChange(filter);
@@ -116,7 +117,7 @@ export default function BookingsFilter({ selectedFilter, onFilterChange, stats }
                                     {option.label}
                                 </Text>
 
-                                {/* 🔧 FIXED: Always show count, even if 0 */}
+                                {/* Always show count, even if 0 */}
                                 <View
                                     style={[
                                         styles.countBadge,
@@ -136,7 +137,7 @@ export default function BookingsFilter({ selectedFilter, onFilterChange, stats }
                                 </View>
                             </View>
 
-                            {/* 🔧 NEW: Show description on long press */}
+                            {/* Show description on long press */}
                             {isSelected && (
                                 <Text style={styles.filterDescription}>
                                     {option.description}
@@ -147,7 +148,7 @@ export default function BookingsFilter({ selectedFilter, onFilterChange, stats }
                 })}
             </ScrollView>
 
-            {/* 🔧 NEW: Active filter indicator */}
+            {/* Active filter indicator */}
             {selectedFilter !== 'all' && (
                 <View style={styles.activeFilterIndicator}>
                     <Text style={styles.activeFilterText}>
@@ -166,7 +167,7 @@ const styles = StyleSheet.create({
         borderBottomColor: theme.colors.border.light,
     },
 
-    // 🔧 NEW: Filter header styles
+    // Filter header styles
     filterHeader: {
         flexDirection: 'row',
         justifyContent: 'space-between',
@@ -215,13 +216,13 @@ const styles = StyleSheet.create({
         backgroundColor: theme.colors.button.primary,
     },
 
-    // 🔧 NEW: Disabled filter styles
+    // : Disabled filter styles
     filterButtonDisabled: {
         opacity: 0.5,
         backgroundColor: theme.colors.background.tertiary,
     },
 
-    // 🔧 NEW: Filter content container
+    //  Filter content container
     filterContent: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -273,7 +274,7 @@ const styles = StyleSheet.create({
         color: theme.colors.text.tertiary,
     },
 
-    // 🔧 NEW: Filter description
+    // Filter description
     filterDescription: {
         ...theme.typography.caption,
         color: theme.colors.text.white,
@@ -282,7 +283,7 @@ const styles = StyleSheet.create({
         fontSize: 10,
     },
 
-    // 🔧 NEW: Active filter indicator
+    // Active filter indicator
     activeFilterIndicator: {
         backgroundColor: theme.colors.background.accent,
         paddingHorizontal: theme.spacing.lg,

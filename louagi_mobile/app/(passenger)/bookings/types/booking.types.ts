@@ -1,15 +1,14 @@
-// app/(passenger)/bookings/types/booking.types.ts - UPDATED with Real Status Handling
+// app/(passenger)/bookings/types/booking.types.ts 
 export type BookingStatus = 'pending' | 'confirmed' | 'cancelled' | 'completed';
 
 export type BookingAction = 'cancel' | 'retry_payment' | 'view_trip' | 'download_receipt';
 
-// 🔧 FIXED: Real booking stats interface
 export interface BookingStats {
     total: number;
-    pending: number;      // Needs payment or has payment issues
-    confirmed: number;    // Paid and confirmed
-    completed: number;    // Trip finished
-    cancelled: number;    // Cancelled bookings
+    pending: number;      
+    confirmed: number;    
+    completed: number;   
+    cancelled: number;   
 }
 
 export interface BookingFilter {
@@ -22,32 +21,32 @@ export interface BookingFilter {
     paymentStatus?: 'pending' | 'completed' | 'failed' | 'processing';
 }
 
-// 🔧 ENHANCED: Real booking display data with payment info
+//  Real booking display data with payment info
 export interface BookingDisplayData {
     id: string;
     reference: string;
     status: BookingStatus;
-    actualStatus: BookingStatus;  // 🔧 NEW: Real computed status
-    paymentStatus: string;        // 🔧 NEW: Payment status
+    actualStatus: BookingStatus; 
+    paymentStatus: string;        
     route: string;
     date: string;
     time: string;
     amount: number;
     seats: number;
     canCancel: boolean;
-    needsPayment: boolean;        // 🔧 FIXED: Based on payment status
+    needsPayment: boolean;        
     showTripInfo: boolean;
-    isActive: boolean;            // 🔧 NEW: Whether booking is active
-    tripCompleted: boolean;       // 🔧 NEW: Whether trip is done
+    isActive: boolean;
+    tripCompleted: boolean;
 }
 
-// 🔧 NEW: Payment status types
+//   Payment status types
 export type PaymentStatus = 'pending' | 'processing' | 'completed' | 'failed' | 'refunded';
 
-// 🔧 NEW: Trip status types  
+//  Trip status types  
 export type TripStatus = 'scheduled' | 'in_progress' | 'completed' | 'cancelled';
 
-// 🔧 NEW: Enhanced booking analytics
+// Enhanced booking analytics
 export interface BookingAnalytics {
     totalBookings: number;
     activeBookings: number;
@@ -55,8 +54,8 @@ export interface BookingAnalytics {
     cancelledBookings: number;
     totalSpent: number;
     averageSpentPerTrip: number;
-    successRate: number;          // completed / (completed + cancelled)
-    completionRate: number;       // completed / total
+    successRate: number;          
+    completionRate: number;       
     pendingPayments: number;
     onTimeTrips: number;
     mostUsedRoute: string;
@@ -70,7 +69,7 @@ export interface BookingAnalytics {
     statusBreakdown: BookingStats;
 }
 
-// 🔧 NEW: Status mapping utilities
+//  Status mapping utilities
 export const StatusMappings = {
     // Map backend status to display status
     bookingStatusMap: {
@@ -78,9 +77,9 @@ export const StatusMappings = {
         'confirmed': 'confirmed',
         'completed': 'completed',
         'cancelled': 'cancelled',
-        'canceled': 'cancelled',     // Handle both spellings
+        'canceled': 'cancelled',     
         'no_show': 'cancelled',
-        'in_progress': 'confirmed',  // Treat in-progress as confirmed
+        'in_progress': 'confirmed', 
     } as Record<string, BookingStatus>,
 
     // Map payment status to booking implications
@@ -101,7 +100,7 @@ export const StatusMappings = {
     } as Record<string, BookingStatus>,
 };
 
-// 🔧 NEW: Status checking utilities
+//  Status checking utilities
 export const StatusUtils = {
     /**
      * Get the real booking status based on payment and trip status
@@ -211,7 +210,7 @@ export const StatusUtils = {
     },
 };
 
-// 🔧 NEW: Filter utilities
+//  Filter utilities
 export const FilterUtils = {
     /**
      * Filter bookings by status
@@ -332,10 +331,10 @@ export const AnalyticsUtils = {
             successRate,
             completionRate,
             pendingPayments: bookings.filter(StatusUtils.needsPayment).length,
-            onTimeTrips: completedBookings.length, // Simplified - could be enhanced
+            onTimeTrips: completedBookings.length, 
             mostUsedRoute,
-            totalDistance: 0, // Could be calculated from route data
-            totalTravelTime: 0, // Could be calculated from trip data
+            totalDistance: 0, 
+            totalTravelTime: 0, 
             monthlySpending,
             statusBreakdown: stats,
         };

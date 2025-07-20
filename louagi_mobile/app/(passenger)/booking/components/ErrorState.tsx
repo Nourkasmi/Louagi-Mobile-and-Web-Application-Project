@@ -1,4 +1,4 @@
-// 📁 app/(passenger)/booking/components/ErrorState.tsx - ERROR STATE COMPONENT
+//  app/(passenger)/booking/components/ErrorState.tsx 
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';

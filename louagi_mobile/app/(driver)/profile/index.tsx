@@ -1,4 +1,5 @@
-// app/(driver)/profile/index.tsx - FIXED Driver Profile Screen
+// app/(driver)/profile/index.tsx 
+
 import React, { useEffect, useState, useCallback } from 'react';
 import {
   View,

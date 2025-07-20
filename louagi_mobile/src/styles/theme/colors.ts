@@ -1,4 +1,4 @@
-// 📁 src/styles/theme/colors.ts
+//  src/styles/theme/colors.ts
 export const colors = {
   // Primary Brand Colors
   primary: '#0066cc',

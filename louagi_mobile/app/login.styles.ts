@@ -1,4 +1,4 @@
-// 📁 app/login.styles.ts - ENHANCED with Better UX and Theme System
+//  app/login.styles.ts 
 import { StyleSheet, Dimensions, Platform } from 'react-native';
 import { theme } from '../src/styles/theme';
 
@@ -82,7 +82,7 @@ export const styles = StyleSheet.create({
   input: {
     backgroundColor: theme.colors.background.secondary,
     fontSize: theme.typography.fontSize.lg,
-    minHeight: 56, // Accessibility minimum touch target
+    minHeight: 56, 
   },
 
   // Password and forgot password

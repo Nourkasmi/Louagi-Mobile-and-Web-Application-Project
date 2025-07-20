@@ -1,4 +1,4 @@
-// 📁 src/styles/theme/spacing.ts
+// src/styles/theme/spacing.ts
 export const spacing = {
   // Base spacing units (4px scale)
   xs: 4,     // 4px

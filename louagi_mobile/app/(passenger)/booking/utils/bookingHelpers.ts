@@ -1,4 +1,5 @@
-// app/(passenger)/booking/utils/bookingHelpers.ts - UTILITY HELPER FUNCTIONS
+// app/(passenger)/booking/utils/bookingHelpers.ts 
+
 import type { Trip } from '../../../../src/services/api';
 
 /**
@@ -10,10 +11,9 @@ export function calculatePricing(trip: Trip, seats: number) {
     const totalAmount = pricePerSeat * seats;
 
     return {
-        pricePerSeat: Math.round(pricePerSeat * 100) / 100, // Round to 2 decimal places
+        pricePerSeat: Math.round(pricePerSeat * 100) / 100, 
         totalAmount: Math.round(totalAmount * 100) / 100,
         totalTripPrice,
-        discountAmount: 0, // Could add discount logic here
     };
 }
 

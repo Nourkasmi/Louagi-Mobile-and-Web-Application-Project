@@ -1,13 +1,13 @@
-// app/(passenger)/_layout.tsx - Stack Navigation (No Bottom Tabs)
+// app/(passenger)/_layout.tsx 
 import { Stack } from 'expo-router';
 
 export default function PassengerLayout() {
   return (
     <Stack
       screenOptions={{
-        headerShown: false, // Hide headers for clean look
-        animation: 'slide_from_right', // Smooth transitions
-        gestureEnabled: true, // Enable swipe back
+        headerShown: false,
+        animation: 'slide_from_right',
+        gestureEnabled: true,
       }}
     >
       <Stack.Screen name="home/index" />

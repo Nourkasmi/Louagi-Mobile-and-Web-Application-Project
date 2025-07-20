@@ -1,4 +1,5 @@
-// 📁 app/(driver)/trips/index.style.ts - FIXED COMPLETE VERSION
+// 📁 app/(driver)/trips/index.style.ts 
+
 import { StyleSheet } from 'react-native';
 import { theme } from '../../../src/styles/theme';
 import { sharedComponents } from '../../../src/styles/shared/components';

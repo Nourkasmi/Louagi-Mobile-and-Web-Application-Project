@@ -1,4 +1,5 @@
-// 📁 app/login.tsx - ENHANCED Beautiful Login Screen (CLEAN SYNTAX)
+//  app/login.tsx 
+
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import {
   View,

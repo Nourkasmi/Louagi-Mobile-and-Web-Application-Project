@@ -1,4 +1,5 @@
-// app/(passenger)/profile/index.tsx - BEAUTIFUL SIMPLE DESIGN
+// app/(passenger)/profile/index.tsx 
+
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
   View,

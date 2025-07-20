@@ -1,4 +1,4 @@
-// 📁 src/styles/theme/index.ts
+//  src/styles/theme/index.ts
 import { colors } from './colors';
 import { spacing } from './spacing';
 import { typography } from './typography';

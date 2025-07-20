@@ -1,4 +1,5 @@
-// app/(passenger)/home/index.tsx - COMPLETE FIXED VERSION with Real Data
+// app/(passenger)/home/index.tsx 
+
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
@@ -26,7 +27,7 @@ import { styles } from './index.styles';
 
 const { width, height } = Dimensions.get('window');
 
-// Helper to get real route names, copied from details page logic
+// Helper to get real route names,
 const getRouteNames = (booking) => {
     if (!booking?.trip?.route) {
         return { startName: null, endName: null };

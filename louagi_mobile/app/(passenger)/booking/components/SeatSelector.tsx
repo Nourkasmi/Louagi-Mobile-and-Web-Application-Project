@@ -1,4 +1,5 @@
-// 📁 app/(passenger)/booking/components/SeatSelector.tsx - SEAT SELECTION COMPONENT
+//  app/(passenger)/booking/components/SeatSelector.tsx 
+
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';

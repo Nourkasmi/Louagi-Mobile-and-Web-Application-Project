@@ -1,4 +1,5 @@
-// 📁 app/(passenger)/booking/components/TripSummaryCard.tsx - TRIP DETAILS DISPLAY
+//  app/(passenger)/booking/components/TripSummaryCard.tsx 
+
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';

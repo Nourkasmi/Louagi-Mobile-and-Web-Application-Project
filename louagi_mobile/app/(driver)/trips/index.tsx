@@ -1,4 +1,5 @@
-// 📁 app/(driver)/trips/index.tsx - FIXED Trip Filtering
+// 📁 app/(driver)/trips/index.tsx 
+
 import React, { useEffect, useState, useCallback } from 'react';
 import {
   View,
@@ -32,7 +33,7 @@ export default function DriverTripsScreen() {
   const [activeFilter, setActiveFilter] = useState<FilterType>('all');
   const [actionLoading, setActionLoading] = useState<string | null>(null);
 
-  // 🔧 FIXED: Fetch all trips once, then filter locally for better UX
+  //  Fetch all trips once, then filter locally for better UX
   const fetchTrips = useCallback(async (isRefresh = false) => {
     try {
       if (isRefresh) {
@@ -88,7 +89,7 @@ export default function DriverTripsScreen() {
     }
   }, [activeFilter]);
 
-  // 🔧 FIXED: Local filtering function for instant filter switching
+  //  Local filtering function for instant filter switching
   const applyFilter = useCallback((trips: Trip[], filter: FilterType) => {
     console.log(`🎯 Applying filter: ${filter} to ${trips.length} trips`);
     
@@ -104,7 +105,7 @@ export default function DriverTripsScreen() {
     setFilteredTrips(filtered);
   }, []);
 
-  // 🔧 FIXED: Handle filter change with instant local filtering
+  //  Handle filter change with instant local filtering
   const handleFilterChange = useCallback((filter: FilterType) => {
     console.log(`🔄 Changing filter from "${activeFilter}" to "${filter}"`);
     setActiveFilter(filter);
@@ -116,7 +117,7 @@ export default function DriverTripsScreen() {
     fetchTrips();
   }, []);
 
-  // 🔧 FIXED: Handle trip status update with local state update
+  //  Handle trip status update with local state update
   const handleStatusUpdate = async (trip: Trip, newStatus: Trip['status']) => {
     if (actionLoading === trip.id) {
       console.log('⚠️ Action already in progress for trip:', trip.id);
@@ -178,7 +179,7 @@ export default function DriverTripsScreen() {
         const successMessage = `Trip ${newStatus === 'in_progress' ? 'started' : newStatus} successfully!`;
         Alert.alert('Success', successMessage, [{ text: 'OK' }]);
 
-        // 🔧 FIXED: Update local state immediately for better UX
+        //  Update local state immediately for better UX
         const updatedTrips = allTrips.map(t => 
           t.id === trip.id ? { ...t, status: newStatus } : t
         );

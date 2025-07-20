@@ -1,4 +1,5 @@
-// 📁 app/(passenger)/search/index.style.ts - CLEAN with Theme System
+//  app/(passenger)/search/index.style.ts 
+
 import { StyleSheet } from 'react-native';
 import { theme } from '../../../src/styles/theme';
 import { sharedComponents } from '../../../src/styles/shared/components';
@@ -343,15 +344,3 @@ export const styles = StyleSheet.create({
   refreshEmptyButton: theme.utils.button('primary'),
   refreshEmptyButtonText: theme.typography.buttonSmall,
 });
-
-// 🎯 INCREDIBLE IMPROVEMENTS with Theme System:
-// 
-// ✅ REDUCED from 80+ style definitions to 60+ organized, semantic styles
-// ✅ VISUAL HIERARCHY: Clear information hierarchy in complex trip cards
-// ✅ DYNAMIC STYLING: Capacity bars, status badges use theme colors
-// ✅ INTERACTIVE STATES: Hover, pressed, urgent states are consistent
-// ✅ COMPONENT PATTERNS: Cards, buttons, indicators follow same design
-// ✅ COLOR SEMANTICS: Status colors, pricing, warnings are meaningful
-// ✅ SPACING HARMONY: Perfect rhythm in complex, dense layouts
-// ✅ ACCESSIBILITY: Consistent touch targets and contrast ratios
-// ✅ MAINTAINABLE: Easy to modify search UI behavior globally

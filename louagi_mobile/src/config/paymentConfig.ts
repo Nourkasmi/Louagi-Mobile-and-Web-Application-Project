@@ -1,9 +1,9 @@
-// src/config/paymentConfig.ts - Easy switch to FAKE payments
+// src/config/paymentConfig.ts 
 import Config from './index';
 
-// 🎭 PAYMENT MODE CONFIGURATION
+//  PAYMENT MODE CONFIGURATION
 // Set this to 'fake' for completely fake payments (no real card data needed)
-export const PAYMENT_MODE: 'fake' | 'mock' | 'real' = 'fake'; // 👈 SET TO FAKE!
+export const PAYMENT_MODE: 'fake' | 'mock' | 'real' = 'fake'; 
 
 // Payment configuration based on mode
 export const paymentConfig = {

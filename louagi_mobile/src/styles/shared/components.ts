@@ -1,4 +1,4 @@
-// 📁 src/styles/shared/components.ts
+//  src/styles/shared/components.ts
 import { theme } from '../theme';
 
 export const sharedComponents = {

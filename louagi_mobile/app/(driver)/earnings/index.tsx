@@ -1,4 +1,5 @@
-// 📁 app/(driver)/earnings/index.tsx - ENHANCED WITH REAL DATA & CHARTS
+// app/(driver)/earnings/index.tsx 
+
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
   View,

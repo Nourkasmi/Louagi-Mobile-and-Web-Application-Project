@@ -1,4 +1,5 @@
-// 📁 app/(passenger)/profile/edit.tsx - UPDATED (Clean Logic Only)
+//  app/(passenger)/profile/edit.tsx 
+
 import React, { useEffect, useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, Alert, ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
@@ -6,7 +7,7 @@ import { useSelector, useDispatch } from 'react-redux';
 import { RootState } from '../../../src/store/store';
 import { updateUserProfile, getCurrentUser, type User } from '../../../src/services/api';
 import { loginSuccess } from '../../../src/store/authSlice';
-import { styles } from './edit.styles'; // 🆕 Import styles
+import { styles } from './edit.styles'; 
 
 export default function EditProfileScreen() {
   const router = useRouter();

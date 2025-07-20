@@ -1,4 +1,5 @@
-// 📁 src/store/authSlice.ts - FINAL FIXED Auth Slice with Input Validation
+//  src/store/authSlice.ts 
+
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 import type { User } from '../services/api';
 

@@ -1,4 +1,4 @@
-// app/(passenger)/home/components/QuickActionCard.tsx - Reusable Quick Action Component
+// app/(passenger)/home/components/QuickActionCard.tsx 
 import React, { useState } from 'react';
 import {
     TouchableOpacity,

@@ -1,5 +1,4 @@
-// app/(passenger)/booking/index.tsx - SIMPLIFIED VERSION
-// Replacing your existing complex booking flow with simple Book + Pay
+// app/(passenger)/booking/index.tsx 
 
 import React from 'react';
 import BookingScreen from './components/BookingScreen';

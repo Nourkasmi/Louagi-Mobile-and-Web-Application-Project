@@ -1,4 +1,5 @@
-// app/(passenger)/bookings/components/BookingsEmpty.tsx - FIXED Empty State Component
+// app/(passenger)/bookings/components/BookingsEmpty.tsx 
+
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';

@@ -1,5 +1,4 @@
-// app/(passenger)/booking/hooks/useBookingFlow.ts - SIMPLIFIED VERSION
-// Replacing the existing complex version with simple Book + Pay flow
+// app/(passenger)/booking/hooks/useBookingFlow.ts 
 
 import { useState, useCallback } from 'react';
 import { Alert } from 'react-native';

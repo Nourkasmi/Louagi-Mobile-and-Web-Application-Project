@@ -1,4 +1,4 @@
-// 📁 src/styles/theme/shadows.ts
+//  src/styles/theme/shadows.ts
 export const shadows = {
   // Card shadows
   card: {

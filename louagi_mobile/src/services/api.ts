@@ -1,4 +1,4 @@
-// src/services/api.ts - COMPLETE FIXED VERSION WITH MISSING FUNCTIONS
+// src/services/api.ts 
 import store from '../store/store';
 import { logout } from '../store/authSlice';
 import axios, { InternalAxiosRequestConfig } from 'axios';
@@ -1107,40 +1107,6 @@ export const getPassengerAnalytics = async (months?: number): Promise<ApiRespons
   }
 
   const res = await api.get('/bookings/passenger-analytics', { params });
-  return res.data;
-};
-
-// ==================== OFFLINE SUPPORT ====================
-
-export const syncOfflineData = async (actions: any[]): Promise<ApiResponse> => {
-  const res = await api.post('/sync/offline-actions', { actions });
-  return res.data;
-};
-
-export const getOfflineData = async (): Promise<ApiResponse<{
-  stations: Station[];
-  userBookings: Booking[];
-  driverTrips?: Trip[];
-}>> => {
-  const res = await api.get('/sync/offline-data');
-  return res.data;
-};
-
-// ==================== PUSH NOTIFICATIONS ====================
-
-export const registerPushToken = async (token: string, platform: 'ios' | 'android'): Promise<ApiResponse> => {
-  const res = await api.post('/notifications/register-token', { token, platform });
-  return res.data;
-};
-
-export const updateNotificationPreferences = async (preferences: {
-  tripUpdates: boolean;
-  bookingAlerts: boolean;
-  promotions: boolean;
-  sound: boolean;
-  vibration: boolean;
-}): Promise<ApiResponse> => {
-  const res = await api.put('/notifications/preferences', preferences);
   return res.data;
 };
 

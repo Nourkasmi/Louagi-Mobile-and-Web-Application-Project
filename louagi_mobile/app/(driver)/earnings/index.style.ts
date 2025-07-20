@@ -1,4 +1,5 @@
-// 📁 app/(driver)/earnings/index.style.ts - ENHANCED WITH CHART SUPPORT
+// 📁 app/(driver)/earnings/index.style.ts 
+
 import { StyleSheet, Dimensions, Platform } from 'react-native';
 import { theme } from '../../../src/styles/theme';
 import { sharedComponents } from '../../../src/styles/shared/components';

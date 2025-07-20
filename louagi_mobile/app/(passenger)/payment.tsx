@@ -1,4 +1,5 @@
-// app/(passenger)/payment.tsx - SIMPLIFIED VERSION WITHOUT SKIP OPTION
+// app/(passenger)/payment.tsx 
+
 import React, { useState, useEffect } from 'react';
 import {
   View,

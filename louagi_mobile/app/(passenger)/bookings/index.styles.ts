@@ -1,4 +1,5 @@
-// app/(passenger)/bookings/index.styles.ts - Bookings Screen Styles
+// app/(passenger)/bookings/index.styles.ts 
+
 import { StyleSheet } from 'react-native';
 import { theme } from '../../../src/styles/theme';
 import { sharedComponents } from '../../../src/styles/shared/components';

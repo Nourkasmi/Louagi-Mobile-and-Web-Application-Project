@@ -1,4 +1,5 @@
-// 📁 app/(passenger)/booking/components/PriceSummary.tsx - PRICE BREAKDOWN COMPONENT
+//  app/(passenger)/booking/components/PriceSummary.tsx 
+
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { useBookingFlow } from '../hooks/useBookingFlow';

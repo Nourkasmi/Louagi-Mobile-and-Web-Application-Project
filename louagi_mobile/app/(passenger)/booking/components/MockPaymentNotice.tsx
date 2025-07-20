@@ -1,4 +1,5 @@
-// 📁 app/(passenger)/booking/components/MockPaymentNotice.tsx - MOCK PAYMENT NOTICE
+//  app/(passenger)/booking/components/MockPaymentNotice.tsx 
+
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';

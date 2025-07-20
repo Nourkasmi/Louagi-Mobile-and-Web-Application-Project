@@ -1,4 +1,5 @@
-// 📁 app/(passenger)/booking/hooks/useTripData.ts - COMPLETE FIXED VERSION
+//  app/(passenger)/booking/hooks/useTripData.ts 
+
 import { useState, useEffect, useCallback } from 'react';
 import { getTripById, type Trip } from '../../../../src/services/api';
 

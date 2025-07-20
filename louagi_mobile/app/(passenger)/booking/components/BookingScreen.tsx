@@ -1,5 +1,4 @@
-// app/(passenger)/booking/components/BookingScreen.tsx - SIMPLIFIED VERSION
-// Replacing your existing complex version with clean Book + Pay flow
+// app/(passenger)/booking/components/BookingScreen.tsx 
 
 import React, { useMemo } from 'react';
 import { View, ScrollView, ActivityIndicator, Text, StyleSheet, TouchableOpacity } from 'react-native';

@@ -1,4 +1,3 @@
-// src/components/trips/TripStatistics.js
 import React from 'react';
 import { Car, Clock, CheckCircle, Users } from 'lucide-react';
 

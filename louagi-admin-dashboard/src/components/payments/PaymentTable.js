@@ -1,4 +1,3 @@
-// src/components/payments/PaymentTable.js
 import React from 'react';
 import { CreditCard } from 'lucide-react';
 import PaymentRow from './PaymentRow';

@@ -1,4 +1,3 @@
-// src/components/drivers/DriversErrorState.js
 import React from 'react';
 import { AlertCircle } from 'lucide-react';
 

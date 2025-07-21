@@ -1,4 +1,3 @@
-// src/components/drivers/DriverVerificationModal.js - FIXED VERSION
 import React, { useState, useEffect } from 'react';
 import {
     X,
@@ -131,7 +130,7 @@ const DriverVerificationModal = ({ isOpen, onClose, onVerify, onReject, refreshD
             if (data.success) {
                 // Remove from pending list
                 setPendingDrivers(prev => prev.filter(driver => driver.id !== driverId));
-                
+
                 // Show success message
                 const action = approved ? 'approved' : 'rejected';
                 alert(`Driver verification ${action} successfully!`);
@@ -427,7 +426,7 @@ const DriverVerificationModal = ({ isOpen, onClose, onVerify, onReject, refreshD
                 <div className="bg-gray-50 px-6 py-4 border-t">
                     <div className="flex items-center justify-between">
                         <div className="text-sm text-gray-600">
-                            {pendingDrivers.length > 0 ? 
+                            {pendingDrivers.length > 0 ?
                                 `${pendingDrivers.length} driver${pendingDrivers.length !== 1 ? 's' : ''} awaiting review` :
                                 'No pending verifications'
                             }

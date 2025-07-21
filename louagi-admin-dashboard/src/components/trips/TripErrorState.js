@@ -1,4 +1,3 @@
-// src/components/trips/TripErrorState.js
 import React from 'react';
 import { AlertCircle, RefreshCw } from 'lucide-react';
 import PageHeader from '../common/PageHeader';

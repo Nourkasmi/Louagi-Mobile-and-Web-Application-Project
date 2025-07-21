@@ -1,4 +1,3 @@
-// src/components/schedules/SchedulePagination.js
 import React from 'react';
 
 const SchedulePagination = ({ pagination, onPageChange }) => {

@@ -1,4 +1,3 @@
-// src/components/login/SecurityNotice.js
 import React from 'react';
 
 const SecurityNotice = () => {

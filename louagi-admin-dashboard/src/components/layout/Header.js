@@ -1,4 +1,3 @@
-// src/components/layout/Header.js - Updated with Profile and Settings navigation
 import React, { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import {
@@ -83,7 +82,7 @@ const Header = ({ onMenuClick, currentRoute, setCurrentRoute }) => {
                                     <p className="text-xs text-gray-500">{user?.email}</p>
                                 </div>
 
-                                <button 
+                                <button
                                     onClick={handleProfileClick}
                                     className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center space-x-2"
                                 >
@@ -91,7 +90,7 @@ const Header = ({ onMenuClick, currentRoute, setCurrentRoute }) => {
                                     <span>Profile</span>
                                 </button>
 
-                                <button 
+                                <button
                                     onClick={handleSettingsClick}
                                     className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center space-x-2"
                                 >

@@ -1,4 +1,3 @@
-// src/components/dashboard/QuickActions.js
 import React from 'react';
 import { Users, Car, MapPin, BarChart3 } from 'lucide-react';
 

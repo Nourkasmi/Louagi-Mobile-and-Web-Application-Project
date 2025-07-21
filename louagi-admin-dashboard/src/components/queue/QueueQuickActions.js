@@ -1,12 +1,11 @@
-// src/components/queue/QueueQuickActions.js
 import React from 'react';
 import { Users, ArrowUpDown, RefreshCw } from 'lucide-react';
 
-const QueueQuickActions = ({ 
-    onViewLiveQueue, 
-    onReorderQueue, 
+const QueueQuickActions = ({
+    onViewLiveQueue,
+    onReorderQueue,
     onRefreshAll,
-    hasActiveQueue = false 
+    hasActiveQueue = false
 }) => {
     return (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -14,7 +13,7 @@ const QueueQuickActions = ({
             <div className="bg-white rounded-lg shadow border p-6">
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">Live Queue</h3>
                 <div className="space-y-3">
-                    <button 
+                    <button
                         onClick={onViewLiveQueue}
                         disabled={!hasActiveQueue}
                         className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
@@ -32,7 +31,7 @@ const QueueQuickActions = ({
             <div className="bg-white rounded-lg shadow border p-6">
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">Queue Control</h3>
                 <div className="space-y-3">
-                    <button 
+                    <button
                         onClick={onReorderQueue}
                         disabled={!hasActiveQueue}
                         className="w-full bg-purple-600 text-white py-2 px-4 rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
@@ -50,7 +49,7 @@ const QueueQuickActions = ({
             <div className="bg-white rounded-lg shadow border p-6">
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">System Control</h3>
                 <div className="space-y-3">
-                    <button 
+                    <button
                         onClick={onRefreshAll}
                         className="w-full bg-gray-600 text-white py-2 px-4 rounded-lg hover:bg-gray-700 transition-colors flex items-center justify-center"
                     >

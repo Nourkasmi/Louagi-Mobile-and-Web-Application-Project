@@ -1,4 +1,3 @@
-// src/components/login/LoginFooter.js
 import React from 'react';
 
 const LoginFooter = () => {

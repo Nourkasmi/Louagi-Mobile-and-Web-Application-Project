@@ -1,4 +1,3 @@
-// src/components/stations/StationStatistics.js
 import React from 'react';
 import { Building, CheckCircle, Users, Activity } from 'lucide-react';
 

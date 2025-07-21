@@ -1,4 +1,3 @@
-// src/components/schedules/ScheduleDetailsModal.js - UPDATED (Removed Edit functionality)
 import React from 'react';
 import {
     X,
@@ -101,8 +100,8 @@ const ScheduleDetailsModal = ({ schedule, daysOfWeek, onClose }) => {
                     <div className="p-6" style={{ maxHeight: '60vh', overflowY: 'auto' }}>
                         {/* Status Banner */}
                         <div className={`mb-6 p-4 rounded-lg border ${schedule.isActive
-                                ? 'bg-green-50 border-green-200'
-                                : 'bg-red-50 border-red-200'
+                            ? 'bg-green-50 border-green-200'
+                            : 'bg-red-50 border-red-200'
                             }`}>
                             <div className="flex items-center">
                                 {schedule.isActive ? (

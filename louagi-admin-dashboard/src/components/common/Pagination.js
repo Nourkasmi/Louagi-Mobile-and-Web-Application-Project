@@ -1,4 +1,3 @@
-// src/components/common/Pagination.js
 import React from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
@@ -50,8 +49,8 @@ const Pagination = ({
                     key={page}
                     onClick={() => onPageChange(page)}
                     className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${currentPage === page
-                            ? 'bg-blue-600 text-white'
-                            : 'text-gray-600 hover:bg-gray-100'
+                        ? 'bg-blue-600 text-white'
+                        : 'text-gray-600 hover:bg-gray-100'
                         }`}
                 >
                     {page}

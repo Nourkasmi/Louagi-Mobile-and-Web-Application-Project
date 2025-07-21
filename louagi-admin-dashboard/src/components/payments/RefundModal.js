@@ -1,4 +1,3 @@
-// src/components/payments/RefundModal.js
 import React from 'react';
 import { AlertTriangle, ArrowDownRight } from 'lucide-react';
 

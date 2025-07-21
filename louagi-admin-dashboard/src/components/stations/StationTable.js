@@ -1,4 +1,3 @@
-// src/components/stations/StationTable.js
 import React from 'react';
 import {
     MapPin,

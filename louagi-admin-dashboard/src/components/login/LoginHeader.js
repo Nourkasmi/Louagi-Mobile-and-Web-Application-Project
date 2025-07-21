@@ -1,4 +1,3 @@
-// src/components/login/LoginHeader.js
 import React from 'react';
 import { Car } from 'lucide-react';
 

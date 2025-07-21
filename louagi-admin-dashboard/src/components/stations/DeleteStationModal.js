@@ -1,4 +1,3 @@
-// src/components/stations/DeleteStationModal.js - Enhanced Delete Confirmation Modal
 import React, { useState } from 'react';
 import { AlertTriangle, Trash2, X, Building, MapPin, Users } from 'lucide-react';
 
@@ -73,8 +72,8 @@ const DeleteStationModal = ({ station, showModal, onClose, onConfirm, deleting =
                             <div className="flex items-center text-gray-700">
                                 <span className="font-medium w-20">Status:</span>
                                 <span className={`px-2 py-1 rounded-full text-xs ${station.isActive
-                                        ? 'bg-green-100 text-green-800'
-                                        : 'bg-red-100 text-red-800'
+                                    ? 'bg-green-100 text-green-800'
+                                    : 'bg-red-100 text-red-800'
                                     }`}>
                                     {station.isActive ? 'Active' : 'Inactive'}
                                 </span>
@@ -112,8 +111,8 @@ const DeleteStationModal = ({ station, showModal, onClose, onConfirm, deleting =
                                 value={confirmText}
                                 onChange={(e) => setConfirmText(e.target.value)}
                                 className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 ${confirmText.toLowerCase() === 'delete'
-                                        ? 'border-green-300 bg-green-50'
-                                        : 'border-gray-300'
+                                    ? 'border-green-300 bg-green-50'
+                                    : 'border-gray-300'
                                     }`}
                                 placeholder="Type DELETE here"
                                 disabled={deleting}

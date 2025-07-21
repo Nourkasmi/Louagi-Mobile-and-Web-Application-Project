@@ -1,4 +1,3 @@
-// src/components/dashboard/index.js
 export { default as StatCard } from './StatCard';
 export { default as BookingChart } from './BookingChart';
 export { default as RecentActivity } from './RecentActivity';

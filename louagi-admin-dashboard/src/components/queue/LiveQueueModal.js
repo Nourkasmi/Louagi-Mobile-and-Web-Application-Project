@@ -1,17 +1,16 @@
-// src/components/queue/LiveQueueModal.js - FIXED VERSION
 import React, { useState, useEffect, useRef } from 'react';
-import { 
-    Users, 
-    ArrowUpDown, 
-    BarChart3, 
-    RefreshCw, 
-    AlertCircle, 
-    CheckCircle, 
-    Clock, 
-    XCircle, 
-    X, 
-    Eye, 
-    Settings 
+import {
+    Users,
+    ArrowUpDown,
+    BarChart3,
+    RefreshCw,
+    AlertCircle,
+    CheckCircle,
+    Clock,
+    XCircle,
+    X,
+    Eye,
+    Settings
 } from 'lucide-react';
 
 // Mock data for when no real data is available
@@ -29,7 +28,7 @@ const getMockQueueData = () => ({
             driver: { user: { username: "Ahmed Hassan" } }
         },
         {
-            id: "mock-q2", 
+            id: "mock-q2",
             driverId: "mock-d2",
             position: 2,
             status: "waiting",
@@ -38,7 +37,7 @@ const getMockQueueData = () => ({
         },
         {
             id: "mock-q3",
-            driverId: "mock-d3", 
+            driverId: "mock-d3",
             position: 3,
             status: "assigned",
             joinedAt: new Date(Date.now() - 45 * 60 * 1000), // 45 minutes ago
@@ -47,7 +46,7 @@ const getMockQueueData = () => ({
         {
             id: "mock-q4",
             driverId: "mock-d4",
-            position: 4, 
+            position: 4,
             status: "waiting",
             joinedAt: new Date(Date.now() - 8 * 60 * 1000), // 8 minutes ago
             driver: { user: { username: "Youssef Ben Ali" } }
@@ -55,12 +54,12 @@ const getMockQueueData = () => ({
     ]
 });
 
-const LiveQueueModal = ({ 
-    isOpen, 
-    onClose, 
-    queueData, 
-    onRefresh, 
-    refreshing = false 
+const LiveQueueModal = ({
+    isOpen,
+    onClose,
+    queueData,
+    onRefresh,
+    refreshing = false
 }) => {
     const [autoRefresh, setAutoRefresh] = useState(false);
     const [refreshInterval, setRefreshInterval] = useState(30); // seconds
@@ -127,8 +126,8 @@ const LiveQueueModal = ({
     };
 
     const handleDriverSelect = (driverId) => {
-        setSelectedDrivers(prev => 
-            prev.includes(driverId) 
+        setSelectedDrivers(prev =>
+            prev.includes(driverId)
                 ? prev.filter(id => id !== driverId)
                 : [...prev, driverId]
         );
@@ -139,7 +138,7 @@ const LiveQueueModal = ({
             alert('Please select drivers first');
             return;
         }
-        
+
         // Handle bulk actions
         switch (action) {
             case 'call':
@@ -154,7 +153,7 @@ const LiveQueueModal = ({
             default:
                 break;
         }
-        
+
         setSelectedDrivers([]);
     };
 
@@ -171,7 +170,7 @@ const LiveQueueModal = ({
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-2xl shadow-xl w-full max-w-6xl max-h-[90vh] flex flex-col">
-                
+
                 {/* Header */}
                 <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-4 rounded-t-2xl flex-shrink-0">
                     <div className="flex items-center justify-between">
@@ -196,7 +195,7 @@ const LiveQueueModal = ({
                                 />
                                 <span>Auto-refresh</span>
                             </label>
-                            
+
                             <button
                                 onClick={() => setShowSettings(!showSettings)}
                                 className="p-2 hover:bg-white hover:bg-opacity-20 rounded-lg transition-colors"
@@ -204,7 +203,7 @@ const LiveQueueModal = ({
                             >
                                 <Settings className="w-5 h-5 text-white" />
                             </button>
-                            
+
                             <button
                                 onClick={onRefresh}
                                 disabled={refreshing}
@@ -213,7 +212,7 @@ const LiveQueueModal = ({
                             >
                                 <RefreshCw className={`w-5 h-5 text-white ${refreshing ? 'animate-spin' : ''}`} />
                             </button>
-                            
+
                             <button
                                 onClick={onClose}
                                 className="p-2 hover:bg-white hover:bg-opacity-20 rounded-lg transition-colors"
@@ -223,7 +222,7 @@ const LiveQueueModal = ({
                             </button>
                         </div>
                     </div>
-                    
+
                     {/* Settings Panel */}
                     {showSettings && (
                         <div className="mt-4 bg-white bg-opacity-10 rounded-lg p-4">
@@ -269,8 +268,8 @@ const LiveQueueModal = ({
                         </div>
                         <div className="text-center">
                             <div className="text-2xl font-bold text-orange-600">
-                                {activeQueueData.queues?.length > 0 ? 
-                                    Math.round(activeQueueData.queues.reduce((sum, q) => sum + calculateWaitTime(q.joinedAt), 0) / activeQueueData.queues.length) 
+                                {activeQueueData.queues?.length > 0 ?
+                                    Math.round(activeQueueData.queues.reduce((sum, q) => sum + calculateWaitTime(q.joinedAt), 0) / activeQueueData.queues.length)
                                     : 0}m
                             </div>
                             <div className="text-sm text-gray-600">Avg Wait</div>

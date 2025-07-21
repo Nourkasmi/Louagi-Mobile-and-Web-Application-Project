@@ -1,4 +1,3 @@
-// src/components/trips/TripFilters.js
 import React from 'react';
 import { Search, Filter, Download, RefreshCw } from 'lucide-react';
 

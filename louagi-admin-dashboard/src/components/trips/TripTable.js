@@ -1,4 +1,3 @@
-// src/components/trips/TripTable.js
 import React from 'react';
 import {
     Car,

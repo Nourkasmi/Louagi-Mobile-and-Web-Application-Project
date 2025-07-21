@@ -1,4 +1,3 @@
-// src/components/login/LoginForm.js
 import React from 'react';
 import ErrorDisplay from './ErrorDisplay';
 import BackendStatusInfo from './BackendStatusInfo';

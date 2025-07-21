@@ -1,4 +1,3 @@
-// src/components/schedules/ScheduleErrorState.js
 import React from 'react';
 import { AlertCircle, RefreshCw } from 'lucide-react';
 

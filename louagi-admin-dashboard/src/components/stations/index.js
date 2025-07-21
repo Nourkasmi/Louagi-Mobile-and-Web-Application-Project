@@ -1,4 +1,3 @@
-// src/components/stations/index.js
 export { default as StationStatistics } from './StationStatistics';
 export { default as StationFilters } from './StationFilters';
 export { default as StationTable } from './StationTable';

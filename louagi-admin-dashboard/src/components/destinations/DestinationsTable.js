@@ -1,4 +1,3 @@
-// src/components/destinations/DestinationsTable.js
 import React from 'react';
 import {
     MapPin,

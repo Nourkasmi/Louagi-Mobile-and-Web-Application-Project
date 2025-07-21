@@ -1,4 +1,3 @@
-// src/components/destinations/DestinationFilters.js - FIXED VERSION
 import React, { useState, useEffect, useCallback } from 'react';
 import { Search, RefreshCw } from 'lucide-react';
 

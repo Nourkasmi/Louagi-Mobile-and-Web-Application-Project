@@ -1,4 +1,3 @@
-// src/components/payments/PaymentRow.js
 import React from 'react';
 import { ArrowDownRight, Eye } from 'lucide-react';
 import { getStatusIcon, getStatusColor } from '../../utils/paymentHelpers';
@@ -74,7 +73,7 @@ const PaymentRow = ({ payment, formatCurrency, formatDate, openRefundModal }) =>
             <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                 <div className="flex items-center space-x-2">
                     <button
-                        onClick={() => {/* View details logic */}}
+                        onClick={() => {/* View details logic */ }}
                         className="text-blue-600 hover:text-blue-900 p-1 rounded hover:bg-blue-50"
                         title="View Details"
                     >

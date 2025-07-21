@@ -1,26 +1,25 @@
-// src/components/queue/LiveQueueModal.js
 import React, { useState, useEffect, useRef } from 'react';
-import { 
-    Users, 
-    ArrowUpDown, 
-    BarChart3, 
-    RefreshCw, 
-    AlertCircle, 
-    CheckCircle, 
-    Clock, 
-    X, 
+import {
+    Users,
+    ArrowUpDown,
+    BarChart3,
+    RefreshCw,
+    AlertCircle,
+    CheckCircle,
+    Clock,
+    X,
     Settings,
     MapPin,
     Calendar,
     Phone
 } from 'lucide-react';
 
-const LiveQueueModal = ({ 
-    isOpen, 
-    onClose, 
-    queueData, 
-    onRefresh, 
-    refreshing = false 
+const LiveQueueModal = ({
+    isOpen,
+    onClose,
+    queueData,
+    onRefresh,
+    refreshing = false
 }) => {
     const [autoRefresh, setAutoRefresh] = useState(false);
     const [refreshInterval, setRefreshInterval] = useState(30);
@@ -233,8 +232,8 @@ const LiveQueueModal = ({
                             </div>
                             <div className="text-center">
                                 <div className="text-2xl font-bold text-orange-600">
-                                    {activeQueues.length > 0 ? 
-                                        Math.round(activeQueues.reduce((sum, q) => sum + calculateWaitTime(q.joinedAt), 0) / activeQueues.length) 
+                                    {activeQueues.length > 0 ?
+                                        Math.round(activeQueues.reduce((sum, q) => sum + calculateWaitTime(q.joinedAt), 0) / activeQueues.length)
                                         : 0}m
                                 </div>
                                 <div className="text-sm text-gray-600">Avg Wait</div>

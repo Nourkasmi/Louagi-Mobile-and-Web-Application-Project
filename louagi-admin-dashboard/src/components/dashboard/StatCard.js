@@ -1,4 +1,3 @@
-// src/components/dashboard/StatCard.js
 import React from 'react';
 import { TrendingUp, TrendingDown } from 'lucide-react';
 
@@ -17,8 +16,8 @@ const StatCard = ({ title, value, change, changeType, icon: Icon, color, subtitl
                     )}
                     {change && (
                         <div className={`inline-flex items-center mt-2 px-2 py-1 rounded-full text-xs font-medium ${changeType === 'positive' ? 'text-green-700 bg-green-100' :
-                                changeType === 'negative' ? 'text-red-700 bg-red-100' :
-                                    'text-gray-700 bg-gray-100'
+                            changeType === 'negative' ? 'text-red-700 bg-red-100' :
+                                'text-gray-700 bg-gray-100'
                             }`}>
                             {changeType === 'positive' && <TrendingUp className="w-3 h-3 mr-1" />}
                             {changeType === 'negative' && <TrendingDown className="w-3 h-3 mr-1" />}

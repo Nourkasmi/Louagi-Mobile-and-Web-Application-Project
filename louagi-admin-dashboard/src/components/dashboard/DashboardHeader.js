@@ -1,4 +1,3 @@
-// src/components/dashboard/DashboardHeader.js - Updated (Removed Notification)
 import React from 'react';
 import { RefreshCw } from 'lucide-react';
 

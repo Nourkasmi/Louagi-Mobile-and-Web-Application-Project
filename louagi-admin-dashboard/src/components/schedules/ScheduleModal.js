@@ -1,4 +1,3 @@
-// src/components/schedules/ScheduleModal.js
 import React, { useState } from 'react';
 import { Save } from 'lucide-react';
 

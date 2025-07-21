@@ -1,4 +1,3 @@
-// src/components/common/EmptyState.js
 import React from 'react';
 import { FileText, Plus } from 'lucide-react';
 

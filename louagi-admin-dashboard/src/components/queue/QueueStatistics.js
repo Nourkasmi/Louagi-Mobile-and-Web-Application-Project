@@ -1,4 +1,3 @@
-// src/components/queue/QueueStatistics.js
 import React from 'react';
 import { Users, Clock, Car, CheckCircle } from 'lucide-react';
 

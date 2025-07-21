@@ -1,4 +1,3 @@
-// src/components/drivers/DriverDetailsModal.js
 import React from 'react';
 import {
     X,
@@ -101,20 +100,18 @@ const DriverDetailsModal = ({ driver, onClose }) => {
                     {/* Modal Body (scrollable if needed) */}
                     <div className="p-6" style={{ maxHeight: '60vh', overflowY: 'auto' }}>
                         {/* Status Banner */}
-                        <div className={`mb-6 p-4 rounded-lg border ${
-                            driver.isActive
+                        <div className={`mb-6 p-4 rounded-lg border ${driver.isActive
                                 ? 'bg-green-50 border-green-200'
                                 : 'bg-red-50 border-red-200'
-                        }`}>
+                            }`}>
                             <div className="flex items-center">
                                 {driver.isActive ? (
                                     <CheckCircle className="w-5 h-5 text-green-600 mr-2" />
                                 ) : (
                                     <XCircle className="w-5 h-5 text-red-600 mr-2" />
                                 )}
-                                <span className={`font-medium ${
-                                    driver.isActive ? 'text-green-800' : 'text-red-800'
-                                }`}>
+                                <span className={`font-medium ${driver.isActive ? 'text-green-800' : 'text-red-800'
+                                    }`}>
                                     Driver is {driver.isActive ? 'Active' : 'Inactive'}
                                 </span>
                             </div>

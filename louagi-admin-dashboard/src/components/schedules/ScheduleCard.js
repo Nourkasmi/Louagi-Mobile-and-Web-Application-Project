@@ -1,4 +1,3 @@
-// src/components/schedules/ScheduleCard.js - WORKING VERSION with proper delete
 import React from 'react';
 import {
     Calendar,

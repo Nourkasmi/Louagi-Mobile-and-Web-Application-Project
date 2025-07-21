@@ -1,4 +1,3 @@
-// src/components/drivers/DeleteDriverModal.js - FIXED VERSION
 import React from 'react';
 import {
     AlertTriangle,
@@ -14,7 +13,7 @@ const DeleteDriverModal = ({ driver, onClose, onConfirm, actionLoading = false }
         try {
             // ✅ FIX: Wait for the deletion to complete before closing modal
             const result = await onConfirm(driver.id, driver.name);
-            
+
             // Only close the modal if deletion was successful
             if (result && result.success !== false) {
                 onClose();

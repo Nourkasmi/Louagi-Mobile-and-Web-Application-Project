@@ -1,4 +1,3 @@
-// src/components/layout/Sidebar.js - Updated with Destinations
 import React from 'react';
 import {
     BarChart3,
@@ -11,7 +10,7 @@ import {
     Settings,
     Clock,
     FileText,
-    Navigation // ✅ NEW: Icon for destinations
+    Navigation
 } from 'lucide-react';
 
 const Sidebar = ({ isOpen, onClose, currentRoute, setCurrentRoute }) => {

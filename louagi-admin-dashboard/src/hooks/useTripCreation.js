@@ -1,4 +1,3 @@
-// src/hooks/useTripCreation.js - FIXED VERSION
 import { useState, useCallback } from 'react';
 import { showToast } from '../utils/toast';
 
@@ -60,7 +59,7 @@ export const useTripCreation = () => {
             // ✅ FIX: Improved driver data processing
             if (driversRes.success) {
                 console.log('👥 Raw driver users:', driversRes.users?.length || 0);
-                
+
                 // Process all driver users and create enhanced driver objects
                 const processedDrivers = driversRes.users
                     .filter(user => {
@@ -73,44 +72,44 @@ export const useTripCreation = () => {
                     })
                     .map(user => {
                         const driverProfile = user.driverProfile || {};
-                        
+
                         // Create comprehensive driver object
                         const processedDriver = {
                             // ✅ FIX: Use the user ID, not the driver profile ID
                             id: user.id,
                             driverId: user.id,
-                            
+
                             // Basic info
                             name: user.username || 'Unknown Driver',
                             email: user.email || '',
                             phone: user.phone || '',
-                            
+
                             // Driver specific info
                             licenseNo: driverProfile.license_no || 'N/A',
                             vehicleType: driverProfile.vehicle_type || 'Standard',
                             vehicleCapacity: driverProfile.vehicle_capacity || 4,
-                            
+
                             // Status info
                             isActive: user.isActive || false,
                             isVerified: driverProfile.is_verified || false,
-                            
+
                             // Additional info
                             rating: driverProfile.rating || 0,
                             experience: driverProfile.experience || 0,
                             licenseExpiry: driverProfile.license_expiry || null,
-                            
+
                             // For debugging
                             _userId: user.id,
                             _hasDriverProfile: !!user.driverProfile
                         };
-                        
+
                         console.log('👤 Processed driver:', processedDriver.name, {
                             id: processedDriver.id,
                             isActive: processedDriver.isActive,
                             isVerified: processedDriver.isVerified,
                             vehicleType: processedDriver.vehicleType
                         });
-                        
+
                         return processedDriver;
                     })
                     // ✅ FIX: Filter for available drivers but include unverified ones
@@ -148,7 +147,7 @@ export const useTripCreation = () => {
         } catch (error) {
             console.error('❌ Error fetching trip creation data:', error);
             showToast('Failed to load trip creation data: ' + error.message, 'error');
-            
+
             // Set empty arrays on error
             setDestinations([]);
             setSchedules([]);

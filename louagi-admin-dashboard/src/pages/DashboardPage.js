@@ -1,4 +1,3 @@
-// src/pages/DashboardPage.js
 import React from 'react';
 import { Users, Car, CreditCard, FileText } from 'lucide-react';
 import LoadingSpinner from '../components/common/LoadingSpinner';
@@ -56,13 +55,13 @@ const DashboardPage = () => {
                         color="from-green-600 to-green-800"
                         subtitle="Currently running"
                     />
-<StatCard
-    title="Total Revenue"
-    value={`$${stats.totalRevenue.toFixed(2)}`}
-    icon={CreditCard}
-    color="from-purple-600 to-purple-800"
-    subtitle="This month"
-/>
+                    <StatCard
+                        title="Total Revenue"
+                        value={`$${stats.totalRevenue.toFixed(2)}`}
+                        icon={CreditCard}
+                        color="from-purple-600 to-purple-800"
+                        subtitle="This month"
+                    />
                     <StatCard
                         title="Today's Bookings"
                         value={stats.todayBookings}

@@ -1,4 +1,3 @@
-// src/hooks/useQueueData.js
 import { useState, useEffect, useCallback } from 'react';
 import { showToast } from '../utils/toast';
 

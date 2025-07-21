@@ -1,4 +1,3 @@
-// src/hooks/useDestinationsData.js - FIXED VERSION
 import { useState, useEffect, useCallback } from 'react';
 import { showToast } from '../utils/toast';
 
@@ -162,7 +161,7 @@ export const useDestinationsData = () => {
     // Delete destination
     const deleteDestination = async (destination) => {
         const confirmMessage = `Are you sure you want to delete the route from ${destination.startStation?.name} to ${destination.endStation?.name}? This action cannot be undone.`;
-        
+
         if (!window.confirm(confirmMessage)) {
             return;
         }
@@ -230,9 +229,9 @@ export const useDestinationsData = () => {
 
         // Computed
         hasFilters: Boolean(
-            searchTerm.trim() || 
-            filters.isActive !== 'all' || 
-            filters.startStation !== 'all' || 
+            searchTerm.trim() ||
+            filters.isActive !== 'all' ||
+            filters.startStation !== 'all' ||
             filters.endStation !== 'all'
         )
     };

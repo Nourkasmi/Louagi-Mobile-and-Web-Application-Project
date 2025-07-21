@@ -1,4 +1,3 @@
-// src/pages/LoginPage.js - Clean Refactored Version
 import React from 'react';
 import { useLoginForm } from '../hooks/useLoginForm';
 import { LoginHeader, LoginForm, LoginFooter } from '../components/login';

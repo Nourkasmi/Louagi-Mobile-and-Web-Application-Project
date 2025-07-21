@@ -22,16 +22,16 @@ export const AuthProvider = ({ children }) => {
 
     const initializeAuth = async () => {
         try {
-            console.log('🔐 Initializing authentication...');
+            console.log('Initializing authentication...');
 
             const token = localStorage.getItem('louagi_token');
             if (!token) {
-                console.log('❌ No token found');
+                console.log('No token found');
                 setLoading(false);
                 return;
             }
 
-            console.log('🔍 Verifying token with backend...');
+            console.log('Verifying token with backend...');
             const response = await authAPI.getCurrentUser();
 
             if (response.data.success && response.data.user) {
@@ -39,7 +39,7 @@ export const AuthProvider = ({ children }) => {
 
                 // Strict admin validation
                 if (userData.role !== 'admin') {
-                    console.warn('⚠️ Non-admin user attempting access:', userData.role);
+                    console.warn('Non-admin user attempting access:', userData.role);
                     localStorage.removeItem('louagi_token');
                     setUser(null);
                     setIsAuthenticated(false);
@@ -49,7 +49,7 @@ export const AuthProvider = ({ children }) => {
 
                 // Check if account is active
                 if (!userData.isActive) {
-                    console.warn('⚠️ Inactive admin account:', userData.email);
+                    console.warn('Inactive admin account:', userData.email);
                     localStorage.removeItem('louagi_token');
                     setUser(null);
                     setIsAuthenticated(false);
@@ -57,18 +57,18 @@ export const AuthProvider = ({ children }) => {
                     return;
                 }
 
-                console.log('✅ Admin authenticated:', userData.email);
+                console.log('Admin authenticated:', userData.email);
                 setUser(userData);
                 setIsAuthenticated(true);
             } else {
-                console.warn('❌ Invalid user response from backend');
+                console.warn('Invalid user response from backend');
                 localStorage.removeItem('louagi_token');
                 setUser(null);
                 setIsAuthenticated(false);
             }
 
         } catch (error) {
-            console.error('❌ Authentication initialization failed:', error);
+            console.error('Authentication initialization failed:', error);
             localStorage.removeItem('louagi_token');
             setUser(null);
             setIsAuthenticated(false);
@@ -80,7 +80,7 @@ export const AuthProvider = ({ children }) => {
     const login = async (email, password) => {
         try {
             setLoading(true);
-            console.log('🔐 Attempting login for:', email);
+            console.log('Attempting login for:', email);
 
             const response = await authAPI.login(email, password);
 
@@ -89,7 +89,7 @@ export const AuthProvider = ({ children }) => {
 
                 // Strict validation
                 if (!userData || userData.role !== 'admin') {
-                    console.warn('⚠️ Access denied: Not an admin user');
+                    console.warn('Access denied: Not an admin user');
                     return {
                         success: false,
                         message: 'Access denied. Admin privileges required.'
@@ -97,7 +97,7 @@ export const AuthProvider = ({ children }) => {
                 }
 
                 if (!userData.isActive) {
-                    console.warn('⚠️ Access denied: Inactive account');
+                    console.warn('Access denied: Inactive account');
                     return {
                         success: false,
                         message: 'Account is inactive. Contact system administrator.'
@@ -109,11 +109,11 @@ export const AuthProvider = ({ children }) => {
                 setUser(userData);
                 setIsAuthenticated(true);
 
-                console.log('✅ Admin login successful:', userData.email);
+                console.log('Admin login successful:', userData.email);
                 return { success: true };
 
             } else {
-                console.warn('❌ Login failed:', response.data.message);
+                console.warn('Login failed:', response.data.message);
                 return {
                     success: false,
                     message: response.data.message || 'Authentication failed'
@@ -121,7 +121,7 @@ export const AuthProvider = ({ children }) => {
             }
 
         } catch (error) {
-            console.error('❌ Login error:', error);
+            console.error('Login error:', error);
 
             if (error.response?.status === 401) {
                 return {
@@ -156,9 +156,9 @@ export const AuthProvider = ({ children }) => {
 
             try {
                 await authAPI.logout();
-                console.log('✅ Server-side logout successful');
+                console.log('Server-side logout successful');
             } catch (error) {
-                console.warn('⚠️ Server-side logout failed:', error.message);
+                console.warn('Server-side logout failed:', error.message);
             }
 
         } finally {
@@ -166,7 +166,7 @@ export const AuthProvider = ({ children }) => {
             setUser(null);
             setIsAuthenticated(false);
             setLoading(false);
-            console.log('✅ Local logout completed');
+            console.log('Local logout completed');
         }
     };
 

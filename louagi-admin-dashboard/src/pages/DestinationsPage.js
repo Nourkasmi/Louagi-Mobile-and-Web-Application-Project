@@ -1,4 +1,3 @@
-// src/pages/DestinationsPage.js - FIXED VERSION
 import React, { useState } from 'react';
 import { Plus, RefreshCw, Download } from 'lucide-react';
 import PageHeader from '../components/common/PageHeader';

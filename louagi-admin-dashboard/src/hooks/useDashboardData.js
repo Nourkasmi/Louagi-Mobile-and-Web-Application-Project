@@ -1,4 +1,3 @@
-// src/hooks/useDashboardData.js
 import { useState, useEffect, useCallback } from 'react';
 
 export const useDashboardData = () => {

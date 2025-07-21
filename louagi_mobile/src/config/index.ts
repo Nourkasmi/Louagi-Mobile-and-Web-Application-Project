@@ -1,7 +1,7 @@
 // src/config/index.ts 
 const Config = {
   // 🌐 Your Backend URL - Updated from the error logs
-  API_BASE_URL: 'https://f30c4c015e70.ngrok-free.app/api', // Ensure this is the correct URL for your backend
+  API_BASE_URL: 'https://d41e6b3a9b01.ngrok-free.app/api', // Ensure this is the correct URL for your backend
   // 💳 Stripe Test Key
   STRIPE_PUBLISHABLE_KEY: 'pk_test_51RVuo6ALVnc4tntayhIZmjEVw4bxb3xhp2ZlJLIzhy5bUP7FU1UWa1cIXOOhUyBq1dGq1SwCyzh6Uw13FSkY0q4200n6PzGxgt',
 
@@ -22,7 +22,7 @@ const Config = {
   },
 
   //  Debug Mode
-  DEBUG: __DEV__, 
+  DEBUG: __DEV__,
 };
 
 // Debug logging

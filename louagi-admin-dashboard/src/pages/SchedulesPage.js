@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Plus, RefreshCw } from 'lucide-react';
 import { useSchedulesData } from '../hooks/useSchedulesData';
@@ -23,7 +22,7 @@ const SchedulesPage = () => {
         filters,
         daysOfWeek,
         fetchSchedules,
-        deleteSchedule, // This comes from the fixed hook
+        deleteSchedule,
         handleFilterChange,
         handlePageChange,
         handleScheduleSave,

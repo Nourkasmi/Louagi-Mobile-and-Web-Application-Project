@@ -1,4 +1,3 @@
-// src/hooks/useTripsData.js - FIXED VERSION with Real Statistics
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { showToast } from '../utils/toast';
 
@@ -207,16 +206,16 @@ export const useTripsData = () => {
             const calculatedStats = {
                 // Use real total from backend, not just current page
                 totalTrips: statsFromEndpoint?.total || totalTripsCount,
-                
+
                 // Calculate from current trips data or use backend stats
-                activeTrips: statsFromEndpoint?.active || 
-                           trips.filter(t => t.status === 'in_progress' || t.status === 'scheduled').length,
-                
-                completedTrips: statsFromEndpoint?.completed || 
-                              trips.filter(t => t.status === 'completed').length,
-                
-                totalPassengers: statsFromEndpoint?.totalPassengers || 
-                               trips.reduce((sum, t) => sum + (t.passengerCount || t.seatsBooked || 0), 0)
+                activeTrips: statsFromEndpoint?.active ||
+                    trips.filter(t => t.status === 'in_progress' || t.status === 'scheduled').length,
+
+                completedTrips: statsFromEndpoint?.completed ||
+                    trips.filter(t => t.status === 'completed').length,
+
+                totalPassengers: statsFromEndpoint?.totalPassengers ||
+                    trips.reduce((sum, t) => sum + (t.passengerCount || t.seatsBooked || 0), 0)
             };
 
             setStats(calculatedStats);
@@ -228,7 +227,7 @@ export const useTripsData = () => {
             }
 
             console.warn('⚠️ Could not fetch trip stats:', error.message);
-            
+
             // ✅ FIX: Use pagination total for accurate count
             const fallbackStats = {
                 totalTrips: pagination.total || trips.length,
@@ -236,7 +235,7 @@ export const useTripsData = () => {
                 completedTrips: trips.filter(t => t.status === 'completed').length,
                 totalPassengers: trips.reduce((sum, t) => sum + (t.passengerCount || t.seatsBooked || 0), 0)
             };
-            
+
             setStats(fallbackStats);
             console.log('📊 Using fallback stats:', fallbackStats);
         }

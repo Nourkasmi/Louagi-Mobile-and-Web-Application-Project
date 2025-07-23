@@ -1,4 +1,3 @@
-// src/components/schedules/ScheduleEmptyState.js
 import React from 'react';
 import { Calendar } from 'lucide-react';
 

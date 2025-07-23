@@ -1,4 +1,3 @@
-// src/components/drivers/DriversTable.js - Safe version with null checks
 import React from 'react';
 import {
     Car,
@@ -16,15 +15,15 @@ import {
     CheckCircle
 } from 'lucide-react';
 
-const DriversTable = ({ 
-    drivers = [], 
-    pagination = {}, 
-    onPageChange = () => {},
-    onViewDriver = () => {},
-    onEditDriver = () => {},
-    onDeleteDriver = () => {},
-    onToggleStatus = () => {},
-    actionLoading = {} 
+const DriversTable = ({
+    drivers = [],
+    pagination = {},
+    onPageChange = () => { },
+    onViewDriver = () => { },
+    onEditDriver = () => { },
+    onDeleteDriver = () => { },
+    onToggleStatus = () => { },
+    actionLoading = {}
 }) => {
     // Safe data access functions
     const safeValue = (value, fallback = 'N/A') => {
@@ -68,7 +67,7 @@ const DriversTable = ({
                     </div>
                     <h3 className="text-lg font-medium text-gray-900 mb-2">No drivers found</h3>
                     <p className="text-gray-600">
-                        {Array.isArray(drivers) ? 
+                        {Array.isArray(drivers) ?
                             'No drivers have been registered yet or match your current filters.' :
                             'Loading driver data...'
                         }
@@ -102,7 +101,7 @@ const DriversTable = ({
                                 }
 
                                 const driverId = driver.id || driver._id;
-                                
+
                                 return (
                                     <tr key={driverId} className="border-b hover:bg-gray-50">
                                         {/* Driver Info */}
@@ -217,11 +216,10 @@ const DriversTable = ({
                                                 <button
                                                     onClick={() => onToggleStatus(driverId, driver.isActive)}
                                                     disabled={actionLoading[driverId]}
-                                                    className={`p-2 rounded-lg transition-colors ${
-                                                        driver.isActive 
-                                                            ? 'text-yellow-600 hover:text-yellow-800 hover:bg-yellow-50' 
+                                                    className={`p-2 rounded-lg transition-colors ${driver.isActive
+                                                            ? 'text-yellow-600 hover:text-yellow-800 hover:bg-yellow-50'
                                                             : 'text-green-600 hover:text-green-800 hover:bg-green-50'
-                                                    }`}
+                                                        }`}
                                                     title={driver.isActive ? 'Deactivate Driver' : 'Activate Driver'}
                                                 >
                                                     {actionLoading[driverId] ? (

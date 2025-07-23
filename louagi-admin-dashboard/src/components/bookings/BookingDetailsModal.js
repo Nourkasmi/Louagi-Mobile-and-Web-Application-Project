@@ -1,4 +1,3 @@
-// src/components/bookings/BookingDetailsModal.js
 import React from 'react';
 import { XCircle } from 'lucide-react';
 

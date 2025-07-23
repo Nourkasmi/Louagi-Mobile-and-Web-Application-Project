@@ -1,4 +1,3 @@
-// src/components/bookings/BookingFilters.js
 import React, { useRef, useEffect, useState } from 'react';
 import { Search, Filter, RefreshCw } from 'lucide-react';
 

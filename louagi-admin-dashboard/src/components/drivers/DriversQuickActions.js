@@ -1,4 +1,3 @@
-// src/components/drivers/DriversQuickActions.js - "2 pending" display removed
 import React, { useState, useEffect } from 'react';
 import { Shield, AlertTriangle, CheckCircle } from 'lucide-react';
 import DriverVerificationModal from './DriverVerificationModal';
@@ -84,12 +83,12 @@ const DriversQuickActions = ({ refreshDrivers }) => {
                                 <span>Checking pending verifications...</span>
                             </div>
                         ) : pendingCount > 0 ? (
-<div className="flex items-center">
-    <AlertTriangle className="w-4 h-4 text-orange-500 mr-2" />
-    <span className="font-medium">
-        driver{pendingCount !== 1 ? 's' : ''} pending verification
-    </span>
-</div>
+                            <div className="flex items-center">
+                                <AlertTriangle className="w-4 h-4 text-orange-500 mr-2" />
+                                <span className="font-medium">
+                                    driver{pendingCount !== 1 ? 's' : ''} pending verification
+                                </span>
+                            </div>
 
                         ) : (
                             <div className="flex items-center">
@@ -99,14 +98,13 @@ const DriversQuickActions = ({ refreshDrivers }) => {
                         )}
                     </div>
 
-                    <button 
+                    <button
                         onClick={handleOpenVerificationModal}
                         disabled={loading}
-                        className={`w-full py-2 px-4 rounded-lg transition-colors flex items-center justify-center ${
-                            pendingCount > 0 
-                                ? 'bg-orange-600 text-white hover:bg-orange-700' 
+                        className={`w-full py-2 px-4 rounded-lg transition-colors flex items-center justify-center ${pendingCount > 0
+                                ? 'bg-orange-600 text-white hover:bg-orange-700'
                                 : 'bg-green-600 text-white hover:bg-green-700'
-                        } disabled:opacity-50 disabled:cursor-not-allowed`}
+                            } disabled:opacity-50 disabled:cursor-not-allowed`}
                     >
                         {loading ? (
                             <>

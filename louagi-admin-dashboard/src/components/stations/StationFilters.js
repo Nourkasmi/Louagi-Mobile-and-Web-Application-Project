@@ -1,4 +1,3 @@
-// src/components/stations/StationFilters.js - Updated with onRefresh support
 import React, { useState, useEffect, useCallback } from 'react';
 import { Search, RefreshCw } from 'lucide-react';
 
@@ -18,8 +17,8 @@ const StationFilters = ({ filters, setFilters, onRefresh }) => {
             return (searchValue) => {
                 clearTimeout(timeoutId);
                 timeoutId = setTimeout(() => {
-                    setFilters(prev => ({ 
-                        ...prev, 
+                    setFilters(prev => ({
+                        ...prev,
                         search: searchValue,
                         page: 1 // Reset to first page on search
                     }));
@@ -39,10 +38,10 @@ const StationFilters = ({ filters, setFilters, onRefresh }) => {
     // Clear search
     const handleClearSearch = () => {
         setLocalSearch('');
-        setFilters(prev => ({ 
-            ...prev, 
+        setFilters(prev => ({
+            ...prev,
             search: '',
-            page: 1 
+            page: 1
         }));
     };
 

@@ -1,4 +1,3 @@
-// src/components/common/ErrorDisplay.js
 import React from 'react';
 import { AlertCircle, RefreshCw } from 'lucide-react';
 

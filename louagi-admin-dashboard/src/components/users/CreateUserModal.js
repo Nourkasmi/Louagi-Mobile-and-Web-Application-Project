@@ -1,4 +1,3 @@
-// src/components/users/CreateUserModal.js - FIXED SCROLLING VERSION
 import React, { useState } from 'react';
 import { X } from 'lucide-react';
 
@@ -146,8 +145,8 @@ const CreateUserModal = ({ onClose, onCreateUser, actionLoading }) => {
                                     <p className="text-blue-100 text-sm">Add a new user to the system</p>
                                 </div>
                             </div>
-                            <button 
-                                onClick={onClose} 
+                            <button
+                                onClick={onClose}
                                 disabled={actionLoading?.create}
                                 className="p-2 hover:bg-white hover:bg-opacity-20 rounded-lg transition-colors disabled:opacity-50"
                             >
@@ -167,7 +166,7 @@ const CreateUserModal = ({ onClose, onCreateUser, actionLoading }) => {
                                     </svg>
                                     <h3 className="text-lg font-semibold text-gray-900">Basic Information</h3>
                                 </div>
-                                
+
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div>
                                         <label className="block text-sm font-medium text-gray-700 mb-1">Username *</label>

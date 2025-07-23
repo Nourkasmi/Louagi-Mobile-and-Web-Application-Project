@@ -1,4 +1,3 @@
-// src/pages/PaymentsPage.js - Updated to get payment data from bookings
 import React, { useState } from 'react';
 import { Download, RefreshCw, DollarSign, CreditCard, TrendingUp, AlertTriangle } from 'lucide-react';
 import PageHeader from '../components/common/PageHeader';

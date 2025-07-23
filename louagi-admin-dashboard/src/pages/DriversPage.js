@@ -1,4 +1,3 @@
-// src/pages/DriversPage.js - Updated to support verification workflow
 import React, { useState } from 'react';
 import { useDriversData } from '../hooks/useDriversData';
 import {

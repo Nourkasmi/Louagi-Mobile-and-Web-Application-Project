@@ -1,4 +1,3 @@
-// src/pages/TripsPage.js - Enhanced with Create Trip functionality
 import React, { useState, useEffect } from 'react';
 import { useTripsData } from '../hooks/useTripsData';
 import { useTripCreation } from '../hooks/useTripCreation';
@@ -168,7 +167,7 @@ const TripsPage = () => {
         const action = window.confirm(
             `Trip Details:\nID: ${trip.id}\nRoute: ${trip.route?.description || 'Unknown'}\nStatus: ${trip.status}\n\nDo you want to edit this trip?`
         );
-        
+
         if (action) {
             handleEditTrip(trip);
         }

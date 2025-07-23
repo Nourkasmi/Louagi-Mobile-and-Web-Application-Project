@@ -1,4 +1,3 @@
-// src/components/bookings/BookingStats.js
 import React from 'react';
 import { FileText, CheckCircle, Clock, DollarSign } from 'lucide-react';
 

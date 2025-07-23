@@ -1,4 +1,3 @@
-// src/components/login/ErrorDisplay.js
 import React from 'react';
 import { AlertCircle } from 'lucide-react';
 

@@ -1,4 +1,3 @@
-// src/components/schedules/ScheduleFilters.js - Fixed with search-only and proper debouncing
 import React, { useState, useEffect, useCallback } from 'react';
 import { Search, RefreshCw } from 'lucide-react';
 

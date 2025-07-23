@@ -1,4 +1,3 @@
-// src/components/payments/index.js
 export { default as PaymentStatistics } from './PaymentStatistics';
 export { default as PaymentFilters } from './PaymentFilters';
 export { default as PaymentRow } from './PaymentRow';

@@ -1,4 +1,3 @@
-// src/components/drivers/index.js - Updated with DriverVerificationModal
 export { default as DriversStatistics } from './DriversStatistics';
 export { default as DriversFilters } from './DriversFilters';
 export { default as DriversTable } from './DriversTable';

@@ -1,4 +1,3 @@
-// src/components/stations/EditStationModal.js
 import React, { useState, useEffect } from 'react';
 import {
     XCircle,
@@ -115,7 +114,7 @@ const EditStationModal = ({ station, showModal, onClose, onSubmit, saveLoading }
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        
+
         if (!validateForm()) {
             return;
         }
@@ -173,9 +172,8 @@ const EditStationModal = ({ station, showModal, onClose, onSubmit, saveLoading }
                                             required
                                             value={stationData.name}
                                             onChange={(e) => handleInputChange('name', e.target.value)}
-                                            className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors ${
-                                                formErrors.name ? 'border-red-500' : 'border-gray-300'
-                                            }`}
+                                            className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors ${formErrors.name ? 'border-red-500' : 'border-gray-300'
+                                                }`}
                                             placeholder="e.g., Central Bus Station"
                                             disabled={saveLoading}
                                         />
@@ -194,9 +192,8 @@ const EditStationModal = ({ station, showModal, onClose, onSubmit, saveLoading }
                                             max="1000"
                                             value={stationData.capacity}
                                             onChange={(e) => handleInputChange('capacity', e.target.value)}
-                                            className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors ${
-                                                formErrors.capacity ? 'border-red-500' : 'border-gray-300'
-                                            }`}
+                                            className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors ${formErrors.capacity ? 'border-red-500' : 'border-gray-300'
+                                                }`}
                                             placeholder="50"
                                             disabled={saveLoading}
                                         />
@@ -223,9 +220,8 @@ const EditStationModal = ({ station, showModal, onClose, onSubmit, saveLoading }
                                             required
                                             value={stationData.address}
                                             onChange={(e) => handleInputChange('address', e.target.value)}
-                                            className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors ${
-                                                formErrors.address ? 'border-red-500' : 'border-gray-300'
-                                            }`}
+                                            className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors ${formErrors.address ? 'border-red-500' : 'border-gray-300'
+                                                }`}
                                             placeholder="123 Main Street, Downtown"
                                             disabled={saveLoading}
                                         />
@@ -243,9 +239,8 @@ const EditStationModal = ({ station, showModal, onClose, onSubmit, saveLoading }
                                                 required
                                                 value={stationData.city}
                                                 onChange={(e) => handleInputChange('city', e.target.value)}
-                                                className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors ${
-                                                    formErrors.city ? 'border-red-500' : 'border-gray-300'
-                                                }`}
+                                                className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors ${formErrors.city ? 'border-red-500' : 'border-gray-300'
+                                                    }`}
                                                 placeholder="Tunis"
                                                 disabled={saveLoading}
                                             />
@@ -262,9 +257,8 @@ const EditStationModal = ({ station, showModal, onClose, onSubmit, saveLoading }
                                                 required
                                                 value={stationData.state}
                                                 onChange={(e) => handleInputChange('state', e.target.value)}
-                                                className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors ${
-                                                    formErrors.state ? 'border-red-500' : 'border-gray-300'
-                                                }`}
+                                                className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors ${formErrors.state ? 'border-red-500' : 'border-gray-300'
+                                                    }`}
                                                 placeholder="Tunis"
                                                 disabled={saveLoading}
                                             />
@@ -281,9 +275,8 @@ const EditStationModal = ({ station, showModal, onClose, onSubmit, saveLoading }
                                                 required
                                                 value={stationData.zipCode}
                                                 onChange={(e) => handleInputChange('zipCode', e.target.value)}
-                                                className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors ${
-                                                    formErrors.zipCode ? 'border-red-500' : 'border-gray-300'
-                                                }`}
+                                                className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors ${formErrors.zipCode ? 'border-red-500' : 'border-gray-300'
+                                                    }`}
                                                 placeholder="1000"
                                                 disabled={saveLoading}
                                             />
@@ -324,9 +317,8 @@ const EditStationModal = ({ station, showModal, onClose, onSubmit, saveLoading }
                                             type="email"
                                             value={stationData.contactEmail}
                                             onChange={(e) => handleInputChange('contactEmail', e.target.value)}
-                                            className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors ${
-                                                formErrors.contactEmail ? 'border-red-500' : 'border-gray-300'
-                                            }`}
+                                            className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors ${formErrors.contactEmail ? 'border-red-500' : 'border-gray-300'
+                                                }`}
                                             placeholder="station@louagi.tn"
                                             disabled={saveLoading}
                                         />

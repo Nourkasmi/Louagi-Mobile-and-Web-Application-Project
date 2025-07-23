@@ -1,4 +1,3 @@
-// src/hooks/useSchedulesData.js - FIXED VERSION with working delete
 import { useState, useEffect, useCallback } from 'react';
 
 export const useSchedulesData = () => {

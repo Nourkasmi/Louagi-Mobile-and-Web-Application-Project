@@ -1,4 +1,3 @@
-// src/components/drivers/DriversFilters.js
 import React, { useState, useEffect } from 'react';
 import { Search, RefreshCw } from 'lucide-react';
 
@@ -11,8 +10,8 @@ const DriversFilters = ({ filters, setFilters, onRefresh }) => {
         const timeoutId = setTimeout(() => {
             // Only update if the value actually changed
             if (localSearch !== filters.search) {
-                setFilters(prev => ({ 
-                    ...prev, 
+                setFilters(prev => ({
+                    ...prev,
                     search: localSearch,
                     page: 1 // Reset to first page when searching
                 }));
@@ -36,10 +35,10 @@ const DriversFilters = ({ filters, setFilters, onRefresh }) => {
 
     const handleSearchClear = () => {
         setLocalSearch('');
-        setFilters(prev => ({ 
-            ...prev, 
+        setFilters(prev => ({
+            ...prev,
             search: '',
-            page: 1 
+            page: 1
         }));
     };
 

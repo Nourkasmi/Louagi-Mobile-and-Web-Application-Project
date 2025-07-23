@@ -1,4 +1,3 @@
-// src/hooks/useStationsData.js - Fixed to prevent search input refresh issues
 import { useState, useEffect, useCallback, useRef } from 'react';
 
 export const useStationsData = () => {
@@ -28,7 +27,7 @@ export const useStationsData = () => {
     });
 
     const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
-    
+
     // Use ref to prevent infinite loops
     const isInitialLoad = useRef(true);
     const abortControllerRef = useRef(null);
@@ -37,7 +36,7 @@ export const useStationsData = () => {
     const fetchStations = useCallback(async () => {
         try {
             setError(null);
-            
+
             // Don't show loading on subsequent searches
             if (isInitialLoad.current) {
                 setLoading(true);

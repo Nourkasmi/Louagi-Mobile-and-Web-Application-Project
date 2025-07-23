@@ -1,4 +1,3 @@
-// src/components/drivers/DriversStatistics.js
 import React from 'react';
 import { Users, CheckCircle, Clock } from 'lucide-react';
 

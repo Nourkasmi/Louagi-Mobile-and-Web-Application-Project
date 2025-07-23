@@ -1,4 +1,3 @@
-// src/components/dashboard/RecentActivity.js
 import React from 'react';
 import { Activity, FileText, Car, Users, DollarSign } from 'lucide-react';
 

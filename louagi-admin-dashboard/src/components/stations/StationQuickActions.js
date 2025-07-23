@@ -1,4 +1,3 @@
-// src/components/stations/StationQuickActions.js - CLEANED VERSION
 import React from 'react';
 import { Download, RefreshCw } from 'lucide-react';
 
@@ -12,7 +11,7 @@ const StationQuickActions = ({ stats, onExport, onRefresh }) => {
                     <div className="text-sm text-gray-600">
                         Download station data for external analysis
                     </div>
-                    <button 
+                    <button
                         onClick={onExport}
                         className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center"
                     >
@@ -29,7 +28,7 @@ const StationQuickActions = ({ stats, onExport, onRefresh }) => {
                     <div className="text-sm text-gray-600">
                         Refresh and sync station data
                     </div>
-                    <button 
+                    <button
                         onClick={onRefresh}
                         className="w-full bg-gray-600 text-white py-2 px-4 rounded-lg hover:bg-gray-700 transition-colors flex items-center justify-center"
                     >

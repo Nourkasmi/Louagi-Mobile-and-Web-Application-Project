@@ -1,4 +1,3 @@
-// src/components/dashboard/BookingChart.js
 import React from 'react';
 import { BarChart3 } from 'lucide-react';
 

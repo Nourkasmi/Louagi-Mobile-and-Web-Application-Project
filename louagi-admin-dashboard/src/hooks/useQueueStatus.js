@@ -1,4 +1,3 @@
-// src/hooks/useQueueStatus.js
 import { useState, useEffect, useCallback } from 'react';
 
 export const useQueueStatus = (stationId) => {

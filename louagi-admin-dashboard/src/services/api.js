@@ -18,11 +18,11 @@ api.interceptors.request.use(
         if (token) {
             config.headers.Authorization = `Bearer ${token}`;
         }
-        console.log('🚀 API Request:', config.method?.toUpperCase(), config.url);
+        console.log('API Request:', config.method?.toUpperCase(), config.url);
         return config;
     },
     (error) => {
-        console.error('❌ Request Error:', error);
+        console.error('Request Error:', error);
         return Promise.reject(error);
     }
 );
@@ -30,11 +30,11 @@ api.interceptors.request.use(
 // Response interceptor to handle common errors
 api.interceptors.response.use(
     (response) => {
-        console.log('✅ API Response:', response.status, response.config.url);
+        console.log('API Response:', response.status, response.config.url);
         return response;
     },
     (error) => {
-        console.error('❌ API Error:', error.response?.status, error.response?.data?.message || error.message);
+        console.error('API Error:', error.response?.status, error.response?.data?.message || error.message);
 
         // Handle 401 Unauthorized
         if (error.response?.status === 401) {
@@ -50,7 +50,7 @@ api.interceptors.response.use(
 // Auth API calls
 export const authAPI = {
     login: (email, password) => {
-        console.log('🔐 Attempting login for:', email);
+        console.log('Attempting login for:', email);
         return api.post('/auth/login', { email, password });
     },
     logout: () => api.post('/auth/logout'),

@@ -1,4 +1,3 @@
-// src/pages/BookingsPage.js - Clean Version
 import React, { useState } from 'react';
 import { AlertCircle, RefreshCw } from 'lucide-react';
 import { useBookingsData } from '../hooks/useBookingsData';

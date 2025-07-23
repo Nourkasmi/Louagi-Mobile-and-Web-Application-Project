@@ -1,4 +1,3 @@
-// src/components/queue/QueueTable.js
 import React from 'react';
 import { Clock, ArrowUp, ArrowDown, Users, CheckCircle, XCircle } from 'lucide-react';
 

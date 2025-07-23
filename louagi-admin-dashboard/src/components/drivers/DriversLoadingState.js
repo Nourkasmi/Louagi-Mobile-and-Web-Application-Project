@@ -1,4 +1,3 @@
-// src/components/drivers/DriversLoadingState.js
 import React from 'react';
 
 const DriversLoadingState = () => {

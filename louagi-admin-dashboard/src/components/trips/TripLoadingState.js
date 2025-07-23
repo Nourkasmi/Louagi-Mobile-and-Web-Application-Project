@@ -1,4 +1,3 @@
-// src/components/trips/TripLoadingState.js
 import React from 'react';
 import LoadingSpinner from '../common/LoadingSpinner';
 import PageHeader from '../common/PageHeader';

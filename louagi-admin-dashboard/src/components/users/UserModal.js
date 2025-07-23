@@ -1,4 +1,3 @@
-// src/components/users/UserModal.js
 import React from 'react';
 import { X, Mail, Phone } from 'lucide-react';
 import { getRoleIcon, getRoleColor } from '../../utils/helpers';
@@ -86,8 +85,8 @@ const UserModal = ({ user, onClose, onToggleStatus }) => (
           <button
             onClick={() => onToggleStatus(user.id, user.isActive)}
             className={`px-4 py-2 rounded-lg font-medium transition-colors ${user.isActive
-                ? 'bg-red-100 text-red-700 hover:bg-red-200'
-                : 'bg-green-100 text-green-700 hover:bg-green-200'
+              ? 'bg-red-100 text-red-700 hover:bg-red-200'
+              : 'bg-green-100 text-green-700 hover:bg-green-200'
               }`}
           >
             {user.isActive ? 'Deactivate' : 'Activate'}

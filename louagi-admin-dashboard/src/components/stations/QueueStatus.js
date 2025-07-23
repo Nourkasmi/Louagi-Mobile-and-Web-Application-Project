@@ -1,4 +1,3 @@
-// src/components/stations/QueueStatus.js
 import React from 'react';
 import { Users, Clock, MapPin } from 'lucide-react';
 import { useQueueStatus } from '../../hooks/useQueueStatus';
@@ -62,11 +61,10 @@ const QueueStatus = ({ station }) => {
                             </span>
                         </div>
                         <div className="flex items-center space-x-2">
-                            <span className={`text-xs font-medium px-2 py-1 rounded-full ${
-                                queue.count > 0 
-                                    ? 'bg-green-100 text-green-800' 
+                            <span className={`text-xs font-medium px-2 py-1 rounded-full ${queue.count > 0
+                                    ? 'bg-green-100 text-green-800'
                                     : 'bg-gray-100 text-gray-600'
-                            }`}>
+                                }`}>
                                 {queue.count} {queue.count === 1 ? 'driver' : 'drivers'}
                             </span>
                         </div>

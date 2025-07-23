@@ -1,4 +1,3 @@
-// src/components/bookings/BookingTable.js
 import React from 'react';
 import {
     Eye,

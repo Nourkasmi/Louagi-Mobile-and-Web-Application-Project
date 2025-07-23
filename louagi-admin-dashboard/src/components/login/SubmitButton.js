@@ -1,4 +1,3 @@
-// src/components/login/SubmitButton.js
 import React from 'react';
 import { Car } from 'lucide-react';
 

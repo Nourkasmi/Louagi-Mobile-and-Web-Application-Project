@@ -1,4 +1,3 @@
-// src/components/users/DeleteConfirmModal.js - FIXED VERSION
 import React from 'react';
 import { AlertCircle } from 'lucide-react';
 
@@ -7,7 +6,7 @@ const DeleteConfirmModal = ({ user, onClose, onConfirm, actionLoading }) => {
         try {
             // ✅ FIX: Wait for the deletion to complete before closing modal
             const result = await onConfirm(user.id, user.username);
-            
+
             // Only close the modal if deletion was successful
             if (result && result.success !== false) {
                 onClose();

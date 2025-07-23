@@ -1,4 +1,3 @@
-// src/components/users/UserCard.js - IMPROVED VERSION
 import React from 'react';
 import { Eye, Lock, Unlock, Trash2, Phone, Calendar, UserCheck, UserX, Shield } from 'lucide-react';
 import { getRoleIcon, getRoleColor } from '../../utils/helpers';

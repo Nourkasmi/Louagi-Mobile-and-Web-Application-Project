@@ -5,11 +5,11 @@ const generateTripsFromSchedules = require('../utils/trip.generator');
 const { sequelize } = require('../models');
 
 /**
- * ✅ ENHANCED: Reindex queue positions after driver removal
+ *  ENHANCED: Reindex queue positions after driver removal
  */
 async function reindexQueuePositions(stationId, scheduleId, destinationId, transaction) {
   if (!stationId || !scheduleId || !destinationId) {
-    console.log('⚠️ Missing queue identifiers, skipping reindex');
+    console.log(' Missing queue identifiers, skipping reindex');
     return;
   }
 
@@ -33,11 +33,11 @@ async function reindexQueuePositions(stationId, scheduleId, destinationId, trans
     }
   }
 
-  console.log(`✅ Reindexed ${waitingDrivers.length} queue positions`);
+  console.log(` Reindexed ${waitingDrivers.length} queue positions`);
 }
 
 const tripController = {
-  // ✅ Create a new trip (Admin only)
+  //  Create a new trip (Admin only)
   createTrip: async (req, res) => {
     try {
       const {
@@ -95,7 +95,7 @@ const tripController = {
     }
   },
 
-  // ✅ Get all trips with filters and pagination
+  //  Get all trips with filters and pagination
   getAllTrips: async (req, res) => {
     try {
       const { page = 1, limit = 10, status, driverId, search, destinationId, routeId } = req.query;
@@ -138,10 +138,10 @@ const tripController = {
     }
   },
 
-  // ✅ NEW: Get trip statistics
+  //  NEW: Get trip statistics
   getTripStats: async (req, res) => {
     try {
-      console.log('📊 Fetching trip statistics...');
+      console.log(' Fetching trip statistics...');
 
       // Parallel queries for better performance
       const [
@@ -235,7 +235,7 @@ const tripController = {
         period: 'all_time'
       };
 
-      console.log('✅ Trip stats calculated successfully:', {
+      console.log(' Trip stats calculated successfully:', {
         totalTrips,
         activeTrips,
         completedTrips,
@@ -248,7 +248,7 @@ const tripController = {
       });
 
     } catch (error) {
-      console.error('❌ Get trip stats error:', error);
+      console.error(' Get trip stats error:', error);
       return res.status(500).json({
         success: false,
         message: 'Failed to retrieve trip statistics',
@@ -257,7 +257,7 @@ const tripController = {
     }
   },
 
-  // ✅ Get trip by ID
+  //  Get trip by ID
   getTripById: async (req, res) => {
     try {
       const { id } = req.params;
@@ -282,7 +282,7 @@ const tripController = {
   },
 
   /**
-   * ✅ ENHANCED: Update trip status + remove from queue when starting
+   *  ENHANCED: Update trip status + remove from queue when starting
    */
   updateTripStatus: async (req, res) => {
     try {
@@ -311,7 +311,7 @@ const tripController = {
         // Update trip status
         await trip.update({ status }, { transaction: t });
 
-        // ✅ Remove driver from queue when trip starts (manual or auto)
+        //  Remove driver from queue when trip starts (manual or auto)
         if (status === 'in_progress' && trip.queueEntry) {
           console.log(`🚗 Trip started - removing driver from queue`);
 
@@ -323,12 +323,12 @@ const tripController = {
           // Reindex remaining queue positions  
           await reindexQueuePositions(stationId, scheduleId, destinationId, t);
 
-          console.log(`✅ Driver removed from queue, positions reindexed`);
+          console.log(` Driver removed from queue, positions reindexed`);
         }
 
-        // ✅ Also cleanup on cancellation
+        //  Also cleanup on cancellation
         if (status === 'cancelled' && trip.queueEntry) {
-          console.log(`❌ Trip cancelled - removing driver from queue`);
+          console.log(` Trip cancelled - removing driver from queue`);
 
           const { stationId, scheduleId, destinationId } = trip.queueEntry;
 
@@ -354,7 +354,7 @@ const tripController = {
     }
   },
 
-  // ✅ Delete trip
+  //  Delete trip
   deleteTrip: async (req, res) => {
     try {
       const trip = await Trip.findByPk(req.params.id);
@@ -368,7 +368,7 @@ const tripController = {
     }
   },
 
-  // ✅ Generate Trips Based on Active Schedules
+  //  Generate Trips Based on Active Schedules
   generateTripsFromSchedules: async (req, res) => {
     try {
       const logs = await generateTripsFromSchedules();
@@ -383,7 +383,7 @@ const tripController = {
     }
   },
 
-  // ✅ Get all trips assigned to the logged-in driver
+  //  Get all trips assigned to the logged-in driver
   getDriverTrips: async (req, res) => {
     try {
       const userId = req.user.id;
@@ -420,7 +420,7 @@ const tripController = {
   },
 
   /**
-   * ✅ ENHANCED: Mark a trip as completed by the driver
+   *  ENHANCED: Mark a trip as completed by the driver
    */
   completeTrip: async (req, res) => {
     try {

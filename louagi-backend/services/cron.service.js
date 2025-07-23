@@ -76,30 +76,30 @@ const moveAllEndOfDayLeftoversToFront = async (queueEntries) => {
  */
 cron.schedule('0 22 * * *', async () => {
   try {
-    logger.info('🕙 Running end-of-schedule cleanup (10 PM)...');
+    logger.info(' Running end-of-schedule cleanup (10 PM)...');
     const result = await handleEndOfScheduleDay();
-    logger.info(`✅ End-of-schedule cleanup (10 PM) completed: ${JSON.stringify(result)}`);
+    logger.info(` End-of-schedule cleanup (10 PM) completed: ${JSON.stringify(result)}`);
   } catch (error) {
-    logger.error('❌ Error in end-of-schedule cleanup (10 PM):', error);
+    logger.error(' Error in end-of-schedule cleanup (10 PM):', error);
   }
 });
 
 cron.schedule('0 1 * * *', async () => {
   try {
-    logger.info('🕐 Running end-of-schedule cleanup (1 AM)...');
+    logger.info(' Running end-of-schedule cleanup (1 AM)...');
     const result = await handleEndOfScheduleDay();
-    logger.info(`✅ End-of-schedule cleanup (1 AM) completed: ${JSON.stringify(result)}`);
+    logger.info(` End-of-schedule cleanup (1 AM) completed: ${JSON.stringify(result)}`);
   } catch (error) {
-    logger.error('❌ Error in end-of-schedule cleanup (1 AM):', error);
+    logger.error(' Error in end-of-schedule cleanup (1 AM):', error);
   }
 });
 
 /**
- * ✅ Queue position validation (runs every 30 minutes)
+ *  Queue position validation (runs every 30 minutes)
  */
 cron.schedule('*/30 * * * *', async () => {
   try {
-    logger.info('🔧 Running queue position validation...');
+    logger.info(' Running queue position validation...');
     const queueCombinations = await DriverQueue.findAll({
       attributes: ['stationId', 'scheduleId', 'destinationId'],
       where: { status: 'waiting' },
@@ -129,10 +129,10 @@ cron.schedule('*/30 * * * *', async () => {
       }
     }
     if (fixedQueues > 0) {
-      logger.info(`✅ Fixed positions for ${fixedQueues} queues`);
+      logger.info(` Fixed positions for ${fixedQueues} queues`);
     }
   } catch (error) {
-    logger.error('❌ Error in queue position validation:', error);
+    logger.error(' Error in queue position validation:', error);
   }
 });
 
@@ -161,7 +161,7 @@ cron.schedule('*/5 * * * *', async () => {
     ]);
     const now = new Date();
     if (now.getMinutes() === 0) {
-      logger.info('📊 System Health Check:', {
+      logger.info(' System Health Check:', {
         activeTrips,
         waitingDrivers,
         todayBookings,
@@ -170,13 +170,13 @@ cron.schedule('*/5 * * * *', async () => {
       });
     }
     if (activeSchedules === 0) {
-      logger.warn('⚠️ No active schedules found!');
+      logger.warn(' No active schedules found!');
     }
     if (waitingDrivers > 50) {
-      logger.warn(`⚠️ High number of waiting drivers: ${waitingDrivers}`);
+      logger.warn(` High number of waiting drivers: ${waitingDrivers}`);
     }
   } catch (error) {
-    logger.error('❌ Health check failed:', error);
+    logger.error(' Health check failed:', error);
   }
 });
 
@@ -185,7 +185,7 @@ cron.schedule('*/5 * * * *', async () => {
  */
 cron.schedule('0 23 * * 0', async () => {
   try {
-    logger.info('📈 Generating weekly statistics report...');
+    logger.info(' Generating weekly statistics report...');
     const weekAgo = new Date();
     weekAgo.setDate(weekAgo.getDate() - 7);
     const [
@@ -226,7 +226,7 @@ cron.schedule('0 23 * * 0', async () => {
     ]);
     const completionRate = weeklyTrips > 0 ? ((completedTrips / weeklyTrips) * 100).toFixed(1) : 0;
     const cancellationRate = weeklyTrips > 0 ? ((cancelledTrips / weeklyTrips) * 100).toFixed(1) : 0;
-    logger.info('📊 Weekly Statistics Report:', {
+    logger.info(' Weekly Statistics Report:', {
       period: `${weekAgo.toISOString().split('T')[0]} to ${new Date().toISOString().split('T')[0]}`,
       weeklyTrips,
       weeklyBookings,
@@ -238,13 +238,9 @@ cron.schedule('0 23 * * 0', async () => {
       averageBookingsPerTrip: weeklyTrips > 0 ? (weeklyBookings / weeklyTrips).toFixed(1) : 0
     });
   } catch (error) {
-    logger.error('❌ Error generating weekly statistics:', error);
+    logger.error(' Error generating weekly statistics:', error);
   }
 });
-
-// 
-//  END OF SCHEDULE DAY LOGIC
-// 
 
 /**
  *  UPDATED: Handle what happens when schedule day ends
@@ -275,7 +271,7 @@ const handleEndOfScheduleDay = async () => {
 };
 
 /**
- *  KEEP ALL REMAINING FUNCTIONS AS BEFORE (for endpoints, manual triggers, helpers, etc.)
+ *  
  */
 
 const moveDriverToTomorrow = async (queueEntry, trip, reason) => {
@@ -435,7 +431,7 @@ const moveWaitingDriversToNextDay = async () => {
     }
   }
 
-  logger.info(`✅ Schedule cleanup: ${movedCount} drivers moved, ${removedCount} drivers removed`);
+  logger.info(` Schedule cleanup: ${movedCount} drivers moved, ${removedCount} drivers removed`);
   return { movedCount, removedCount };
 };
 
@@ -543,12 +539,12 @@ const getEndOfDayOptions = async (req, res) => {
  */
 const manualTriggers = {
   triggerEndOfScheduleCleanup: async () => {
-    logger.info('🔧 Manual trigger: End of schedule cleanup');
+    logger.info(' Manual trigger: End of schedule cleanup');
     return await handleEndOfScheduleDay();
   }
 };
 
-logger.info('🚀 Cron service initialized with the following jobs:');
+logger.info(' Cron service initialized with the following jobs:');
 logger.info('  - End-of-schedule cleanup: 10:00 PM and 1:00 AM daily');
 logger.info('  - Queue validation: Every 30 minutes');
 logger.info('  - Health check: Every 5 minutes');

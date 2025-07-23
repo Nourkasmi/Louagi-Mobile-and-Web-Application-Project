@@ -1,15 +1,11 @@
-// src/config/index.ts 
+
 const Config = {
-  // 🌐 Your Backend URL - Updated from the error logs
-  API_BASE_URL: 'https://f30c4c015e70.ngrok-free.app/api', // Ensure this is the correct URL for your backend
-  // 💳 Stripe Test Key
+  API_BASE_URL: 'https://f2b4b57991f7.ngrok-free.app/api',
   STRIPE_PUBLISHABLE_KEY: 'pk_test_51RVuo6ALVnc4tntayhIZmjEVw4bxb3xhp2ZlJLIzhy5bUP7FU1UWa1cIXOOhUyBq1dGq1SwCyzh6Uw13FSkY0q4200n6PzGxgt',
 
-  //  App Settings
   APP_NAME: 'Louagi',
   APP_VERSION: '1.0.0',
 
-  //  Colors
   COLORS: {
     PRIMARY: '#0066cc',
     SECONDARY: '#28a745',
@@ -25,7 +21,6 @@ const Config = {
   DEBUG: __DEV__, 
 };
 
-// Debug logging
 if (Config.DEBUG) {
   console.log('🔧 Louagi Config Loaded:');
   console.log('📡 API URL:', Config.API_BASE_URL);

@@ -2,7 +2,7 @@ const { Trip, Booking, Driver, DriverQueue, Station, Schedule, Destination } = r
 const { Op } = require('sequelize');
 
 /**
- * ✅ HELPER: Format trip departure time
+ *  HELPER: Format trip departure time
  */
 const formatDepartureTime = (departureTime) => {
   return new Date(departureTime).toLocaleString('en-US', {
@@ -17,7 +17,7 @@ const formatDepartureTime = (departureTime) => {
 };
 
 /**
- * ✅ HELPER: Calculate trip duration
+ *  HELPER: Calculate trip duration
  */
 const calculateTripDuration = (departureTime, arrivalTime) => {
   const duration = new Date(arrivalTime) - new Date(departureTime);
@@ -27,7 +27,7 @@ const calculateTripDuration = (departureTime, arrivalTime) => {
 };
 
 /**
- * ✅ HELPER: Check if trip can be cancelled
+ *  HELPER: Check if trip can be cancelled
  */
 const canCancelTrip = (trip) => {
   const now = new Date();
@@ -38,7 +38,7 @@ const canCancelTrip = (trip) => {
 };
 
 /**
- * ✅ HELPER: Get driver earnings for completed trips
+ *  HELPER: Get driver earnings for completed trips
  */
 const calculateDriverEarnings = async (driverId, startDate, endDate) => {
   const completedTrips = await Trip.findAll({
@@ -85,7 +85,7 @@ const calculateDriverEarnings = async (driverId, startDate, endDate) => {
 };
 
 /**
- * ✅ HELPER: Get station statistics
+ *  HELPER: Get station statistics
  */
 const getStationStats = async (stationId, date = new Date()) => {
   const startOfDay = new Date(date);
@@ -182,7 +182,7 @@ const formatApiResponse = (success, data = null, message = '', errors = null) =>
 };
 
 /**
- * ✅ FORMATTER: Trip response with full details
+ *  FORMATTER: Trip response with full details
  */
 const formatTripResponse = (trip) => {
   return {
@@ -232,7 +232,7 @@ const formatTripResponse = (trip) => {
 };
 
 /**
- * ✅ FORMATTER: Driver queue status response
+ *  FORMATTER: Driver queue status response
  */
 const formatQueueResponse = (queueEntry) => {
   return {
@@ -265,7 +265,7 @@ const formatQueueResponse = (queueEntry) => {
 };
 
 /**
- * ✅ FORMATTER: Booking response with trip details
+ *  FORMATTER: Booking response with trip details
  */
 const formatBookingResponse = (booking) => {
   return {
@@ -292,7 +292,7 @@ const formatBookingResponse = (booking) => {
 };
 
 /**
- * ✅ VALIDATOR: Check if driver can declare availability
+ *  VALIDATOR: Check if driver can declare availability
  */
 const canDeclareAvailability = async (driverId) => {
   // Check for active trips
@@ -334,7 +334,7 @@ const canDeclareAvailability = async (driverId) => {
 };
 
 /**
- * ✅ UTILITY: Get system health status
+ *  UTILITY: Get system health status
  */
 const getSystemHealth = async () => {
   try {

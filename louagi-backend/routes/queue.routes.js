@@ -4,7 +4,7 @@ const queueController = require('../controllers/queue.controller');
 const authMiddleware = require('../middlewares/auth.middleware');
 const { validateUUID } = require('../middlewares/param.middleware');
 
-// ✅ DRIVER: Declare availability
+//  DRIVER: Declare availability
 router.post(
   '/available',
   authMiddleware.authenticate,
@@ -12,7 +12,7 @@ router.post(
   queueController.declareAvailability
 );
 
-// ✅ NEW: DRIVER: Leave queue (the missing route!)
+// NEW: DRIVER: Leave queue (the missing route!)
 router.post(
   '/leave',
   authMiddleware.authenticate,
@@ -20,7 +20,7 @@ router.post(
   queueController.leaveQueue
 );
 
-// ✅ ADMIN: View queue by station, schedule, destination
+//  ADMIN: View queue by station, schedule, destination
 router.get(
   '/',
   authMiddleware.authenticate,
@@ -28,7 +28,7 @@ router.get(
   queueController.getQueueByStationSchedule
 );
 
-// ✅ ADMIN: Update queue position or status
+//  ADMIN: Update queue position or status
 router.patch(
   '/:id',
   validateUUID('id'),
@@ -37,7 +37,7 @@ router.patch(
   queueController.updateQueueEntry
 );
 
-// ✅ ADMIN: Count queues per station
+//  ADMIN: Count queues per station
 router.get(
   '/count',
   authMiddleware.authenticate,
@@ -45,7 +45,7 @@ router.get(
   queueController.countQueuesByStation
 );
 
-// ✅ ADMIN: Get all queues in a station
+//  ADMIN: Get all queues in a station
 router.get(
   '/all',
   authMiddleware.authenticate,

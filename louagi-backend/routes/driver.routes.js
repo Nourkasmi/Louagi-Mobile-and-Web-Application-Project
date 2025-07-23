@@ -9,7 +9,7 @@ const { Op } = require('sequelize');
 const requireDriver = [auth.authenticate, auth.hasRole('driver')];
 
 /**
- * ✅ UPDATED: Driver declares availability 
+ *  UPDATED: Driver declares availability 
  * @route POST /api/drivers/available
  * @desc Driver declares availability with calculated departure times
  * @access Driver only
@@ -18,7 +18,7 @@ const requireDriver = [auth.authenticate, auth.hasRole('driver')];
 router.post('/available', requireDriver, driverController.declareAvailability);
 
 /**
- * ✅ NEW: Driver declares car is full
+ *  Driver declares car is full
  * @route POST /api/drivers/declare-full
  * @desc Start trip immediately (manual trigger)
  * @access Driver only
@@ -26,7 +26,7 @@ router.post('/available', requireDriver, driverController.declareAvailability);
 router.post('/declare-full', requireDriver, driverController.declareFull);
 
 /**
- * ✅ EXISTING: Get driver's current status
+ *   Get driver's current status
  * @route GET /api/drivers/status
  * @desc Get driver's current trip and queue status with timing info
  * @access Driver only
@@ -34,7 +34,7 @@ router.post('/declare-full', requireDriver, driverController.declareFull);
 router.get('/status', requireDriver, driverController.getDriverStatus);
 
 /**
- * ✅ EXISTING: Get trip capacity status
+ *   Get trip capacity status
  * @route GET /api/drivers/trip-capacity
  * @desc Get capacity status for driver's active trip
  * @access Driver only
@@ -42,7 +42,7 @@ router.get('/status', requireDriver, driverController.getDriverStatus);
 router.get('/trip-capacity', requireDriver, driverController.getTripCapacityStatus);
 
 /**
- * ✅ EXISTING: Cancel waiting trip
+ * Cancel waiting trip
  * @route POST /api/drivers/cancel-trip
  * @desc Cancel trip if no bookings yet
  * @access Driver only
@@ -57,7 +57,7 @@ router.post('/cancel-trip', requireDriver, driverController.cancelWaitingTrip);
 router.get('/trips', requireDriver, tripController.getDriverTrips);
 
 /**
- * ✅ ENHANCED: Mark a trip as completed
+ *   Mark a trip as completed
  * @route PATCH /api/drivers/trips/:id/complete
  * @desc Mark a trip as "completed" with queue cleanup
  * @access Driver only
@@ -69,7 +69,7 @@ router.patch('/trips/:id/complete',
 );
 
 /**
- * ✅ ENHANCED: Update trip status
+ *   Update trip status
  * @route PATCH /api/drivers/trips/:id/status
  * @desc Update trip status (scheduled/in_progress/completed/cancelled)
  * @access Driver only
@@ -89,7 +89,7 @@ router.patch('/trips/:id/status',
 router.get('/profile', requireDriver, driverController.getProfile);
 
 /**
- * ✅ NEW: Get driver earnings summary
+ *  Get driver earnings summary
  * @route GET /api/drivers/earnings
  * @desc Get driver earnings for specified period
  * @access Driver only
@@ -135,7 +135,7 @@ router.get('/earnings', requireDriver, async (req, res) => {
 });
 
 /**
- * ✅ UPDATED: Get driver's queue position with timing info
+ *  Get driver's queue position with timing info
  * @route GET /api/drivers/queue
  * @desc Get current queue position and estimated wait time
  * @access Driver only
@@ -175,7 +175,7 @@ router.get('/queue', requireDriver, async (req, res) => {
 
     const waitingTime = Math.round((new Date() - new Date(queueEntry.joinedAt)) / (1000 * 60));
     
-    // ✅ UPDATED: Use time calculation for better estimates
+    //  Use time calculation for better estimates
     const { calculateTripTimes, formatTripTime } = require('../utils/time.utils');
     const timeCalculation = calculateTripTimes(
       queueEntry.schedule,

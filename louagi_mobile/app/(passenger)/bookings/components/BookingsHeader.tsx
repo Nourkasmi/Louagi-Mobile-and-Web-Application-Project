@@ -61,7 +61,7 @@ export default function BookingsHeader({ stats, onCreateBooking }: BookingsHeade
                 </TouchableOpacity>
             </View>
 
-            {/* 🔧 FIXED: Real Analytics Dashboard */}
+            {/* Real Analytics Dashboard */}
             {stats.total > 0 && (
                 <View style={styles.analyticsContainer}>
                     <Text style={styles.analyticsTitle}>📊 Your Booking Analytics</Text>

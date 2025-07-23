@@ -2,7 +2,7 @@ const { DriverQueue, Destination, Sequelize } = require('../models');
 const { isDriverEligible, estimateDepartureTime } = require('../utils/queue.utils');
 const { v4: uuidv4 } = require('uuid');
 
-// ✅ DRIVER: Declare availability
+//  DRIVER: Declare availability
 const declareAvailability = async (req, res) => {
   try {
     const userId = req.user.id;
@@ -12,7 +12,7 @@ const declareAvailability = async (req, res) => {
       return res.status(400).json({ message: 'Missing stationId, scheduleId or destinationId' });
     }
 
-    // 🔧 FIXED: Get the driver ID from the user ID (same fix for consistency)
+    //  Get the driver ID from the user ID (same fix for consistency)
     const { Driver } = require('../models');
     const driver = await Driver.findOne({ where: { user_id: userId } });
     
@@ -63,18 +63,18 @@ const declareAvailability = async (req, res) => {
   }
 };
 
-// ✅ FIXED: DRIVER LEAVES QUEUE (cancel availability)
+// DRIVER LEAVES QUEUE (cancel availability)
 const leaveQueue = async (req, res) => {
   try {
     const userId = req.user.id;
-    console.log(`🔄 User ${userId} attempting to leave queue...`);
+    console.log(` User ${userId} attempting to leave queue...`);
 
-    // 🔧 CRITICAL FIX: Get the driver ID from the user ID
+    //  Get the driver ID from the user ID
     const { Driver } = require('../models');
     const driver = await Driver.findOne({ where: { user_id: userId } });
     
     if (!driver) {
-      console.log(`❌ No driver profile found for user ${userId}`);
+      console.log(` No driver profile found for user ${userId}`);
       return res.status(404).json({ 
         success: false, 
         message: 'Driver profile not found.' 
@@ -82,31 +82,31 @@ const leaveQueue = async (req, res) => {
     }
 
     const driverId = driver.id;
-    console.log(`👤 Found driver ${driverId} for user ${userId}`);
+    console.log(` Found driver ${driverId} for user ${userId}`);
 
-    // 🔧 FIXED: Find the driver's current queue entry using the correct driver ID
+    //  Find the driver's current queue entry using the correct driver ID
     const entry = await DriverQueue.findOne({ 
       where: { 
-        driverId: driverId,  // Use driver.id, not req.user.id
+        driverId: driverId,
         status: { [Sequelize.Op.in]: ['waiting', 'assigned', 'called'] } 
       } 
     });
 
     if (!entry) {
-      console.log(`❌ Driver ${driverId} not found in any queue`);
+      console.log(` Driver ${driverId} not found in any queue`);
       return res.status(404).json({ 
         success: false, 
         message: 'You are not in a queue.' 
       });
     }
 
-    console.log(`📋 Found queue entry: ${entry.id} with status: ${entry.status}`);
+    console.log(` Found queue entry: ${entry.id} with status: ${entry.status}`);
 
     const { scheduleId, stationId, destinationId } = entry;
 
     // 🔧 ENHANCED: If driver has an assigned trip, we need to handle it
     if (entry.status === 'assigned') {
-      console.log(`🚗 Driver has assigned trip, checking for active trip...`);
+      console.log(` Driver has assigned trip, checking for active trip...`);
       
       // Find and cancel the associated trip if it's still scheduled
       const { Trip } = require('../models');
@@ -119,13 +119,13 @@ const leaveQueue = async (req, res) => {
       });
 
       if (associatedTrip) {
-        console.log(`🚗 Found scheduled trip ${associatedTrip.id}, checking for passengers...`);
+        console.log(` Found scheduled trip ${associatedTrip.id}, checking for passengers...`);
         
         // Check if trip has passengers booked
         const bookedSeats = associatedTrip.capacity - associatedTrip.availableSeats;
         
         if (bookedSeats > 0) {
-          console.log(`❌ Cannot leave queue - trip has ${bookedSeats} passengers booked`);
+          console.log(` Cannot leave queue - trip has ${bookedSeats} passengers booked`);
           return res.status(400).json({ 
             success: false, 
             message: `Cannot leave queue. Your trip has ${bookedSeats} passenger${bookedSeats > 1 ? 's' : ''} booked. Please complete or cancel the trip first.`
@@ -133,21 +133,21 @@ const leaveQueue = async (req, res) => {
         }
 
         // Trip has no passengers, safe to cancel
-        console.log(`✅ Trip has no passengers, cancelling trip ${associatedTrip.id}...`);
+        console.log(` Trip has no passengers, cancelling trip ${associatedTrip.id}...`);
         await associatedTrip.update({ status: 'cancelled' });
-        console.log(`✅ Trip ${associatedTrip.id} cancelled successfully`);
+        console.log(` Trip ${associatedTrip.id} cancelled successfully`);
       }
     }
 
     // Remove from queue
-    console.log(`🗑️ Removing driver from queue entry ${entry.id}...`);
+    console.log(` Removing driver from queue entry ${entry.id}...`);
     await entry.destroy();
 
     // Re-index queue positions for others in the same queue
-    console.log(`📊 Re-indexing queue positions for station ${stationId}, destination ${destinationId}...`);
+    console.log(` Re-indexing queue positions for station ${stationId}, destination ${destinationId}...`);
     await reindexQueue(scheduleId, stationId, destinationId);
 
-    console.log(`✅ Driver ${driverId} successfully left the queue`);
+    console.log(` Driver ${driverId} successfully left the queue`);
     return res.status(200).json({ 
       success: true, 
       left: true, 
@@ -155,7 +155,7 @@ const leaveQueue = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('❌ Leave queue error:', error);
+    console.error(' Leave queue error:', error);
     return res.status(500).json({ 
       success: false, 
       message: 'Failed to leave queue. Please try again.' 
@@ -163,7 +163,7 @@ const leaveQueue = async (req, res) => {
   }
 };
 
-// ✅ ADMIN: View queue by station, schedule, destination
+//  ADMIN: View queue by station, schedule, destination
 const getQueueByStationSchedule = async (req, res) => {
   try {
     const { stationId, scheduleId, destinationId } = req.query;
@@ -183,7 +183,7 @@ const getQueueByStationSchedule = async (req, res) => {
   }
 };
 
-// ✅ ADMIN: Get all queues in a station
+//  ADMIN: Get all queues in a station
 const getAllQueuesByStation = async (req, res) => {
   try {
     const { stationId } = req.query;
@@ -207,7 +207,7 @@ const getAllQueuesByStation = async (req, res) => {
   }
 };
 
-// ✅ ADMIN: Update queue position or status
+//  ADMIN: Update queue position or status
 const updateQueueEntry = async (req, res) => {
   try {
     const { id } = req.params;
@@ -230,7 +230,7 @@ const updateQueueEntry = async (req, res) => {
   }
 };
 
-// ✅ INTERNAL: Reindex positions in a queue
+//  INTERNAL: Reindex positions in a queue
 const reindexQueue = async (scheduleId, stationId, destinationId) => {
   const queue = await DriverQueue.findAll({
     where: {
@@ -248,7 +248,7 @@ const reindexQueue = async (scheduleId, stationId, destinationId) => {
   }
 };
 
-// ✅ ADMIN: Count queues per station
+//  ADMIN: Count queues per station
 const countQueuesByStation = async (req, res) => {
   try {
     const { stationId } = req.query;
@@ -292,7 +292,7 @@ const countQueuesByStation = async (req, res) => {
 
 module.exports = {
   declareAvailability,
-  leaveQueue, // <-- export the new method
+  leaveQueue,
   getQueueByStationSchedule,
   updateQueueEntry,
   reindexQueue,

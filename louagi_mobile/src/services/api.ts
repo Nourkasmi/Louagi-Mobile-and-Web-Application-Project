@@ -826,7 +826,7 @@ export const createBooking = async (bookingData: {
   specialRequests?: string;
 }): Promise<ApiResponse<Booking>> => {
   try {
-    console.log('📞 API createBooking called with:', bookingData);
+    console.log(' API createBooking called with:', bookingData);
 
     const response = await api.post('/bookings', bookingData);
 

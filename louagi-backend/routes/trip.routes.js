@@ -4,19 +4,19 @@ const tripController = require('../controllers/trip.controller');
 const authMiddleware = require('../middlewares/auth.middleware');
 const { validateUUID } = require('../middlewares/param.middleware');
 
-// ✅ CRITICAL: Specific routes MUST come before parameterized routes
+// CRITICAL: Specific routes MUST come before parameterized routes
 // Otherwise Express treats "stats" as an ID parameter
 
-// ✅ Public routes (no authentication required)
+//  Public routes (no authentication required)
 router.get('/', tripController.getAllTrips);
 
-// ✅ NEW: Trip statistics endpoint - MUST be before /:id route
+//  NEW: Trip statistics endpoint - MUST be before /:id route
 router.get('/stats', tripController.getTripStats);
 
-// ✅ Parameterized routes (MUST come after specific routes like /stats)
+//  Parameterized routes (MUST come after specific routes like /stats)
 router.get('/:id', validateUUID('id'), tripController.getTripById);
 
-// ✅ Admin-only routes
+//  Admin-only routes
 router.post(
   '/',
   authMiddleware.authenticate,
@@ -32,7 +32,7 @@ router.delete(
   tripController.deleteTrip
 );
 
-// ✅ Admin: Trigger automatic trip generation
+//  Admin: Trigger automatic trip generation
 router.post(
   '/generate',
   authMiddleware.authenticate,
@@ -40,7 +40,7 @@ router.post(
   tripController.generateTripsFromSchedules
 );
 
-// ✅ Admin & Driver: update trip status
+//  Admin & Driver: update trip status
 router.put(
   '/:id/status',
   validateUUID('id'),
@@ -49,7 +49,7 @@ router.put(
   tripController.updateTripStatus
 );
 
-// ✅ Driver: Complete a trip
+//  Driver: Complete a trip
 router.put(
   '/:id/complete',
   validateUUID('id'),

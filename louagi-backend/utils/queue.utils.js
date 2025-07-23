@@ -3,7 +3,7 @@ const { Op } = require('sequelize');
 const { v4: uuidv4 } = require('uuid');
 const { sequelize } = require('../models');
 
-// ✅ CONFIGURATION
+//  CONFIGURATION
 const QUEUE_CONFIG = {
   MIN_DRIVERS_FOR_AUTO_TRIP: 2,        // Create trip when 2+ drivers waiting
   MAX_WAIT_TIME_MINUTES: 15,           // Create trip if driver waited 15+ mins
@@ -12,10 +12,10 @@ const QUEUE_CONFIG = {
 };
 
 /**
- * ✅ NEW: Update queue trip times when queue changes
+ *  NEW: Update queue trip times when queue changes
  */
 async function updateQueueTripTimes(stationId, scheduleId, destinationId, transaction) {
-  console.log(`🔄 Updating queue trip times for station: ${stationId}, destination: ${destinationId}`);
+  console.log(` Updating queue trip times for station: ${stationId}, destination: ${destinationId}`);
   
   // Get all waiting/assigned drivers in order
   const queueEntries = await DriverQueue.findAll({
@@ -35,7 +35,7 @@ async function updateQueueTripTimes(stationId, scheduleId, destinationId, transa
   });
 
   if (!queueEntries.length) {
-    console.log('⚠️ No queue entries found to update');
+    console.log(' No queue entries found to update');
     return;
   }
 
@@ -49,7 +49,7 @@ async function updateQueueTripTimes(stationId, scheduleId, destinationId, transa
     // Update queue position if changed
     if (entry.position !== newPosition) {
       await entry.update({ position: newPosition }, { transaction });
-      console.log(`📊 Updated queue position: Driver ${entry.driverId} -> position ${newPosition}`);
+      console.log(`Updated queue position: Driver ${entry.driverId} -> position ${newPosition}`);
     }
     
     // Recalculate trip times if trip exists
@@ -66,15 +66,15 @@ async function updateQueueTripTimes(stationId, scheduleId, destinationId, transa
         notes: `Queue position: ${newPosition}, Updated departure: ${timeCalculation.departureTime.toLocaleTimeString()}`
       }, { transaction });
       
-      console.log(`⏰ Updated trip times: Trip ${entry.trip.id} -> departure ${timeCalculation.departureTime.toLocaleTimeString()}`);
+      console.log(` Updated trip times: Trip ${entry.trip.id} -> departure ${timeCalculation.departureTime.toLocaleTimeString()}`);
     }
   }
   
-  console.log(`✅ Updated ${queueEntries.length} queue entries and trip times`);
+  console.log(` Updated ${queueEntries.length} queue entries and trip times`);
 }
 
 /**
- * ✅ ENHANCED: Get next available queue position
+ *  ENHANCED: Get next available queue position
  */
 async function getNextQueuePosition(stationId, scheduleId, destinationId) {
   const maxPosition = await DriverQueue.max('position', {
@@ -90,7 +90,7 @@ async function getNextQueuePosition(stationId, scheduleId, destinationId) {
 }
 
 /**
- * ✅ NEW: Check if it's peak hour
+ *  NEW: Check if it's peak hour
  */
 function isPeakHour() {
   const currentHour = new Date().getHours();
@@ -98,7 +98,7 @@ function isPeakHour() {
 }
 
 /**
- * ✅ NEW: Check if driver has waited too long
+ *  NEW: Check if driver has waited too long
  */
 function hasWaitedTooLong(queueEntry) {
   const waitTime = (new Date() - new Date(queueEntry.joinedAt)) / (1000 * 60); // minutes
@@ -106,7 +106,7 @@ function hasWaitedTooLong(queueEntry) {
 }
 
 /**
- * ✅ ENHANCED: Check if driver is eligible with active trip validation
+ *  ENHANCED: Check if driver is eligible with active trip validation
  */
 async function isDriverEligible(driverId, stationId) {
   // 1. Check for active trips (most important check)
@@ -207,7 +207,7 @@ async function hasTimeLeftToday(stationId) {
 }
 
 /**
- * ✅ ENHANCED: Automatically create trip from queue based on conditions
+ *  ENHANCED: Automatically create trip from queue based on conditions
  */
 async function autoCreateTripFromQueue(stationId, scheduleId, destinationId) {
   console.log(`🔄 Checking auto-trip creation for station: ${stationId}, destination: ${destinationId}`);
@@ -223,11 +223,11 @@ async function autoCreateTripFromQueue(stationId, scheduleId, destinationId) {
   });
 
   if (!waitingDrivers.length) {
-    console.log('❌ No drivers waiting');
+    console.log(' No drivers waiting');
     return { created: false, reason: 'No drivers waiting' };
   }
 
-  // ✅ CHECK CONDITIONS FOR AUTO-TRIP CREATION
+  //  CHECK CONDITIONS FOR AUTO-TRIP CREATION
   const shouldCreateTrip = 
     waitingDrivers.length >= QUEUE_CONFIG.MIN_DRIVERS_FOR_AUTO_TRIP ||  // Enough drivers
     isPeakHour() ||                                                     // Peak hours
@@ -243,7 +243,7 @@ async function autoCreateTripFromQueue(stationId, scheduleId, destinationId) {
     };
   }
 
-  // ✅ GET DESTINATION INFO
+  //  GET DESTINATION INFO
   const destination = await Destination.findOne({
     where: {
       id: destinationId,
@@ -253,11 +253,11 @@ async function autoCreateTripFromQueue(stationId, scheduleId, destinationId) {
   });
 
   if (!destination) {
-    console.log('❌ Invalid destination');
+    console.log(' Invalid destination');
     return { created: false, reason: 'Invalid destination' };
   }
 
-  // ✅ CREATE TRIP FOR FIRST ELIGIBLE DRIVER
+  //  CREATE TRIP FOR FIRST ELIGIBLE DRIVER
   try {
     const result = await sequelize.transaction(async (t) => {
       // Find first eligible driver (no active trips)
@@ -284,7 +284,7 @@ async function autoCreateTripFromQueue(stationId, scheduleId, destinationId) {
         throw new Error('No eligible drivers found');
       }
 
-      // ✅ CREATE TRIP WITH TIME CALCULATION
+      //  CREATE TRIP WITH TIME CALCULATION
       const schedule = await Schedule.findByPk(scheduleId, { transaction: t });
       const { calculateTripTimes } = require('./time.utils');
       const timeCalculation = calculateTripTimes(schedule, selectedQueueEntry.position, destination);
@@ -308,18 +308,18 @@ async function autoCreateTripFromQueue(stationId, scheduleId, destinationId) {
         notes: 'Auto-created from queue'
       }, { transaction: t });
 
-      // ✅ UPDATE QUEUE STATUS
+      //  UPDATE QUEUE STATUS
       await selectedQueueEntry.update({ 
         status: 'assigned' 
       }, { transaction: t });
 
-      // ✅ REINDEX REMAINING QUEUE POSITIONS AND UPDATE TIMES
+      //  REINDEX REMAINING QUEUE POSITIONS AND UPDATE TIMES
       await updateQueueTripTimes(stationId, scheduleId, destinationId, t);
 
       return { trip, driver: selectedDriver };
     });
 
-    console.log(`✅ Trip auto-created: ${result.trip.id} for driver: ${result.driver.id}`);
+    console.log(` Trip auto-created: ${result.trip.id} for driver: ${result.driver.id}`);
     
     return {
       created: true,
@@ -329,13 +329,13 @@ async function autoCreateTripFromQueue(stationId, scheduleId, destinationId) {
     };
 
   } catch (error) {
-    console.error('❌ Failed to create trip from queue:', error);
+    console.error(' Failed to create trip from queue:', error);
     return { created: false, reason: error.message };
   }
 }
 
 /**
- * ✅ HELPER: Reindex queue positions after driver removal (UPDATED to use updateQueueTripTimes)
+ *  HELPER: Reindex queue positions after driver removal (UPDATED to use updateQueueTripTimes)
  */
 async function reindexQueuePositions(stationId, scheduleId, destinationId, transaction) {
   // Use the more comprehensive updateQueueTripTimes function
@@ -343,7 +343,7 @@ async function reindexQueuePositions(stationId, scheduleId, destinationId, trans
 }
 
 /**
- * ✅ NEW: Process all queues for auto-trip creation
+ *  NEW: Process all queues for auto-trip creation
  */
 async function processAllQueuesForAutoTrips() {
   console.log('🚀 Processing all queues for auto-trip creation...');
@@ -374,14 +374,14 @@ async function processAllQueuesForAutoTrips() {
 }
 
 /**
- * ✅ ORIGINAL: Try to create trip (used when driver declares availability)
+ *  ORIGINAL: Try to create trip (used when driver declares availability)
  */
 async function tryGenerateTripFromQueue(stationId, scheduleId, destinationId) {
   return await autoCreateTripFromQueue(stationId, scheduleId, destinationId);
 }
 
 /**
- * ✅ NEW: Get queue status for a route
+ *  NEW: Get queue status for a route
  */
 async function getQueueStatus(stationId, scheduleId, destinationId) {
   const waitingDrivers = await DriverQueue.findAll({
@@ -436,10 +436,7 @@ function isWithinScheduleTime(schedule) {
 }
 
 module.exports = {
-  // ✅ NEW: Time-based queue management
   updateQueueTripTimes,
-  
-  // Existing functions
   getNextQueuePosition,
   autoCreateTripFromQueue,
   processAllQueuesForAutoTrips,

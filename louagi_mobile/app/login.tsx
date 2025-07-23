@@ -394,7 +394,7 @@ const LoginScreen = () => {
                   },
                 ]}
               >
-                <Title style={styles.title}>Welcome Back</Title>
+                <Title style={styles.title}>Welcome</Title>
                 <Text style={styles.subtitle}>Sign in to continue your journey</Text>
               </Animated.View>
             </View>

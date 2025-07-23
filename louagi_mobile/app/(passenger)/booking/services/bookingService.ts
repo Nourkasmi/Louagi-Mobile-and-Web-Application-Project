@@ -15,7 +15,7 @@ export interface CreateBookingResponse {
 
 export class BookingService {
     /**
-     * 🔧 FIXED: Create a new booking with proper success/error handling
+     *  Create a new booking with proper success/error handling
      */
     static async createBooking(request: CreateBookingRequest): Promise<CreateBookingResponse> {
         try {
@@ -28,7 +28,7 @@ export class BookingService {
             }
 
             // Call API
-            console.log('📞 Calling API createBooking...');
+            console.log(' Calling API createBooking...');
             const response = await apiCreateBooking(request);
 
             console.log('📡 API createBooking response:', {
@@ -41,7 +41,7 @@ export class BookingService {
 
             // 🔧 FIXED: Check for success properly
             if (response.success && response.data) {
-                console.log('✅ BookingService.createBooking successful:', {
+                console.log(' BookingService.createBooking successful:', {
                     bookingId: response.data.id,
                     bookingReference: response.data.bookingReference,
                     wasAutoStarted: response.wasAutoStarted || false
@@ -56,20 +56,20 @@ export class BookingService {
 
             // 🔧 FIXED: Handle API success but no data
             if (response.success && !response.data) {
-                console.error('❌ API returned success but no booking data');
+                console.error(' API returned success but no booking data');
                 throw new Error('Booking creation succeeded but no booking data received');
             }
 
             // 🔧 FIXED: Handle API failure
-            console.error('❌ API returned failure:', response.message);
+            console.error(' API returned failure:', response.message);
             throw new Error(response.message || 'Failed to create booking');
 
         } catch (error: any) {
-            console.error('❌ BookingService.createBooking error:', error);
+            console.error('BookingService.createBooking error:', error);
 
             // 🔧 FIXED: Don't treat success messages as errors
             if (error.message && error.message.toLowerCase().includes('successfully')) {
-                console.warn('⚠️ Caught success message as error, this should not happen');
+                console.warn(' Caught success message as error, this should not happen');
                 // Try to parse the error to see if it contains booking data
                 console.log('🔍 Full error object:', error);
 

@@ -1,4 +1,4 @@
-// app/(passenger)/home/index.tsx 
+// app/(passenger)/home/index.tsx - Updated to remove pending payments
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { useEffect, useState, useCallback, useRef } from 'react';
@@ -24,10 +24,9 @@ import { getStations, getMyBookings, type Station, type Booking } from '../../..
 import { RootState } from '../../../src/store/store';
 import { styles } from './index.styles';
 
-
 const { width, height } = Dimensions.get('window');
 
-// Helper to get real route names,
+// Helper to get real route names
 const getRouteNames = (booking) => {
     if (!booking?.trip?.route) {
         return { startName: null, endName: null };
@@ -67,7 +66,6 @@ export default function PassengerHomeScreen() {
   const [error, setError] = useState<string | null>(null);
   const [realStats, setRealStats] = useState({
     totalTrips: 0,
-    pendingPayments: 0,
     nextTrip: null as Booking | null,
     totalSpent: 0,
     avgPerTrip: 0,
@@ -103,8 +101,8 @@ export default function PassengerHomeScreen() {
     return 'Good evening';
   }, []);
 
-  // 🔧 COMPLETELY FIXED: Real status calculation
-  const getBookingStatus = (booking: Booking): 'pending' | 'confirmed' | 'completed' | 'cancelled' => {
+  // Real status calculation (REMOVED pending payment logic)
+  const getBookingStatus = (booking: Booking): 'confirmed' | 'completed' | 'cancelled' => {
     console.log(`🔍 Analyzing booking ${booking.bookingReference}:`, {
       bookingStatus: booking.status,
       paymentStatus: booking.paymentStatus,
@@ -160,21 +158,20 @@ export default function PassengerHomeScreen() {
       return 'confirmed';
     }
 
-    // Default to pending
-    console.log(`⏳ ${booking.bookingReference}: PENDING (needs payment/confirmation)`);
-    return 'pending';
+    // REMOVED: No more pending status - all bookings should be confirmed or completed
+    console.log(`✅ ${booking.bookingReference}: CONFIRMED (default - no pending allowed)`);
+    return 'confirmed';
   };
 
-  // 🔧 COMPLETELY FIXED: Calculate REAL stats from actual bookings
+  // Calculate REAL stats from actual bookings (REMOVED pending payments)
   const calculateRealStats = (bookings: Booking[]) => {
-    console.log('📊 ===== CALCULATING REAL STATS =====');
+    console.log('📊 ===== CALCULATING REAL STATS (NO PENDING) =====');
     console.log('📋 Total bookings to analyze:', bookings.length);
 
     if (!bookings || bookings.length === 0) {
       console.log('❌ No bookings to calculate stats from');
       return {
         totalTrips: 0,
-        pendingPayments: 0,
         nextTrip: null,
         totalSpent: 0,
         avgPerTrip: 0,
@@ -185,10 +182,9 @@ export default function PassengerHomeScreen() {
       };
     }
 
-    // Process each booking with detailed logging
+    // Process each booking with detailed logging (REMOVED pending logic)
     const completedBookings: Booking[] = [];
     const confirmedBookings: Booking[] = [];
-    const pendingBookings: Booking[] = [];
     const upcomingBookings: Booking[] = [];
     let totalMoneySpent = 0;
 
@@ -208,7 +204,7 @@ export default function PassengerHomeScreen() {
 
       console.log(`💰 Amount parsed: ${amount} (from ${booking.amount}, type: ${typeof booking.amount})`);
 
-      // Categorize booking based on status
+      // Categorize booking based on status (REMOVED pending case)
       switch (status) {
         case 'completed':
           completedBookings.push(booking);
@@ -229,11 +225,6 @@ export default function PassengerHomeScreen() {
             }
           }
           console.log(`✅ Added to CONFIRMED: $${amount}, Total so far: $${totalMoneySpent}`);
-          break;
-
-        case 'pending':
-          pendingBookings.push(booking);
-          console.log(`⏳ Added to PENDING: ${booking.bookingReference}`);
           break;
 
         case 'cancelled':
@@ -269,7 +260,6 @@ export default function PassengerHomeScreen() {
     const finalStats = {
       totalTrips: totalCompleted, // Only completed trips
       confirmedTrips: totalConfirmed, // Confirmed but not yet completed
-      pendingPayments: pendingBookings.length,
       nextTrip,
       totalSpent: Math.round(totalMoneySpent * 100) / 100,
       avgPerTrip: Math.round(avgPerTrip * 100) / 100,
@@ -278,10 +268,9 @@ export default function PassengerHomeScreen() {
       moneySaved: Math.round(moneySaved * 100) / 100,
     };
 
-    console.log('\n📊 ===== FINAL REAL STATS =====');
+    console.log('\n📊 ===== FINAL REAL STATS (NO PENDING) =====');
     console.log('✅ Completed trips:', totalCompleted);
     console.log('🔄 Confirmed trips:', totalConfirmed);
-    console.log('⏳ Pending payments:', pendingBookings.length);
     console.log('💰 Total spent: $', finalStats.totalSpent);
     console.log('📈 Average per trip: $', finalStats.avgPerTrip);
     console.log('🎯 Completion rate:', finalStats.completionRate + '%');
@@ -318,53 +307,26 @@ export default function PassengerHomeScreen() {
 
       // Handle bookings and calculate REAL stats
       if (bookingsResponse.success) {
-        console.log('📡 Raw bookings response structure:', {
-          success: bookingsResponse.success,
-          hasData: !!bookingsResponse.data,
-          dataKeys: bookingsResponse.data ? Object.keys(bookingsResponse.data) : [],
-          hasBookings: !!bookingsResponse.data?.bookings,
-          directBookings: !!bookingsResponse.bookings,
-          isDataArray: Array.isArray(bookingsResponse.data)
-        });
-
         // Extract bookings from different response structures
         let bookingsData: Booking[] = [];
 
         if (bookingsResponse.data?.bookings && Array.isArray(bookingsResponse.data.bookings)) {
           bookingsData = bookingsResponse.data.bookings;
-          console.log('📋 Using response.data.bookings');
         } else if (Array.isArray(bookingsResponse.data)) {
           bookingsData = bookingsResponse.data;
-          console.log('📋 Using response.data as array');
         } else if (bookingsResponse.bookings && Array.isArray(bookingsResponse.bookings)) {
           bookingsData = bookingsResponse.bookings;
-          console.log('📋 Using response.bookings');
         } else {
-          console.log('❌ Could not find bookings in response:', bookingsResponse);
           bookingsData = [];
         }
 
         console.log('📋 Extracted bookings count:', bookingsData.length);
 
-        // Log first booking for debugging
-        if (bookingsData.length > 0) {
-          console.log('📋 Sample booking structure:', {
-            id: bookingsData[0].id,
-            reference: bookingsData[0].bookingReference,
-            status: bookingsData[0].status,
-            paymentStatus: bookingsData[0].paymentStatus,
-            amount: bookingsData[0].amount,
-            amountType: typeof bookingsData[0].amount,
-            hasTrip: !!bookingsData[0].trip,
-            tripStatus: bookingsData[0].trip?.status
-          });
-        }
-
         // Store all bookings and recent ones
         setAllBookings(bookingsData);
         setRecentBookings(bookingsData.slice(0, 4));
 
-        // Calculate REAL statistics
+        // Calculate REAL statistics (NO PENDING)
         const calculatedStats = calculateRealStats(bookingsData);
         setRealStats(calculatedStats);
 
@@ -374,7 +336,6 @@ export default function PassengerHomeScreen() {
         setRecentBookings([]);
         setRealStats({
           totalTrips: 0,
-          pendingPayments: 0,
           nextTrip: null,
           totalSpent: 0,
           avgPerTrip: 0,
@@ -617,7 +578,7 @@ export default function PassengerHomeScreen() {
           <MaterialIcons name="arrow-forward" size={20} color="#0066cc" />
         </TouchableOpacity>
 
-        {/* Quick Action Pills */}
+        {/* Quick Action Pills - REMOVED notification dot from My Trips */}
         <View style={modernStyles.quickActionsRow}>
           <TouchableOpacity
             style={modernStyles.quickAction}
@@ -625,11 +586,6 @@ export default function PassengerHomeScreen() {
           >
             <MaterialIcons name="history" size={18} color="#ffffff" />
             <Text style={modernStyles.quickActionText}>My Trips</Text>
-            {realStats.pendingPayments > 0 && (
-              <View style={modernStyles.notificationDot}>
-                <Text style={modernStyles.notificationText}>{realStats.pendingPayments}</Text>
-              </View>
-            )}
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -652,7 +608,7 @@ export default function PassengerHomeScreen() {
     </Animated.View>
   );
 
-  // 🔧 COMPLETELY FIXED: Render REAL stats with actual data
+  // COMPLETELY UPDATED: Render REAL stats WITHOUT pending payments
   const renderRealStats = () => (
     <Animated.View
       style={[
@@ -735,7 +691,7 @@ export default function PassengerHomeScreen() {
           <Text style={modernStyles.statLabel}>Total{'\n'}Spent</Text>
         </Animated.View>
 
-        {/* REAL Average Cost or Pending Payments */}
+        {/* REAL Average Cost - NO MORE PENDING PAYMENTS */}
         <Animated.View
           style={[
             modernStyles.statItem,
@@ -749,21 +705,11 @@ export default function PassengerHomeScreen() {
             }
           ]}
         >
-          {realStats.pendingPayments > 0 ? (
-            <>
-              <MaterialIcons name="payment" size={20} color="#ff9800" />
-              <Text style={[modernStyles.statNumber, { color: '#ff9800' }]}>{realStats.pendingPayments}</Text>
-              <Text style={modernStyles.statLabel}>Pending{'\n'}Payments</Text>
-            </>
-          ) : (
-            <>
-              <MaterialIcons name="trending-down" size={20} color="#ff9800" />
-              <Text style={[modernStyles.statNumber, { color: '#ff9800' }]}>
-                ${realStats.avgPerTrip}
-              </Text>
-              <Text style={modernStyles.statLabel}>Avg per{'\n'}Trip</Text>
-            </>
-          )}
+          <MaterialIcons name="trending-down" size={20} color="#ff9800" />
+          <Text style={[modernStyles.statNumber, { color: '#ff9800' }]}>
+            ${realStats.avgPerTrip}
+          </Text>
+          <Text style={modernStyles.statLabel}>Avg per{'\n'}Trip</Text>
         </Animated.View>
       </View>
 
@@ -778,6 +724,28 @@ export default function PassengerHomeScreen() {
       </View>
     </Animated.View>
   );
+
+  // Rest of the component remains the same...
+  // (renderNextTrip, renderRecentActivity, renderPopularStations, etc.)
+
+  // Helper functions for status (UPDATED to remove pending)
+  const getStatusColor = (status: string) => {
+    const colors = {
+      'confirmed': '#4caf50',
+      'completed': '#2196f3',
+      'cancelled': '#f44336',
+    };
+    return colors[status as keyof typeof colors] || '#9e9e9e';
+  };
+
+  const getStatusIcon = (status: string) => {
+    const icons = {
+      'confirmed': '✅',
+      'completed': '🎉',
+      'cancelled': '❌',
+    };
+    return icons[status as keyof typeof icons] || '❓';
+  };
 
   // Render next trip with REAL data
   const renderNextTrip = () => {
@@ -846,7 +814,7 @@ export default function PassengerHomeScreen() {
     );
   };
 
-  // Render recent activity with REAL data
+  // Render recent activity with REAL data (UPDATED to exclude pending)
   const renderRecentActivity = () => {
     if (recentBookings.length === 0) return null;
 
@@ -1009,27 +977,6 @@ export default function PassengerHomeScreen() {
     </Animated.View>
   );
 
-  // Helper functions for status
-  const getStatusColor = (status: string) => {
-    const colors = {
-      'pending': '#ff9800',
-      'confirmed': '#4caf50',
-      'completed': '#2196f3',
-      'cancelled': '#f44336',
-    };
-    return colors[status as keyof typeof colors] || '#9e9e9e';
-  };
-
-  const getStatusIcon = (status: string) => {
-    const icons = {
-      'pending': '⏳',
-      'confirmed': '✅',
-      'completed': '🎉',
-      'cancelled': '❌',
-    };
-    return icons[status as keyof typeof icons] || '❓';
-  };
-
   // Loading state
   if (loading && stations.length === 0) {
     return (
@@ -1099,7 +1046,7 @@ export default function PassengerHomeScreen() {
   );
 }
 
-// Enhanced modern styles with real data emphasis
+// Enhanced modern styles with NO PENDING PAYMENTS
 const modernStyles = {
   // Hero Section with gradient background
   heroSection: {
@@ -1247,27 +1194,7 @@ const modernStyles = {
     color: '#ffffff',
   },
 
-  notificationDot: {
-    position: 'absolute' as const,
-    top: -8,
-    right: 8,
-    backgroundColor: '#dc3545',
-    borderRadius: 10,
-    minWidth: 20,
-    height: 20,
-    justifyContent: 'center' as const,
-    alignItems: 'center' as const,
-    borderWidth: 2,
-    borderColor: '#0066cc',
-  },
-
-  notificationText: {
-    fontSize: 10,
-    fontWeight: '700' as const,
-    color: '#ffffff',
-  },
-
-  // REAL Stats Container
+  // REAL Stats Container (NO PENDING PAYMENTS)
   statsContainer: {
     marginHorizontal: 20,
     marginTop: -15,
@@ -1319,48 +1246,6 @@ const modernStyles = {
     color: '#666',
     textAlign: 'center' as const,
     lineHeight: 14,
-  },
-
-  // Environmental Impact Row
-  impactRow: {
-    flexDirection: 'row' as const,
-    justifyContent: 'space-around' as const,
-    backgroundColor: '#e8f5e8',
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 12,
-  },
-
-  impactItem: {
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
-    gap: 6,
-  },
-
-  impactText: {
-    fontSize: 12,
-    color: '#2e7d32',
-    fontWeight: '600' as const,
-  },
-
-  // Pending payments alert
-  pendingAlert: {
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
-    backgroundColor: '#ffebee',
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 12,
-    borderLeftWidth: 4,
-    borderLeftColor: '#dc3545',
-  },
-
-  pendingText: {
-    flex: 1,
-    fontSize: 14,
-    color: '#d32f2f',
-    fontWeight: '500' as const,
-    marginLeft: 8,
   },
 
   // Stats footer for additional info

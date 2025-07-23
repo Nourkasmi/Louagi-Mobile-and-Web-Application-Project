@@ -27,7 +27,7 @@ async function reindexQueuePositions(stationId, scheduleId, destinationId, trans
 }
 
 const bookingController = {
-  // ✅ FULLY UPDATED createBooking method (with extended window)
+  // createBooking method (with extended window)
   createBooking: async (req, res) => {
     try {
       const { error } = validateBooking(req.body);
@@ -52,7 +52,7 @@ const bookingController = {
 
         if (trip.status !== 'scheduled') throw new Error('Trip is not available for booking');
 
-        // ✅ Allow booking up to 1 hour after departure time
+        // Allow booking up to 1 hour after departure time
         if (trip.departureTime) {
           const now = new Date();
           const departureTime = new Date(trip.departureTime);

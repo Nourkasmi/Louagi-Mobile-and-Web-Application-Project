@@ -24,7 +24,7 @@ const generateTripsFromSchedules = async () => {
     const start = schedule.startTime.slice(0, 5);
     const end = schedule.endTime.slice(0, 5);
     if (currentTime < start || currentTime > end) {
-      logs.push(`⏱️ Outside schedule window for station ${stationId}`);
+      logs.push(` Outside schedule window for station ${stationId}`);
       continue;
     }
 
@@ -37,7 +37,7 @@ const generateTripsFromSchedules = async () => {
     });
 
     if (!destinations.length) {
-      logs.push(`⚠️ No destinations found for station ${stationId}`);
+      logs.push(` No destinations found for station ${stationId}`);
       continue;
     }
 
@@ -59,7 +59,7 @@ const generateTripsFromSchedules = async () => {
       });
 
       if (existingTrip) {
-        logs.push(`❌ Trip already exists for station ${stationId} and destination ${destinationId}`);
+        logs.push(` Trip already exists for station ${stationId} and destination ${destinationId}`);
         continue;
       }
 
@@ -75,13 +75,13 @@ const generateTripsFromSchedules = async () => {
       });
 
       if (!driverQueueEntry) {
-        logs.push(`🚫 No drivers waiting for station ${stationId} ➜ destination ${destinationId}`);
+        logs.push(` No drivers waiting for station ${stationId} ➜ destination ${destinationId}`);
         continue;
       }
 
       const driver = await Driver.findByPk(driverQueueEntry.driverId);
       if (!driver) {
-        logs.push(`⚠️ Driver not found: ${driverQueueEntry.driverId}`);
+        logs.push(` Driver not found: ${driverQueueEntry.driverId}`);
         continue;
       }
 
@@ -110,7 +110,7 @@ const generateTripsFromSchedules = async () => {
       // 7. Mark driver as called/assigned
       await driverQueueEntry.update({ status: 'assigned' });
 
-      logs.push(`✅ Trip generated: driver ${driver.id} | ${stationId} ➜ ${destinationId}`);
+      logs.push(` Trip generated: driver ${driver.id} | ${stationId} ➜ ${destinationId}`);
     }
   }
 

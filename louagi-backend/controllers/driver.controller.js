@@ -5,7 +5,7 @@ const { sequelize } = require('../models');
 
 const driverController = {
   /**
-   * ✅ UPDATED: Driver declares availability → Calculate times based on queue position
+   *  UPDATED: Driver declares availability → Calculate times based on queue position
    */
   declareAvailability: async (req, res) => {
     try {
@@ -23,7 +23,7 @@ const driverController = {
 
       const driverId = driver.id;
 
-      // ✅ CHECK: Driver has no active trips
+      //  CHECK: Driver has no active trips
       const activeTrip = await Trip.findOne({
         where: {
           driverId,
@@ -43,7 +43,7 @@ const driverController = {
         });
       }
 
-      // ✅ CHECK: Driver not already in queue
+      //  CHECK: Driver not already in queue
       const existingQueueEntry = await DriverQueue.findOne({
         where: { 
           driverId,
@@ -58,7 +58,7 @@ const driverController = {
         });
       }
 
-      // ✅ VALIDATE: Station, Schedule, Destination
+      //  VALIDATE: Station, Schedule, Destination
       const [station, schedule, destination] = await Promise.all([
         Station.findByPk(stationId),
         Schedule.findByPk(scheduleId),
@@ -78,7 +78,7 @@ const driverController = {
         });
       }
 
-      // ✅ VALIDATE: Schedule is active today
+      //  VALIDATE: Schedule is active today
       const today = new Date().getDay();
       if (schedule.dayOfWeek !== today || !schedule.isActive) {
         return res.status(400).json({ 
@@ -87,10 +87,10 @@ const driverController = {
         });
       }
 
-      // ✅ MAIN LOGIC: Create trip with calculated times
+      //  MAIN LOGIC: Create trip with calculated times
       const result = await sequelize.transaction(async (t) => {
         
-        // 1️⃣ GET CURRENT QUEUE COUNT (to determine position)
+        //  GET CURRENT QUEUE COUNT (to determine position)
         const currentQueueCount = await DriverQueue.count({
           where: {
             stationId,
@@ -103,7 +103,7 @@ const driverController = {
         
         const newPosition = currentQueueCount + 1;
 
-        // 2️⃣ CALCULATE TRIP TIMES BASED ON QUEUE POSITION
+        //  CALCULATE TRIP TIMES BASED ON QUEUE POSITION
         const { calculateTripTimes } = require('../utils/time.utils');
         const timeCalculation = calculateTripTimes(
           schedule, 
@@ -111,7 +111,7 @@ const driverController = {
           destination
         );
 
-        // 3️⃣ CREATE QUEUE ENTRY
+        //  CREATE QUEUE ENTRY
         const queueEntry = await DriverQueue.create({
           id: uuidv4(),
           driverId,
@@ -123,7 +123,7 @@ const driverController = {
           joinedAt: new Date()
         }, { transaction: t });
 
-        // 4️⃣ CREATE TRIP WITH CALCULATED TIMES
+        //  CREATE TRIP WITH CALCULATED TIMES
         const basePrice = parseFloat(destination.basePrice);
         const currentPrice = parseFloat((basePrice * 1.2).toFixed(2));
 
@@ -151,7 +151,7 @@ const driverController = {
         };
       });
 
-      // 5️⃣ FETCH COMPLETE TRIP DATA
+      //  FETCH COMPLETE TRIP DATA
       const completeTrip = await Trip.findByPk(result.trip.id, {
         include: [
           { model: Destination, as: 'route' },
@@ -161,7 +161,7 @@ const driverController = {
         ]
       });
 
-      // 6️⃣ FORMAT RESPONSE WITH TIMING INFO
+      //  FORMAT RESPONSE WITH TIMING INFO
       const { formatTripTime, calculateDuration } = require('../utils/time.utils');
       const departureFormatted = formatTripTime(result.timeCalculation.departureTime);
       const arrivalFormatted = formatTripTime(result.timeCalculation.estimatedArrivalTime);
@@ -203,7 +203,7 @@ const driverController = {
   },
 
   /**
-   * ✅ ENHANCED: Get driver's current status (trip + queue info + capacity status)
+   *  ENHANCED: Get driver's current status (trip + queue info + capacity status)
    */
   getDriverStatus: async (req, res) => {
     try {
@@ -246,7 +246,7 @@ const driverController = {
         ]
       });
 
-      // ✅ ENHANCED: Status determination with timing info
+      //  ENHANCED: Status determination with timing info
       let availabilityStatus = 'available';
       let statusMessage = 'Available to declare availability';
       let capacityInfo = null;
@@ -312,7 +312,7 @@ const driverController = {
   },
 
   /**
-   * ✅ NEW: Get trip capacity status for active trip
+   *  NEW: Get trip capacity status for active trip
    */
   getTripCapacityStatus: async (req, res) => {
     try {
@@ -390,7 +390,7 @@ const driverController = {
   },
 
   /**
-   * ✅ NEW: Cancel waiting trip (if no bookings yet)
+   *  NEW: Cancel waiting trip (if no bookings yet)
    */
   cancelWaitingTrip: async (req, res) => {
     try {
@@ -466,7 +466,7 @@ const driverController = {
     }
   },
   /**
- * ✅ NEW: Driver declares car is full (manual trip start)
+ *  NEW: Driver declares car is full (manual trip start)
  */
 declareFull: async (req, res) => {
   try {
@@ -505,7 +505,7 @@ declareFull: async (req, res) => {
       });
     }
 
-    // ✅ START TRIP IMMEDIATELY (manual trigger)
+    //  START TRIP IMMEDIATELY (manual trigger)
     const result = await sequelize.transaction(async (t) => {
       const now = new Date();
       const estimatedArrivalTime = new Date(
@@ -531,7 +531,7 @@ declareFull: async (req, res) => {
         const { updateQueueTripTimes } = require('../utils/queue.utils');
         await updateQueueTripTimes(stationId, scheduleId, destinationId, t);
         
-        console.log(`✅ Driver removed from queue, remaining positions updated`);
+        console.log(` Driver removed from queue, remaining positions updated`);
       }
 
       return trip;

@@ -14,7 +14,7 @@ class StripeService {
    * Create a payment intent for booking
    * @param {Object} params - Payment parameters
    * @param {number} params.amount - Amount in cents
-   * @param {string} params.currency - Currency code (default: 'usd')
+   * @param {string} params.currency - Currency code (default: 'TND')
    * @param {string} params.bookingId - Booking ID for metadata
    * @param {string} params.customerId - Stripe customer ID (optional)
    * @param {Object} params.metadata - Additional metadata

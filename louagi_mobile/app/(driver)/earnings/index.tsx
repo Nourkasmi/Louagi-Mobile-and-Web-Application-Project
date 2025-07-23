@@ -7,7 +7,6 @@ import {
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
-  Alert,
   RefreshControl,
   Dimensions,
   Animated,
@@ -527,20 +526,6 @@ export default function DriverEarningsScreen() {
             </Text>
           </View>
         </View>
-
-        {/* Export Button */}
-        <TouchableOpacity
-          style={styles.exportButton}
-          onPress={() => {
-            Alert.alert(
-              'Export Earnings',
-              'Earnings export feature coming soon! You\'ll be able to download detailed reports.',
-              [{ text: 'OK' }]
-            );
-          }}
-        >
-          <Text style={styles.exportButtonText}>📊 Export Report</Text>
-        </TouchableOpacity>
 
         {/* Bottom spacing */}
         <View style={{ height: 40 }} />

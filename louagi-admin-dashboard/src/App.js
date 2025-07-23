@@ -1,4 +1,4 @@
-// src/App.js - Updated with Destinations and Fixed Syntax Error
+// src/App.js
 import React, { useState, useEffect, Suspense, lazy } from 'react';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider, useAuth } from './context/AuthContext';
